@@ -1,0 +1,162 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>Time travel tactics — prototype UI</title>
+<style>
+  :root{
+    --surface-0:#F6F4F0; --surface-1:#EFECE6; --surface-2:#FFFFFF;
+    --text-primary:#2C2C2A; --text-secondary:#5F5E5A; --text-muted:#888780;
+    --border:#DDD9D2; --accent-bg:#E6F1FB; --accent-br:#85B7EB;
+    --coral:#D85A30; --coral-t:#4A1B0C; --purple:#7F77DD; --purple-t:#26215C;
+    --mono:ui-monospace,SFMono-Regular,Menlo,monospace;
+  }
+  body{margin:0;padding:24px 16px;background:var(--surface-0);color:var(--text-primary);
+    font:400 15px/1.6 system-ui,-apple-system,"Segoe UI",sans-serif;}
+  .wrap{max-width:440px;margin:0 auto;background:var(--surface-1);border-radius:12px;padding:16px;}
+  h1{font-size:18px;font-weight:500;margin:0 0 4px;}
+  .sub{font-size:13px;color:var(--text-secondary);margin:0 0 16px;}
+  button{font:inherit;font-size:14px;padding:7px 12px;border-radius:8px;border:1px solid #B4B2A9;
+    background:transparent;color:inherit;cursor:pointer;}
+  button:hover{background:var(--surface-2);}
+  input[type=range]{accent-color:var(--text-secondary);}
+  #board{display:grid;grid-template-columns:repeat(10,1fr);gap:2px;background:var(--surface-2);
+    padding:6px;border-radius:8px;border:1px solid var(--border);}
+  .row{display:flex;align-items:center;gap:10px;margin:12px 0 6px;}
+  .row label{font-size:13px;color:var(--text-secondary);width:74px;flex:none;}
+  .row .out{font-size:13px;font-family:var(--mono);width:22px;text-align:right;}
+  .legend{display:flex;flex-wrap:wrap;gap:8px 14px;margin-top:14px;font-size:12px;color:var(--text-secondary);}
+  .legend span{display:inline-flex;align-items:center;gap:5px;}
+  .sw{width:11px;height:11px;border-radius:50%;}
+</style>
+</head>
+<body>
+<div class="wrap">
+  <h1>Prototype UI</h1>
+  <p class="sub">Turn-based time travel tactics. Toggle sides to see each player's horizon.</p>
+
+  <div style="display:flex;gap:6px;margin-bottom:12px;">
+    <button id="bA" style="flex:1;">Coral side</button>
+    <button id="bB" style="flex:1;">Purple side</button>
+  </div>
+
+  <div style="display:flex;justify-content:space-between;align-items:baseline;margin-bottom:4px;">
+    <span id="lab" style="font-size:13px;font-family:var(--mono);"></span>
+    <span id="occ" style="font-size:12px;color:var(--text-secondary);"></span>
+  </div>
+  <div id="hz" style="font-size:11px;color:var(--text-muted);margin-bottom:9px;"></div>
+
+  <div id="board"></div>
+
+  <div class="row"><label for="sl">World turn</label><input type="range" id="sl" min="0" max="11" value="11" step="1" style="flex:1;" /><span class="out" id="slo"></span></div>
+  <div class="row"><label for="rd">Look back</label><input type="range" id="rd" min="0" max="11" value="11" step="1" style="flex:1;" /><span class="out" id="rdo"></span></div>
+
+  <button id="mv" style="width:100%;margin:6px 0 12px;">Show my moves</button>
+  <div id="strip"></div>
+
+  <div class="legend">
+    <span><i class="sw" style="background:var(--coral)"></i>Coral</span>
+    <span><i class="sw" style="background:var(--purple)"></i>Purple</span>
+    <span><i class="sw" style="width:7px;height:7px;background:var(--text-muted);opacity:.4"></i>Earlier turns</span>
+    <span>Number = personal index</span>
+  </div>
+</div>
+
+<script>
+(function(){
+  var CO='#D85A30', CT='#4A1B0C', PU='#7F77DD', PT='#26215C';
+  var A=[[1,8],[2,8],[3,8],[4,8],[4,7],[5,7],[5,6],[6,6],[6,5],[5,5],[5,4],[5,3]];
+  var Bf=[[9,0],[9,1],[9,2],[9,3],[9,4],[9,5],[8,5],[8,4]];
+  var Bi=[[8,4,7],[7,4,6],[7,3,5],[8,3,4]];
+  var W=[[2,2],[2,3],[2,4],[5,0],[5,1],[4,1],[4,2],[0,6],[0,7],[6,7],[7,7],[8,7],[3,3],[3,4],[8,2],[5,2]];
+  var bodies=[];
+  A.forEach(function(c,i){bodies.push({pl:'A',p:i,t:i,x:c[0],y:c[1]});});
+  Bf.forEach(function(c,i){bodies.push({pl:'B',p:i,t:i,x:c[0],y:c[1]});});
+  Bi.forEach(function(c,i){bodies.push({pl:'B',p:8+i,t:c[2],x:c[0],y:c[1]});});
+  var SIDE={A:{hz:11,live:{x:5,y:3,t:11,p:11},dir:1,name:'coral'},
+            B:{hz:7,live:{x:8,y:3,t:4,p:11},dir:-1,name:'purple'}};
+  var me='A', moves=false;
+
+  var board=document.getElementById('board'), sl=document.getElementById('sl'), rd=document.getElementById('rd');
+  var lab=document.getElementById('lab'), occ=document.getElementById('occ'), hz=document.getElementById('hz');
+  var strip=document.getElementById('strip'), slo=document.getElementById('slo'), rdo=document.getElementById('rdo');
+  function isW(x,y){return W.some(function(w){return w[0]===x&&w[1]===y;});}
+  function nm(b){return (b.pl===me?'you':'opponent')+' \u00b7 index '+b.p+' \u00b7 world turn '+b.t;}
+
+  function blockReason(x,y){
+    var s=SIDE[me], nt=s.live.t+s.dir;
+    if(x<0||y<0||x>9||y>9)return 'off board';
+    if(isW(x,y))return 'wall';
+    var hit=bodies.filter(function(b){return b.x===x&&b.y===y&&b.t===nt;});
+    if(hit.some(function(b){return b.pl!==me;}))return 'opponent is there at t'+nt;
+    if(hit.some(function(b){return b.pl===me;}))return 'your other self is there at t'+nt;
+    return null;
+  }
+
+  function render(){
+    var s=SIDE[me];
+    sl.max=s.hz; if(+sl.value>s.hz)sl.value=s.hz;
+    if(moves)sl.value=s.live.t;
+    var T=+sl.value, R=+rd.value, lo=Math.max(0,T-R);
+    lab.textContent='t'+T; slo.textContent=T; rdo.textContent=R;
+    hz.textContent='your horizon t'+s.hz+' \u00b7 you are '+s.name+', index '+s.live.p+' at t'+s.live.t;
+    document.getElementById('bA').style.borderColor=me==='A'?CO:'';
+    document.getElementById('bB').style.borderColor=me==='B'?PU:'';
+    var at=bodies.filter(function(b){return b.t===T&&b.t<=s.hz;});
+    occ.textContent=at.length?at.map(function(b){return (b.pl===me?'you':'opp')+' '+b.p;}).join(' \u00b7 '):'empty slice';
+
+    var nbrs=[[s.live.x+1,s.live.y],[s.live.x-1,s.live.y],[s.live.x,s.live.y+1],[s.live.x,s.live.y-1]];
+    board.innerHTML='';
+    for(var y=0;y<10;y++){for(var x=0;x<10;x++){
+      var cell=document.createElement('div'), w=isW(x,y);
+      var isN=moves&&T===s.live.t&&nbrs.some(function(n){return n[0]===x&&n[1]===y;});
+      var br=isN?blockReason(x,y):null;
+      var bg=w?'background:#888780;opacity:0.38;':'background:var(--surface-1);';
+      if(isN&&!br)bg='background:var(--accent-bg);';
+      if(isN&&br)bg='background:#888780;opacity:0.55;';
+      cell.style.cssText='aspect-ratio:1;border-radius:3px;display:flex;align-items:center;justify-content:center;gap:2px;'+bg
+        +(isN&&!br?'outline:1.5px solid var(--accent-br);outline-offset:-1.5px;':'');
+      if(isN)cell.title=br?('blocked \u2014 '+br):'legal move';
+      if(!w){
+        var here=bodies.filter(function(b){return b.x===x&&b.y===y&&b.t<=T&&b.t>=lo&&b.t<=s.hz;});
+        var foc=here.filter(function(b){return b.t===T;}).sort(function(a,b){return a.p-b.p;});
+        var past=here.filter(function(b){return b.t!==T;}).sort(function(a,b){return b.t-a.t;});
+        if(foc.length){
+          var el=document.createElement('div'), c=foc[0].pl==='A'?CO:PU, tc=foc[0].pl==='A'?CT:PT;
+          el.style.cssText='height:19px;'+(foc.length>1?'padding:0 5px;border-radius:10px;':'width:21px;border-radius:50%;')
+            +'background:'+c+';color:'+tc+';display:flex;align-items:center;justify-content:center;font-size:11px;font-family:var(--mono);white-space:nowrap;';
+          el.textContent=foc.map(function(b){return b.p;}).join('\u00b7');
+          el.title=foc.map(nm).join('\n');
+          cell.appendChild(el);
+        }
+        past.forEach(function(b){
+          var d=document.createElement('div');
+          d.style.cssText='width:7px;height:7px;border-radius:50%;background:'+(b.pl==='A'?CO:PU)+';opacity:'+Math.max(0.14,1-(T-b.t)*0.085)+';';
+          d.title=nm(b); cell.appendChild(d);
+        });
+      }
+      board.appendChild(cell);
+    }}
+
+    var h='<div style="display:flex;gap:2px;margin-bottom:3px;">';
+    for(var t=0;t<12;t++){
+      var vis=t<=s.hz, inw=t>=lo&&t<=T;
+      h+='<div style="flex:1;height:9px;border-radius:2px;background:'+(!vis?'transparent':inw?'#5F5E5A':'#FFFFFF')+';'
+        +(!vis?'border:1px dashed #DDD9D2;':'')+'opacity:'+(t===T?1:inw?0.4:1)+';"></div>';
+    }
+    h+='</div><div style="display:flex;gap:2px;">';
+    for(var t=0;t<12;t++){h+='<div style="flex:1;text-align:center;font-size:11px;color:'+(t===T?'#2C2C2A':'#888780')+';font-family:var(--mono);">'+t+'</div>';}
+    h+='</div>';
+    strip.innerHTML=h;
+  }
+  document.getElementById('bA').onclick=function(){me='A';render();};
+  document.getElementById('bB').onclick=function(){me='B';render();};
+  document.getElementById('mv').onclick=function(){moves=!moves;this.textContent=moves?'Hide moves':'Show my moves';render();};
+  sl.addEventListener('input',function(){moves=false;document.getElementById('mv').textContent='Show my moves';render();});
+  rd.addEventListener('input',render);
+  render();
+})();
+</script>
+</body>
+</html>
