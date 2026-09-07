@@ -1,6 +1,6 @@
 # Turn-Based Time Travel Tactics — Design Document
 
-*Working draft. Digital (PC/web). Status: mechanics workshopped; the time-travel layer is prototyped and playable (§12), everything from §5 onward is unbuilt.*
+*Working draft. Digital (PC/web). This is the design of the game; the prototypes that implement parts of it document themselves. What is built and what is not lives in [`prototypes/prototypes.md`](prototypes/prototypes.md).*
 
 ---
 
@@ -57,6 +57,8 @@ There is no single "present." Each player has their own.
 
 ## 4. Inversion
 
+*The rules in this section are implemented and playable. To run them, or for the board defaults, the string protocol and the known limitations of a serverless build, see [`prototypes/time_travel/README.md`](prototypes/time_travel/README.md).*
+
 **Inverting** is an action. Taking it flips your playhead direction.
 
 The critical property: **your recorded forward self does not vanish when you invert.** It remains on the board as live entities. So after inverting at t7, you are physically present twice across t0–t7 — once as the forward record, once as the live inverted body walking back through it. Reach t0 and invert again and you're present three times.
@@ -80,7 +82,11 @@ This makes inversion a **pursuit tool**, not just a utility: you invert in order
 
 This is the only rule in the game that hides real information, and it is what makes the asymmetry above concrete rather than rhetorical. Hiding turns *after* your selected view slice is a viewing convention — you lived through them, nothing is concealed. Hiding turns beyond your horizon is genuine hidden information.
 
+Which is why it is the one rule that cannot be enforced client-side. A client can decline to draw what you should not see, but if players exchange their own moves then a beyond-horizon move is in the exchange regardless and a modified client reads it. Enforcing the horizon requires an authoritative server. That is a cost the rule imposes on the architecture, not a hole to patch in the client.
+
 ### Movement
+
+The board is a grid with interspersed walls. Walls block movement and act as cover, so the shape of the board is itself a tactical constraint rather than a container.
 
 1. **Two different players can never occupy the same tile at the same world turn.**
 2. **Two instances of the same player may.** This is the turnstile: inverting is an action, not a move, so your inverted instance begins on the tile your forward self occupied.
@@ -241,13 +247,14 @@ Does *not* work: inverting (personal index climbs regardless of direction, front
 
 ## 9. UI requirements
 
-Ranked by how much the design depends on them.
+What the UI must convey, ranked by how much the design depends on it. *For what it looks like — the view model, the visual encoding it settled on, and the presentation questions still open — see [`prototypes/ui/prototype-ui.md`](prototypes/ui/prototype-ui.md).*
 
 1. **Phase countdown on strobing bodies.** Two of the three cycle escapes are timing plays and are invisible without it. Every body inside a cycle needs a visible "flickers in N."
 2. **Personal-index gap readout.** Since turns-to-death equals the raw gap, surface it directly on any player with an inbound front.
 3. **Timeline strip.** World time along an axis, with every player's playhead and direction. The hairpin shape of an inverted player's worldline should be legible at a glance.
-4. **Body colour-coding.** Oldest to newest per player, per the original vision. Inverted bodies need a distinct treatment (reversed/outlined) from forward ones, since they are worth radically different amounts as targets.
+4. **Body identity and age.** Every body reads as its player and as its personal index. The index is the load-bearing half: where a forward and an inverted body of the same player share a tile, the gap between their indices is the whole difference between a cheap target and an expensive one.
 5. **Front visualisation.** Erasure and restoration edges as marching markers on the timeline strip, with the hole between them shown as a hole.
+6. **Move legality.** Illegal tiles read as unavailable while a move is being made. Three reasons exist — wall, opponent present, your other self present — but only the reason for a specific tile ever needs surfacing, and only on inspection.
 
 ---
 
@@ -259,6 +266,9 @@ Ranked by how much the design depends on them.
 - **The other two time mechanics.** Time charges (branching) and Loop are unspecified. Note that branching probably needs 5D Chess's timeline cap, and that mixing mechanics across players in one match is unexplored and possibly incoherent.
 - **Grenades and mines** are named in the vision but not specced against the erasure model beyond "objects die with their body."
 - **Solo mode.** Required per §2, but its shape is undefined. Puzzle-style — reach a win condition against a fixed opponent record — is the obvious candidate.
+- **Should you see the opponent's horizon?** It tells you exactly how blind they are, which is a real strategic disclosure. It may need to be earned rather than given.
+- **Should a player's view hide their own known future?** They lived those turns, so hiding them conceals nothing and may only cost legibility. This is the one place where the viewing convention and the horizon rule could reasonably diverge.
+- **Board shape.** A single corridor collapses the board and the timeline strip into one picture: one spatial axis plus time. A wider grid needs them as separate panels. §12 leaves both open, but the choice decides how much screen the game spends explaining itself.
 
 ---
 
@@ -284,14 +294,4 @@ Deliberately small, aimed at proving the erasure-front chase is fun before anyth
 
 Cut from v0: multiple weapons, mines and grenades, the other two time mechanics, 3P, matchmaking.
 
-### The time-travel-only prototype
-
-A playable prototype of the time-travel layer alone now exists at `prototype/tbtt_prototype_time_travel_only.html` — one static HTML file, no build step, opened from the filesystem.
-
-It implements §3's three clocks, §4's inversion, the horizon, and the movement, collision, t0-wall and stuck rules. Inversion is unlimited. Board size is configurable, defaulting to 16×9; 2–4 players spawn at fixed corners in palette order (coral top-left, purple bottom-right, teal top-right, amber bottom-left); the meta-turn cap defaults to `ceil(1.7·(w+h))`.
-
-**No weapons.** §5 erasure fronts, §6 the moving hole, §7 the win condition and §8 cycles are not implemented and are not cancelled — they are later versions. The prototype is a sandbox with no objective and runs to the meta-turn cap. What it is for is proving the three-clock model is coherent and legible before anything is built on top of it.
-
-There is no server. Players share a **match code** that encodes the whole config, then exchange one action string per turn. Every string carries a hash of the pre-turn state, and a mismatched string is refused rather than applied, so a desync is caught at the moment it happens instead of drifting.
-
-**Known limitation: the horizon is honour-system.** The UI hides beyond-horizon information, but a beyond-horizon move is present in the action string regardless — a modified client can read it. There is no serverless fix for this. Enforcing the horizon needs an authoritative server, and that is a decision for a later version, not a hole to patch in this one.
+The time-travel layer of this scope is built and playable, deliberately without weapons or a win condition — a sandbox whose only job is to prove the three-clock model is coherent and legible before anything is built on top of it. Everything from §5 onward is a later version, not a cancelled feature. The split is tracked in [`prototypes/prototypes.md`](prototypes/prototypes.md).

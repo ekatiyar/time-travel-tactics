@@ -1,11 +1,14 @@
 # /// script
 # dependencies = ["playwright"]
 # ///
-"""Run prototype/tests.js against the engine inside the prototype HTML file.
+"""Run a prototype's tests.js against the engine inside its HTML file.
 
 No node on this machine, so the engine is exercised in headless Chromium:
 load the page, inject tests.js, evaluate. Usage:
-    uv run --with playwright python prototype/run_tests.py
+    uv run --with playwright python prototypes/run_tests.py [prototype_dir]
+
+prototype_dir defaults to time_travel and is resolved against this script's
+directory. The page is whichever single .html file the directory holds.
 """
 import pathlib
 import sys
@@ -13,13 +16,28 @@ import sys
 from playwright.sync_api import sync_playwright
 
 HERE = pathlib.Path(__file__).parent
-PAGE = HERE / "tbtt_prototype_time_travel_only.html"
-TESTS = HERE / "tests.js"
+DEFAULT_PROTOTYPE = "time_travel"
 
 
 def main() -> int:
-    if not PAGE.exists():
-        print(f"missing {PAGE}")
+    target = pathlib.Path(sys.argv[1] if len(sys.argv) > 1 else DEFAULT_PROTOTYPE)
+    if not target.is_absolute():
+        target = HERE / target
+
+    if not target.is_dir():
+        print(f"missing prototype directory {target}")
+        return 1
+
+    pages = sorted(target.glob("*.html"))
+    if len(pages) != 1:
+        found = ", ".join(p.name for p in pages) or "nothing"
+        print(f"expected exactly one .html in {target}, found {found}")
+        return 1
+    PAGE = pages[0]
+
+    TESTS = target / "tests.js"
+    if not TESTS.exists():
+        print(f"missing {TESTS}")
         return 1
 
     with sync_playwright() as p:
