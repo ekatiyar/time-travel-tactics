@@ -1,0 +1,1026 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>TBTT — time travel prototype</title>
+<style>
+  /* Dark is the default; the light theme is the original mockup palette. */
+  :root{
+    color-scheme:dark;
+    --surface-0:#17161A; --surface-1:#212024; --surface-2:#2B2A2F;
+    --text-primary:#EDEAE4; --text-secondary:#A8A49C; --text-muted:#787469;
+    --border:#37353B; --btn-border:#4E4B53;
+    --accent-bg:#1B2B3B; --accent-br:#5A8FC4;
+    --bad-br:#EE8A63; --good:#5FBF92;
+    --wall:#6E6B73; --dot-floor:0.22;
+    --mono:ui-monospace,SFMono-Regular,Menlo,monospace;
+  }
+  :root[data-theme="light"]{
+    color-scheme:light;
+    --surface-0:#F6F4F0; --surface-1:#EFECE6; --surface-2:#FFFFFF;
+    --text-primary:#2C2C2A; --text-secondary:#5F5E5A; --text-muted:#888780;
+    --border:#DDD9D2; --btn-border:#B4B2A9;
+    --accent-bg:#E6F1FB; --accent-br:#85B7EB;
+    --bad-br:#D85A30; --good:#2E7D5B;
+    --wall:#888780; --dot-floor:0.14;
+  }
+  *{box-sizing:border-box;}
+  body{margin:0;padding:20px 16px 48px;background:var(--surface-0);color:var(--text-primary);
+    font:400 15px/1.6 system-ui,-apple-system,"Segoe UI",sans-serif;}
+  .wrap{max-width:860px;margin:0 auto;}
+  h1{font-size:19px;font-weight:500;margin:0 0 2px;}
+  h2{font-size:14px;font-weight:500;margin:0 0 8px;color:var(--text-secondary);}
+  .sub{font-size:13px;color:var(--text-secondary);margin:0 0 18px;}
+  .card{background:var(--surface-1);border-radius:12px;padding:16px;margin-bottom:14px;}
+  button{font:inherit;font-size:14px;padding:7px 12px;border-radius:8px;border:1px solid var(--btn-border);
+    background:transparent;color:inherit;cursor:pointer;}
+  button:hover:not(:disabled){background:var(--surface-2);}
+  button:disabled{opacity:.4;cursor:not-allowed;}
+  button.on{background:var(--surface-2);border-color:var(--text-secondary);}
+  input,select,textarea{font:inherit;font-size:14px;padding:6px 9px;border-radius:8px;
+    border:1px solid var(--border);background:var(--surface-2);color:inherit;}
+  textarea{width:100%;font-family:var(--mono);font-size:12.5px;resize:vertical;}
+  input[type=range]{accent-color:var(--text-secondary);padding:0;border:0;background:none;}
+  label.f{display:flex;align-items:center;gap:8px;font-size:13px;color:var(--text-secondary);margin-bottom:8px;}
+  label.f input,label.f select{margin-left:auto;width:150px;}
+  .row{display:flex;align-items:center;gap:10px;margin:10px 0 4px;}
+  .row>label{font-size:13px;color:var(--text-secondary);width:78px;flex:none;}
+  .row .out{font-size:13px;font-family:var(--mono);width:26px;text-align:right;}
+  .mono{font-family:var(--mono);font-size:12.5px;}
+  .muted{color:var(--text-muted);}
+  .sec{color:var(--text-secondary);}
+  #board{display:grid;gap:2px;background:var(--surface-2);padding:6px;border-radius:8px;
+    border:1px solid var(--border);}
+  .cell{aspect-ratio:1;border-radius:3px;display:flex;align-items:center;justify-content:center;
+    gap:2px;min-width:0;overflow:hidden;}
+  .tok{display:flex;align-items:center;justify-content:center;font-family:var(--mono);
+    white-space:nowrap;font-weight:500;}
+  .legend{display:flex;flex-wrap:wrap;gap:6px 14px;margin-top:12px;font-size:12px;color:var(--text-secondary);}
+  .legend span{display:inline-flex;align-items:center;gap:5px;}
+  .sw{width:11px;height:11px;border-radius:50%;flex:none;}
+  .err{color:var(--bad-br);font-size:13px;margin-top:8px;}
+  .ok{color:var(--good);font-size:13px;margin-top:8px;}
+  #btnTheme{padding:4px 10px;font-size:12.5px;}
+  .grid2{display:grid;grid-template-columns:1fr 1fr;gap:14px;}
+  @media(max-width:720px){.grid2{grid-template-columns:1fr;}}
+  .pill{display:inline-block;padding:1px 7px;border-radius:20px;font-size:11.5px;
+    font-family:var(--mono);margin-right:4px;}
+  .tabs{display:flex;gap:6px;margin-bottom:14px;}
+  .tabs button{flex:1;}
+  .hide{display:none;}
+  ul.evt{margin:6px 0 0;padding-left:18px;font-size:13px;color:var(--text-secondary);}
+</style>
+</head>
+<body>
+<div class="wrap">
+  <div style="display:flex;justify-content:space-between;align-items:flex-start;gap:16px;">
+    <div>
+      <h1>Time travel tactics — prototype</h1>
+      <p class="sub">Inversion only. No weapons, no erasure fronts, no win condition. Everyone runs their own copy and passes strings.</p>
+    </div>
+    <button id="btnTheme" title="Switch between dark and light">Light</button>
+  </div>
+
+  <!-- ============================ SETUP ============================ -->
+  <div id="setup">
+    <div class="card">
+      <div class="tabs">
+        <button id="tabNew" class="on">New match</button>
+        <button id="tabJoin">Join with a code</button>
+        <button id="tabImport">Import a match</button>
+      </div>
+
+      <div id="paneNew">
+        <h2>Everyone needs the same settings, so set them here and share the code.</h2>
+        <div class="grid2">
+          <div>
+            <label class="f">Width <input id="fW" type="number" min="2" max="64" value="16" /></label>
+            <label class="f">Height <input id="fH" type="number" min="2" max="64" value="9" /></label>
+            <label class="f">Wall density % <input id="fWall" type="number" min="0" max="45" value="11" /></label>
+          </div>
+          <div>
+            <label class="f">Seed <input id="fSeed" type="text" value="" /></label>
+            <label class="f">Turn cap <input id="fCap" type="number" min="2" max="400" value="43" /></label>
+            <label class="f">Players
+              <select id="fRoster">
+                <option value="CP">2 — coral, purple</option>
+                <option value="CPT">3 — + teal</option>
+                <option value="CPTA" selected>4 — + amber</option>
+              </select>
+            </label>
+          </div>
+        </div>
+        <button id="btnMake" style="width:100%;margin-top:6px;">Create match</button>
+      </div>
+
+      <div id="paneJoin" class="hide">
+        <h2>Paste the match code the host sent you.</h2>
+        <textarea id="fCode" rows="2" placeholder="M1:16x9:11:19f4:43:CPTA"></textarea>
+        <button id="btnJoin" style="width:100%;margin-top:8px;">Join</button>
+      </div>
+
+      <div id="paneImport" class="hide">
+        <h2>Paste a full export. Use this after a reload, or to catch up mid-match.</h2>
+        <textarea id="fExport" rows="4" placeholder="X1:M1:16x9:11:19f4:43:CPTA|CEPWTWAE,..."></textarea>
+        <button id="btnImport" style="width:100%;margin-top:8px;">Import</button>
+      </div>
+
+      <div id="setupErr" class="err"></div>
+    </div>
+
+    <div id="pickCard" class="card hide">
+      <h2>Match code — every player needs this exact string.</h2>
+      <textarea id="outCode" rows="2" readonly></textarea>
+      <button id="btnCopyCode" style="margin:8px 0 16px;">Copy match code</button>
+      <h2>Which colour are you?</h2>
+      <div id="pickColors" style="display:flex;gap:8px;flex-wrap:wrap;"></div>
+    </div>
+  </div>
+
+  <!-- ============================ PLAY ============================ -->
+  <div id="play" class="hide">
+    <div class="card">
+      <div style="display:flex;justify-content:space-between;align-items:baseline;gap:12px;flex-wrap:wrap;">
+        <div><strong id="youAre"></strong> <span id="youAt" class="sec mono"></span></div>
+        <div class="mono muted" id="turnInfo"></div>
+      </div>
+      <div class="mono muted" style="margin-top:2px;" id="prioInfo"></div>
+    </div>
+
+    <div class="grid2">
+      <div>
+        <div class="card">
+          <div id="board"></div>
+          <div class="row"><label for="sl">World turn</label><input type="range" id="sl" min="0" max="0" value="0" step="1" style="flex:1;" /><span class="out" id="slo"></span></div>
+          <div class="row"><label for="rd">Look back</label><input type="range" id="rd" min="0" max="0" value="0" step="1" style="flex:1;" /><span class="out" id="rdo"></span></div>
+          <div id="strip" style="margin-top:10px;"></div>
+          <div class="legend" id="legend"></div>
+        </div>
+      </div>
+
+      <div>
+        <div class="card" id="turnCard">
+          <h2 id="phaseTitle">Choose your action</h2>
+          <div id="phasePick">
+            <div id="actBtns" style="display:flex;gap:6px;flex-wrap:wrap;margin-bottom:10px;"></div>
+            <div class="muted" style="font-size:12.5px;">Click a highlighted tile on the board, or use the buttons. Blocked directions say why on hover.</div>
+            <button id="btnCommit" style="width:100%;margin-top:10px;" disabled>Commit</button>
+            <div id="pickMsg"></div>
+          </div>
+
+          <div id="phaseShare" class="hide">
+            <h2>Send this to the other players.</h2>
+            <textarea id="outAction" rows="2" readonly></textarea>
+            <button id="btnCopyAction" style="margin:8px 0 14px;">Copy my action</button>
+            <h2>Paste everyone else's actions. All at once is fine.</h2>
+            <textarea id="inActions" rows="4" placeholder="7P:N#a3f2&#10;7T:W#a3f2"></textarea>
+            <button id="btnApply" style="width:100%;margin-top:8px;">Apply</button>
+            <div id="pasteMsg"></div>
+            <div id="pending" class="mono muted" style="margin-top:8px;"></div>
+          </div>
+
+          <div id="phaseOver" class="hide">
+            <h2>Match over — the turn cap was reached.</h2>
+            <div class="muted" style="font-size:13px;">The board is frozen. Scrub the world-turn slider to review what happened.</div>
+          </div>
+        </div>
+
+        <div class="card">
+          <h2>Last turn</h2>
+          <ul class="evt" id="events"><li class="muted">Nothing yet.</li></ul>
+        </div>
+
+        <div class="card">
+          <h2>Export</h2>
+          <div class="muted" style="font-size:12.5px;margin-bottom:8px;">Nothing is saved. Copy this if you might reload, or send it to someone who needs to catch up.</div>
+          <textarea id="outExport" rows="3" readonly></textarea>
+          <button id="btnCopyExport" style="margin-top:8px;">Copy export</button>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- ===================== ENGINE (no DOM access) ===================== -->
+<script>
+/* ENGINE-START */
+(function (root) {
+  'use strict';
+
+  var ORDER = ['C', 'P', 'T', 'A'];
+  var COLORS = {
+    C: { name: 'Coral',  hex: '#D85A30', ink: '#FBEDE7' },
+    P: { name: 'Purple', hex: '#7F77DD', ink: '#EDECFB' },
+    T: { name: 'Teal',   hex: '#2E9E8F', ink: '#E7F5F2' },
+    A: { name: 'Amber',  hex: '#C98F12', ink: '#FBF2DF' }
+  };
+  var DIRS = { N: [0, -1], S: [0, 1], E: [1, 0], W: [-1, 0] };
+  var MOVES = ['N', 'S', 'E', 'W'];
+  var ACTIONS = ['N', 'S', 'E', 'W', 'I', 'X'];
+
+  function fnv1a(str) {
+    var h = 0x811c9dc5;
+    for (var i = 0; i < str.length; i++) {
+      h ^= str.charCodeAt(i);
+      h = Math.imul(h, 0x01000193) >>> 0;
+    }
+    return h >>> 0;
+  }
+  function short(h) { return ((((h >>> 16) ^ h) & 0xffff) >>> 0).toString(16).padStart(4, '0'); }
+  function mulberry32(a) {
+    return function () {
+      a |= 0; a = (a + 0x6d2b79f5) | 0;
+      var t = Math.imul(a ^ (a >>> 15), 1 | a);
+      t = (t + Math.imul(t ^ (t >>> 7), 61 | t)) ^ t;
+      return ((t ^ (t >>> 14)) >>> 0) / 4294967296;
+    };
+  }
+
+  // Fixed corner per colour, so a two-player match starts diagonally opposed.
+  function spawnFor(color, w, h) {
+    if (color === 'C') return [0, 0];
+    if (color === 'P') return [w - 1, h - 1];
+    if (color === 'T') return [w - 1, 0];
+    return [0, h - 1];
+  }
+
+  function normalizeConfig(c) {
+    var cfg = {
+      w: Math.floor(c.w), h: Math.floor(c.h), wallPct: Math.floor(c.wallPct),
+      seed: String(c.seed), cap: Math.floor(c.cap), roster: c.roster.slice()
+    };
+    if (!(cfg.w >= 2 && cfg.h >= 2)) throw new Error('board must be at least 2x2');
+    if (!(cfg.wallPct >= 0 && cfg.wallPct <= 90)) throw new Error('wall density must be 0-90');
+    if (!(cfg.cap >= 1)) throw new Error('turn cap must be at least 1');
+    if (!/^[A-Za-z0-9_-]{1,24}$/.test(cfg.seed)) throw new Error('seed must be 1-24 letters, digits, - or _');
+    if (!cfg.roster.length || cfg.roster.length > 4) throw new Error('need 1-4 players');
+    var seen = {};
+    for (var i = 0; i < cfg.roster.length; i++) {
+      var col = cfg.roster[i];
+      if (ORDER.indexOf(col) < 0) throw new Error('unknown colour ' + col);
+      if (seen[col]) throw new Error('duplicate colour ' + col);
+      seen[col] = 1;
+    }
+    var spots = {};
+    for (var j = 0; j < cfg.roster.length; j++) {
+      var s = spawnFor(cfg.roster[j], cfg.w, cfg.h).join(',');
+      if (spots[s]) throw new Error('board is too small to give every player its own corner');
+      spots[s] = 1;
+    }
+    return cfg;
+  }
+
+  // Seeded walls, then carve until every spawn is mutually reachable. Without the
+  // carve pass a seed can silently seal a player into their corner.
+  function genWalls(cfg) {
+    var w = cfg.w, h = cfg.h;
+    var spawns = cfg.roster.map(function (c) { return spawnFor(c, w, h); });
+    var protectedTiles = {};
+    spawns.forEach(function (s) { protectedTiles[s[0] + ',' + s[1]] = 1; });
+
+    var rnd = mulberry32(fnv1a('walls:' + cfg.seed));
+    var wall = new Set();
+    var target = Math.floor(w * h * cfg.wallPct / 100);
+    for (var guard = 0; wall.size < target && guard < w * h * 40; guard++) {
+      var k = Math.floor(rnd() * w) + ',' + Math.floor(rnd() * h);
+      if (!protectedTiles[k]) wall.add(k);
+    }
+
+    function reachable() {
+      var seen = new Set([spawns[0][0] + ',' + spawns[0][1]]);
+      var st = [spawns[0]];
+      while (st.length) {
+        var p = st.pop();
+        for (var d = 0; d < MOVES.length; d++) {
+          var v = DIRS[MOVES[d]], nx = p[0] + v[0], ny = p[1] + v[1], nk = nx + ',' + ny;
+          if (nx < 0 || ny < 0 || nx >= w || ny >= h || wall.has(nk) || seen.has(nk)) continue;
+          seen.add(nk); st.push([nx, ny]);
+        }
+      }
+      return seen;
+    }
+    for (var pass = 0; pass < w * h; pass++) {
+      var seen = reachable();
+      var missing = spawns.some(function (s) { return !seen.has(s[0] + ',' + s[1]); });
+      if (!missing) break;
+      var removed = false;
+      for (var y = 0; y < h && !removed; y++) {
+        for (var x = 0; x < w && !removed; x++) {
+          var key = x + ',' + y;
+          if (!wall.has(key)) continue;
+          for (var m = 0; m < MOVES.length; m++) {
+            var mv = DIRS[MOVES[m]];
+            if (seen.has((x + mv[0]) + ',' + (y + mv[1]))) { wall.delete(key); removed = true; break; }
+          }
+        }
+      }
+      if (!removed) break;
+    }
+    return wall;
+  }
+
+  function priorityFor(seed, turn, roster) {
+    var rnd = mulberry32(fnv1a('prio:' + seed + ':' + turn));
+    var a = roster.slice();
+    for (var i = a.length - 1; i > 0; i--) {
+      var j = Math.floor(rnd() * (i + 1));
+      var t = a[i]; a[i] = a[j]; a[j] = t;
+    }
+    return a;
+  }
+
+  function hashState(bodies, players, roster) {
+    var b = bodies.slice().sort(function (x, y) {
+      return x.color === y.color ? x.p - y.p : (x.color < y.color ? -1 : 1);
+    }).map(function (o) { return o.color + o.p + ':' + o.t + ':' + o.x + ':' + o.y; }).join(';');
+    var p = roster.slice().sort().map(function (c) {
+      var pl = players[c];
+      return c + pl.dir + ':' + pl.t + ':' + pl.p;
+    }).join(';');
+    return short(fnv1a(b + '|' + p));
+  }
+
+  function Match(config, log) {
+    this._cfg = normalizeConfig(config);
+    this._log = (log || []).map(function (e) {
+      return { turn: e.turn, color: e.color, action: e.action };
+    });
+    this._walls = genWalls(this._cfg);
+    this._cache = null;
+  }
+
+  Match.fromConfig = function (config) { return new Match(config, []); };
+
+  Match.fromExport = function (str) {
+    var r = Wire.decodeExport(str);
+    if (!r.ok) return r;
+    try {
+      return { ok: true, value: new Match(r.value.config, r.value.log) };
+    } catch (e) {
+      return { ok: false, error: String(e.message || e) };
+    }
+  };
+
+  // Where an action would put you, given a player's current playhead.
+  function targetOf(pl, action) {
+    if (action === 'I') return { t: pl.t - pl.dir, x: pl.x, y: pl.y, move: false };
+    var v = DIRS[action];
+    if (!v) return null;
+    return { t: pl.t + pl.dir, x: pl.x + v[0], y: pl.y + v[1], move: true };
+  }
+
+  Match.prototype._blockReason = function (pl, action, occ) {
+    var cfg = this._cfg;
+    var tg = targetOf(pl, action);
+    if (!tg) return 'unknown action';
+    if (tg.t < 0) return 'that is before the start of time';
+    if (tg.x < 0 || tg.y < 0 || tg.x >= cfg.w || tg.y >= cfg.h) return 'off the board';
+    if (this._walls.has(tg.x + ',' + tg.y)) return 'wall';
+    var who = occ.get(tg.t + ',' + tg.x + ',' + tg.y);
+    // Same colour on the same tile is the turnstile, which inverting is allowed to
+    // use. A move must diverge from your other instance immediately.
+    // The reason reaches the player as a tooltip, so it must never name a colour or
+    // a world turn — the target can sit past their horizon. "Occupied" tells them
+    // no more than the greyed tile already does.
+    if (who && (who !== pl.color || tg.move)) return 'occupied';
+    return null;
+  };
+
+  Match.prototype._legalFrom = function (pl, occ) {
+    var out = {}, anyReal = false;
+    for (var i = 0; i < ACTIONS.length; i++) {
+      var a = ACTIONS[i];
+      if (a === 'X') continue;
+      out[a] = this._blockReason(pl, a, occ);
+      if (out[a] === null) anyReal = true;
+    }
+    out.X = anyReal ? 'you still have a real action available' : null;
+    return out;
+  };
+
+  Match.prototype._derive = function () {
+    if (this._cache) return this._cache;
+    var self = this, cfg = this._cfg, roster = cfg.roster;
+
+    var players = {};
+    roster.forEach(function (c) {
+      var s = spawnFor(c, cfg.w, cfg.h);
+      players[c] = { color: c, dir: 1, t: 0, p: 0, x: s[0], y: s[1], horizon: 0, stuck: false };
+    });
+
+    var bodies = [];
+    var occ = new Map();
+    function place(color, p, t, x, y) {
+      bodies.push({ color: color, p: p, t: t, x: x, y: y });
+      occ.set(t + ',' + x + ',' + y, color);
+    }
+    roster.forEach(function (c) { place(c, 0, 0, players[c].x, players[c].y); });
+
+    var byTurn = new Map();
+    this._log.forEach(function (e) {
+      if (!byTurn.has(e.turn)) byTurn.set(e.turn, {});
+      byTurn.get(e.turn)[e.color] = e.action;
+    });
+
+    var events = [], turn = 0, hash = hashState(bodies, players, roster);
+
+    for (; turn < cfg.cap; turn++) {
+      var acts = byTurn.get(turn);
+      if (!acts) break;
+      var complete = roster.every(function (c) { return typeof acts[c] === 'string'; });
+      if (!complete) break;
+
+      var prio = priorityFor(cfg.seed, turn, roster);
+      // Legality is judged against the board as it stood before the turn, because
+      // that is what every player could see when they chose blind. Tiles taken
+      // during this turn are a separate, later check.
+      var occBase = new Map(occ);
+      events = [];
+
+      // Two classes of action. A move changes your (x,y); inverting does not, and
+      // neither does being bounced out of a contested tile — those still travel in
+      // time, just not in space. Holding your square beats moving into it no matter
+      // who has priority, and a bounced mover becomes a holder, which can bounce
+      // someone else in turn. So this runs to a fixed point. The holder and stuck
+      // sets only ever grow, so it terminates.
+      var holds = {}, frozen = {}, bounceBy = {}, claim = null;
+
+      for (var i = 0; i < prio.length; i++) {
+        var c0 = prio[i], a0 = acts[c0];
+        var lg = self._legalFrom(players[c0], occBase);
+        // Passing, or an action that was never legal (only reachable from a
+        // tampered import). Either way the turn is skipped entirely.
+        if (a0 === 'X' || !(a0 in lg) || lg[a0] !== null) frozen[c0] = 1;
+        else if (a0 === 'I') holds[c0] = 1;
+      }
+
+      for (var pass = 0; pass <= 2 * prio.length + 2; pass++) {
+        claim = new Map();
+        var changed = false;
+
+        for (var i = 0; i < prio.length; i++) {   // holders reserve their squares first
+          var c = prio[i];
+          if (frozen[c] || !holds[c]) continue;
+          var pl = players[c];
+          var k = targetOf(pl, acts[c]).t + ',' + pl.x + ',' + pl.y;
+          var occWho = occBase.get(k);
+          // Another colour already recorded there, or two holders after one square
+          // (priority breaks that tie): nothing left to do but lose the turn.
+          if ((occWho && occWho !== c) || claim.has(k)) { frozen[c] = 1; changed = true; continue; }
+          claim.set(k, c);
+        }
+
+        for (var i = 0; i < prio.length; i++) {   // then movers, settled by priority
+          var c = prio[i];
+          if (frozen[c] || holds[c]) continue;
+          var pl = players[c], tg = targetOf(pl, acts[c]);
+          var k = tg.t + ',' + tg.x + ',' + tg.y;
+          if (claim.has(k)) { holds[c] = 1; bounceBy[c] = claim.get(k); changed = true; continue; }
+          claim.set(k, c);
+        }
+
+        if (!changed) break;
+      }
+
+      for (var i = 0; i < prio.length; i++) {
+        var color = prio[i], pl = players[color], action = acts[color];
+        if (frozen[color]) {
+          pl.stuck = true;
+          events.push({ color: color, kind: 'stuck', t: pl.t, x: pl.x, y: pl.y });
+          continue;
+        }
+        var tg = targetOf(pl, action);
+        var bounced = action !== 'I' && holds[color];
+        pl.stuck = false;
+        if (action === 'I') pl.dir = -pl.dir;
+        pl.t = tg.t;
+        if (!bounced) { pl.x = tg.x; pl.y = tg.y; }
+        pl.p += 1;
+        if (pl.t > pl.horizon) pl.horizon = pl.t;
+        place(color, pl.p, pl.t, pl.x, pl.y);
+        events.push({
+          color: color,
+          kind: bounced ? 'blocked' : action === 'I' ? 'inverted' : 'moved',
+          t: pl.t, x: pl.x, y: pl.y,
+          by: bounced ? bounceBy[color] : null, dir: pl.dir
+        });
+      }
+      hash = hashState(bodies, players, roster);
+    }
+
+    this._cache = {
+      players: players, bodies: bodies, occ: occ, events: events,
+      turn: turn, over: turn >= cfg.cap, hash: hash
+    };
+    return this._cache;
+  };
+
+  Match.prototype.config = function () {
+    var c = this._cfg;
+    return { w: c.w, h: c.h, wallPct: c.wallPct, seed: c.seed, cap: c.cap, roster: c.roster.slice() };
+  };
+  Match.prototype.currentTurn = function () { return this._derive().turn; };
+  Match.prototype.stateHash = function () { return this._derive().hash; };
+
+  Match.prototype.pendingColors = function () {
+    var d = this._derive(), turn = d.turn, done = {};
+    this._log.forEach(function (e) { if (e.turn === turn) done[e.color] = 1; });
+    return this._cfg.roster.filter(function (c) { return !done[c]; });
+  };
+
+  Match.prototype.legalActions = function (color) {
+    var d = this._derive();
+    if (!d.players[color]) throw new Error('unknown colour ' + color);
+    if (d.over) {
+      var out = {};
+      ACTIONS.forEach(function (a) { out[a] = 'the match is over'; });
+      return out;
+    }
+    return this._legalFrom(d.players[color], d.occ);
+  };
+
+  Match.prototype.submit = function (sub) {
+    var d = this._derive();
+    if (d.over) return { ok: false, error: 'the match is over' };
+    if (this._cfg.roster.indexOf(sub.color) < 0) return { ok: false, error: 'colour ' + sub.color + ' is not in this match' };
+    if (sub.turn !== d.turn) return { ok: false, error: 'that string is for turn ' + sub.turn + ', this match is on turn ' + d.turn };
+    if (sub.hash !== d.hash) return { ok: false, error: 'state hash ' + sub.hash + ' does not match yours (' + d.hash + ') — your timelines have diverged' };
+    if (this.pendingColors().indexOf(sub.color) < 0) return { ok: false, error: COLORS[sub.color].name + ' has already acted this turn' };
+    var legal = this.legalActions(sub.color);
+    if (!(sub.action in legal)) return { ok: false, error: '"' + sub.action + '" is not an action' };
+    if (legal[sub.action] !== null) return { ok: false, error: 'illegal: ' + legal[sub.action] };
+    this._log.push({ turn: sub.turn, color: sub.color, action: sub.action });
+    this._cache = null;
+    return { ok: true };
+  };
+
+  Match.prototype.view = function (color) {
+    var d = this._derive(), cfg = this._cfg;
+    var me = d.players[color];
+    if (!me) throw new Error('unknown colour ' + color);
+    var hz = me.horizon;
+    var walls = Array.from(this._walls).map(function (k) {
+      var p = k.split(','); return [+p[0], +p[1]];
+    }).sort(function (a, b) { return a[1] - b[1] || a[0] - b[0]; });
+
+    return {
+      w: cfg.w, h: cfg.h, cap: cfg.cap, seed: cfg.seed,
+      turn: d.turn, over: d.over, hash: d.hash,
+      roster: cfg.roster.slice(),
+      priority: d.over ? [] : priorityFor(cfg.seed, d.turn, cfg.roster),
+      pending: this.pendingColors(),
+      walls: walls,
+      me: {
+        color: color, p: me.p, t: me.t, x: me.x, y: me.y,
+        dir: me.dir, horizon: hz, stuck: me.stuck
+      },
+      // Horizon filtering happens here and only here, so no renderer can draw
+      // past it by accident.
+      bodies: d.bodies.filter(function (b) { return b.t <= hz; }).map(function (b) {
+        return { color: b.color, p: b.p, t: b.t, x: b.x, y: b.y, live: d.players[b.color].p === b.p };
+      }),
+      events: d.events.filter(function (e) { return e.t <= hz; }),
+      legal: d.over ? null : this._legalFrom(me, d.occ)
+    };
+  };
+
+  Match.prototype.export = function () { return Wire.encodeExport(this.config(), this._log); };
+
+  var Wire = {
+    encodeAction: function (a) { return '' + a.turn + a.color + ':' + a.action + '#' + a.hash; },
+    decodeAction: function (s) {
+      var m = /^(\d{1,4})([CPTA]):([NSEWIX])#([0-9a-f]{4})$/.exec(String(s == null ? '' : s).trim());
+      if (!m) return { ok: false, error: 'not an action string (expected something like 7C:N#a3f2)' };
+      return { ok: true, value: { turn: +m[1], color: m[2], action: m[3], hash: m[4] } };
+    },
+
+    encodeMatchCode: function (c) {
+      return 'M1:' + c.w + 'x' + c.h + ':' + c.wallPct + ':' + c.seed + ':' + c.cap + ':' + c.roster.join('');
+    },
+    decodeMatchCode: function (s) {
+      var m = /^M1:(\d{1,3})x(\d{1,3}):(\d{1,2}):([A-Za-z0-9_-]{1,24}):(\d{1,4}):([CPTA]{1,4})$/
+        .exec(String(s == null ? '' : s).trim());
+      if (!m) return { ok: false, error: 'not a match code (expected something like M1:16x9:11:19f4:43:CPTA)' };
+      var roster = m[6].split('');
+      if (new Set(roster).size !== roster.length) return { ok: false, error: 'match code repeats a colour' };
+      return {
+        ok: true,
+        value: { w: +m[1], h: +m[2], wallPct: +m[3], seed: m[4], cap: +m[5], roster: roster }
+      };
+    },
+
+    encodeExport: function (config, log) {
+      var byTurn = [];
+      log.forEach(function (e) {
+        if (!byTurn[e.turn]) byTurn[e.turn] = [];
+        byTurn[e.turn].push(e.color + e.action);
+      });
+      var groups = [];
+      for (var i = 0; i < byTurn.length; i++) groups.push((byTurn[i] || []).join(''));
+      return 'X1:' + Wire.encodeMatchCode(config) + '|' + groups.join(',');
+    },
+    decodeExport: function (s) {
+      s = String(s == null ? '' : s).trim();
+      if (s.slice(0, 3) !== 'X1:') return { ok: false, error: 'not an export string (it should start with X1:)' };
+      var bar = s.indexOf('|');
+      if (bar < 0) return { ok: false, error: 'export string is missing its action section' };
+      var mc = Wire.decodeMatchCode(s.slice(3, bar));
+      if (!mc.ok) return { ok: false, error: 'export carries a bad match code: ' + mc.error };
+      var rest = s.slice(bar + 1), log = [];
+      var groups = rest.length ? rest.split(',') : [];
+      for (var turn = 0; turn < groups.length; turn++) {
+        var g = groups[turn];
+        if (g.length % 2) return { ok: false, error: 'malformed action group at turn ' + turn };
+        for (var i = 0; i < g.length; i += 2) {
+          var color = g[i], action = g[i + 1];
+          if (ORDER.indexOf(color) < 0 || ACTIONS.indexOf(action) < 0) {
+            return { ok: false, error: 'bad action "' + g.slice(i, i + 2) + '" at turn ' + turn };
+          }
+          log.push({ turn: turn, color: color, action: action });
+        }
+      }
+      return { ok: true, value: { config: mc.value, log: log } };
+    }
+  };
+
+  root.TBTT = {
+    Match: Match, Wire: Wire,
+    COLORS: COLORS, ORDER: ORDER, DIRS: DIRS, MOVES: MOVES, ACTIONS: ACTIONS,
+    spawnFor: spawnFor
+  };
+})(window);
+/* ENGINE-END */
+</script>
+
+<!-- ===================== RENDER + APP ===================== -->
+<script>
+(function () {
+  'use strict';
+  var T = window.TBTT, Match = T.Match, Wire = T.Wire, COLORS = T.COLORS;
+  var $ = function (id) { return document.getElementById(id); };
+
+  // ---------- renderers: pure view -> DOM, no Match access ----------
+
+  function renderBoard(el, view, focusT, lookBack, onPick) {
+    var lo = Math.max(0, focusT - lookBack);
+    el.style.gridTemplateColumns = 'repeat(' + view.w + ', 1fr)';
+    var wall = {};
+    view.walls.forEach(function (p) { wall[p[0] + ',' + p[1]] = 1; });
+
+    var atFocus = {}, history = {};
+    view.bodies.forEach(function (b) {
+      var k = b.x + ',' + b.y;
+      if (b.t === focusT) (atFocus[k] = atFocus[k] || []).push(b);
+      else if (b.t >= lo && b.t < focusT) (history[k] = history[k] || []).push(b);
+    });
+
+    // Only offer moves while looking at the slice you actually act from.
+    var picking = onPick && view.legal && focusT === view.me.t;
+    var nbr = {};
+    if (picking) {
+      Object.keys(T.DIRS).forEach(function (d) {
+        var v = T.DIRS[d];
+        nbr[(view.me.x + v[0]) + ',' + (view.me.y + v[1])] = d;
+      });
+    }
+
+    el.innerHTML = '';
+    for (var y = 0; y < view.h; y++) {
+      for (var x = 0; x < view.w; x++) {
+        var k = x + ',' + y, cell = document.createElement('div');
+        cell.className = 'cell';
+        var dir = picking ? nbr[k] : null;
+        var reason = dir ? view.legal[dir] : null;
+
+        if (wall[k]) cell.style.cssText += 'background:var(--wall);opacity:.38;';
+        else if (dir && !reason) {
+          cell.style.cssText += 'background:var(--accent-bg);outline:1.5px solid var(--accent-br);outline-offset:-1.5px;cursor:pointer;';
+          cell.title = 'move ' + dir;
+          (function (d) { cell.onclick = function () { onPick(d); }; })(dir);
+        } else if (dir && reason) {
+          cell.style.cssText += 'background:var(--wall);opacity:.55;';
+          cell.title = 'blocked — ' + reason;
+        } else {
+          cell.style.cssText += 'background:var(--surface-1);';
+        }
+
+        var foc = atFocus[k];
+        if (foc && !wall[k]) {
+          foc.sort(function (a, b) { return a.p - b.p; });
+          var c = COLORS[foc[0].color], tok = document.createElement('div');
+          tok.className = 'tok';
+          // flex:none, or history dots in the same cell squeeze the token to a sliver.
+          tok.style.cssText = 'background:' + c.hex + ';color:' + c.ink + ';font-size:10.5px;' +
+            'height:70%;min-height:14px;flex:none;' +
+            (foc.length > 1 ? 'padding:0 4px;border-radius:9px;' : 'aspect-ratio:1;border-radius:50%;');
+          tok.textContent = foc.map(function (b) { return b.p; }).join('·');
+          tok.title = foc.map(describe).join('\n');
+          cell.appendChild(tok);
+        }
+        var past = history[k];
+        if (past && !wall[k]) {
+          // A live token already eats most of the cell, so show fewer trail dots beside it.
+          past.sort(function (a, b) { return b.t - a.t; }).slice(0, foc ? 2 : 4).forEach(function (b) {
+            var d = document.createElement('div');
+            var floor = parseFloat(getComputedStyle(document.documentElement)
+              .getPropertyValue('--dot-floor')) || 0.14;
+            d.style.cssText = 'width:5px;height:5px;border-radius:50%;flex:none;background:' +
+              COLORS[b.color].hex + ';opacity:' + Math.max(floor, 1 - (focusT - b.t) * 0.085) + ';';
+            d.title = describe(b);
+            cell.appendChild(d);
+          });
+        }
+        el.appendChild(cell);
+      }
+    }
+  }
+
+  function describe(b) {
+    return COLORS[b.color].name + ' · index ' + b.p + ' · world turn ' + b.t + (b.live ? ' · live' : '');
+  }
+
+  function renderStrip(el, view, focusT, lookBack) {
+    var lo = Math.max(0, focusT - lookBack);
+    var span = Math.max(view.me.horizon + 1, 1);
+    var heads = {};
+    view.bodies.forEach(function (b) { if (b.live) (heads[b.t] = heads[b.t] || []).push(b.color); });
+
+    var bar = '<div style="display:flex;gap:2px;margin-bottom:3px;">';
+    var num = '<div style="display:flex;gap:2px;">';
+    var head = '<div style="display:flex;gap:2px;margin-bottom:2px;">';
+    for (var t = 0; t < span; t++) {
+      var inWin = t >= lo && t <= focusT;
+      bar += '<div style="flex:1;min-width:3px;height:9px;border-radius:2px;background:' +
+        (inWin ? 'var(--text-secondary)' : 'var(--surface-2)') +
+        ';opacity:' + (t === focusT ? 1 : inWin ? 0.4 : 1) + ';"></div>';
+      var hs = (heads[t] || []).map(function (c) {
+        return '<i style="display:inline-block;width:5px;height:5px;border-radius:50%;background:' + COLORS[c].hex + ';"></i>';
+      }).join('');
+      head += '<div style="flex:1;min-width:3px;height:7px;text-align:center;line-height:0;">' + hs + '</div>';
+      num += '<div style="flex:1;min-width:3px;text-align:center;font-size:9.5px;font-family:var(--mono);color:' +
+        (t === focusT ? 'var(--text-primary)' : 'var(--text-muted)') + ';">' +
+        (span <= 24 || t % 5 === 0 ? t : '') + '</div>';
+    }
+    // Beyond your horizon: dashed and unreadable.
+    var beyond = '';
+    if (!view.over && view.me.horizon < view.cap) {
+      beyond = '<div style="flex:2;min-width:14px;height:9px;border-radius:2px;border:1px dashed var(--border);"></div>';
+    }
+    el.innerHTML = head + '</div>' + bar + beyond + '</div>' + num + '</div>' +
+      '<div class="muted" style="font-size:11.5px;margin-top:4px;">your horizon is t' + view.me.horizon +
+      (beyond ? ' — dashed means you have not been there' : '') + '</div>';
+  }
+
+  function renderLegend(el, view) {
+    el.innerHTML = view.roster.map(function (c) {
+      return '<span><i class="sw" style="background:' + COLORS[c].hex + '"></i>' + COLORS[c].name + '</span>';
+    }).join('') +
+      '<span><i class="sw" style="width:6px;height:6px;background:var(--text-muted);opacity:.4"></i>earlier turns</span>' +
+      '<span>number = personal index</span>';
+  }
+
+  // ---------- app state ----------
+
+  var match = null, me = null, pick = null, focusT = 0, lookBack = 999, dirty = true;
+
+  // Theme is a display preference, so it persists even though match state never does.
+  var THEME_KEY = 'tbtt-theme';
+  function setTheme(t) {
+    document.documentElement.setAttribute('data-theme', t);
+    $('btnTheme').textContent = t === 'light' ? 'Dark' : 'Light';
+    try { localStorage.setItem(THEME_KEY, t); } catch (e) { /* file:// with storage off */ }
+    if (match && me) refresh();
+  }
+  var saved = null;
+  try { saved = localStorage.getItem(THEME_KEY); } catch (e) { /* ignore */ }
+  setTheme(saved === 'light' ? 'light' : 'dark');
+  $('btnTheme').onclick = function () {
+    setTheme(document.documentElement.getAttribute('data-theme') === 'light' ? 'dark' : 'light');
+  };
+
+  function randomSeed() {
+    return Math.floor(Math.random() * 0x100000000).toString(36).slice(0, 6);
+  }
+  function suggestCap(w, h) { return Math.ceil(1.7 * (w + h)); }
+
+  // ---------- setup screen ----------
+
+  $('fSeed').value = randomSeed();
+  function syncCap() { $('fCap').value = suggestCap(+$('fW').value || 16, +$('fH').value || 9); }
+  $('fW').oninput = syncCap; $('fH').oninput = syncCap; syncCap();
+
+  var panes = { tabNew: 'paneNew', tabJoin: 'paneJoin', tabImport: 'paneImport' };
+  Object.keys(panes).forEach(function (tab) {
+    $(tab).onclick = function () {
+      Object.keys(panes).forEach(function (o) {
+        $(o).classList.toggle('on', o === tab);
+        $(panes[o]).classList.toggle('hide', o !== tab);
+      });
+      $('setupErr').textContent = '';
+    };
+  });
+
+  function offerColours(m) {
+    match = m;
+    $('outCode').value = Wire.encodeMatchCode(m.config());
+    $('pickCard').classList.remove('hide');
+    var box = $('pickColors');
+    box.innerHTML = '';
+    m.config().roster.forEach(function (c) {
+      var b = document.createElement('button');
+      b.textContent = 'I am ' + COLORS[c].name;
+      b.style.cssText = 'border-color:' + COLORS[c].hex + ';border-width:2px;';
+      b.onclick = function () { start(c); };
+      box.appendChild(b);
+    });
+  }
+
+  $('btnMake').onclick = function () {
+    try {
+      var cfg = {
+        w: +$('fW').value, h: +$('fH').value, wallPct: +$('fWall').value,
+        seed: $('fSeed').value.trim(), cap: +$('fCap').value,
+        roster: $('fRoster').value.split('')
+      };
+      offerColours(Match.fromConfig(cfg));
+      $('setupErr').textContent = '';
+    } catch (e) {
+      $('setupErr').textContent = String(e.message || e);
+    }
+  };
+
+  $('btnJoin').onclick = function () {
+    var r = Wire.decodeMatchCode($('fCode').value);
+    if (!r.ok) { $('setupErr').textContent = r.error; return; }
+    try {
+      offerColours(Match.fromConfig(r.value));
+      $('setupErr').textContent = '';
+    } catch (e) { $('setupErr').textContent = String(e.message || e); }
+  };
+
+  $('btnImport').onclick = function () {
+    var r = Match.fromExport($('fExport').value);
+    if (!r.ok) { $('setupErr').textContent = r.error; return; }
+    offerColours(r.value);
+    $('setupErr').textContent = '';
+  };
+
+  $('btnCopyCode').onclick = function () { copy($('outCode'), this, 'Copy match code'); };
+
+  // ---------- play screen ----------
+
+  function start(color) {
+    me = color;
+    $('setup').classList.add('hide');
+    $('play').classList.remove('hide');
+    var v = match.view(me);
+    focusT = v.me.t; lookBack = Math.max(v.cap, 8);
+    $('rd').max = Math.max(v.cap, 1); $('rd').value = $('rd').max;
+    refresh();
+  }
+
+  function refresh() {
+    var v = match.view(me);
+    var c = COLORS[me];
+
+    if (focusT > v.me.horizon) focusT = v.me.horizon;
+    $('sl').max = v.me.horizon;
+    $('sl').value = focusT;
+    $('slo').textContent = focusT;
+    lookBack = +$('rd').value;
+    $('rdo').textContent = lookBack;
+
+    $('youAre').innerHTML = '<span class="pill" style="background:' + c.hex + ';color:' + c.ink + '">' +
+      c.name + '</span>';
+    $('youAt').textContent = 'index ' + v.me.p + ' · t' + v.me.t + ' · ' +
+      (v.me.dir === 1 ? 'forward' : 'inverted') + ' · (' + v.me.x + ',' + v.me.y + ')';
+    $('turnInfo').textContent = v.over ? 'match over at turn ' + v.cap
+      : 'turn ' + v.turn + ' / ' + v.cap + ' · state ' + v.hash;
+    $('prioInfo').textContent = v.over ? ''
+      : 'priority this turn: ' + v.priority.map(function (x) { return COLORS[x].name; }).join(' › ');
+
+    // Once committed the pick panel is hidden, so a board click could only arm a
+    // move invisibly and fire it on the next turn. Kill the handler instead.
+    renderBoard($('board'), v, focusT, lookBack, v.over || committed() ? null : setPick);
+    renderStrip($('strip'), v, focusT, lookBack);
+    renderLegend($('legend'), v);
+    $('outExport').value = match.export();
+
+    var evts = $('events');
+    if (!v.events.length) evts.innerHTML = '<li class="muted">Nothing yet.</li>';
+    else evts.innerHTML = v.events.map(function (e) { return '<li>' + eventText(e) + '</li>'; }).join('');
+
+    $('phaseOver').classList.toggle('hide', !v.over);
+    $('phasePick').classList.toggle('hide', v.over || committed());
+    $('phaseShare').classList.toggle('hide', v.over || !committed());
+    $('phaseTitle').textContent = v.over ? '' : committed() ? 'Exchange strings' : 'Choose your action';
+
+    if (!v.over && !committed()) renderActionButtons(v);
+    if (!v.over && committed()) {
+      var pend = v.pending.filter(function (x) { return x !== me; });
+      $('pending').textContent = pend.length
+        ? 'still waiting on: ' + pend.map(function (x) { return COLORS[x].name; }).join(', ')
+        : 'everyone is in — applying...';
+    }
+  }
+
+  function committed() { return match.pendingColors().indexOf(me) < 0; }
+
+  function eventText(e) {
+    var n = COLORS[e.color].name;
+    if (e.kind === 'moved') return n + ' moved to (' + e.x + ',' + e.y + ') at t' + e.t;
+    if (e.kind === 'inverted') return n + ' inverted — now ' + (e.dir === 1 ? 'forward' : 'backward') + ' at t' + e.t;
+    if (e.kind === 'blocked') return n + ' was blocked by ' + COLORS[e.by].name + ' and stayed at (' + e.x + ',' + e.y + ')';
+    return n + ' was stuck — turn skipped';
+  }
+
+  function setPick(action) {
+    pick = action;
+    renderActionButtons(match.view(me));
+    renderBoard($('board'), match.view(me), focusT, lookBack, setPick);
+    $('btnCommit').disabled = false;
+    $('btnCommit').textContent = 'Commit ' + label(action);
+  }
+
+  function label(a) {
+    return { N: 'move north', S: 'move south', E: 'move east', W: 'move west', I: 'invert', X: 'pass' }[a];
+  }
+
+  function renderActionButtons(v) {
+    var box = $('actBtns');
+    box.innerHTML = '';
+    T.ACTIONS.forEach(function (a) {
+      var reason = v.legal[a];
+      if (a === 'X' && reason) return; // pass is only shown when it is the only option
+      var b = document.createElement('button');
+      b.textContent = label(a);
+      b.disabled = reason !== null;
+      b.className = pick === a ? 'on' : '';
+      b.title = reason || 'legal';
+      b.onclick = function () { setPick(a); };
+      box.appendChild(b);
+    });
+    if (v.legal.X === null) {
+      var note = document.createElement('div');
+      note.className = 'err';
+      note.textContent = 'You have no legal action. Pass to keep the turn moving — your playhead and index both freeze.';
+      box.appendChild(note);
+    }
+  }
+
+  $('btnCommit').onclick = function () {
+    if (!pick) return;
+    var turn = match.currentTurn(), hash = match.stateHash();
+    var r = match.submit({ turn: turn, color: me, action: pick, hash: hash });
+    // #pasteMsg lives in the share phase, which is still hidden here, so a failed
+    // commit has to report into the pick phase or it reports nowhere.
+    if (!r.ok) { $('pickMsg').innerHTML = '<div class="err">' + r.error + '</div>'; return; }
+    $('pickMsg').innerHTML = '';
+    $('outAction').value = Wire.encodeAction({ turn: turn, color: me, action: pick, hash: hash });
+    pick = null;
+    $('btnCommit').disabled = true;
+    $('btnCommit').textContent = 'Commit';
+    $('inActions').value = '';
+    $('pasteMsg').innerHTML = '';
+    refresh();
+  };
+
+  $('btnApply').onclick = function () {
+    var raw = $('inActions').value.split(/[\s,]+/).filter(Boolean);
+    if (!raw.length) { $('pasteMsg').innerHTML = '<div class="err">Nothing pasted.</div>'; return; }
+    var applied = 0, msgs = [];
+    for (var i = 0; i < raw.length; i++) {
+      var d = Wire.decodeAction(raw[i]);
+      if (!d.ok) { msgs.push(raw[i] + ' — ' + d.error); continue; }
+      if (d.value.color === me) { msgs.push(raw[i] + ' — that is your own action'); continue; }
+      var r = match.submit(d.value);
+      if (!r.ok) msgs.push(raw[i] + ' — ' + r.error);
+      else applied++;
+    }
+    $('pasteMsg').innerHTML =
+      (applied ? '<div class="ok">applied ' + applied + '</div>' : '') +
+      (msgs.length ? '<div class="err">' + msgs.join('<br>') + '</div>' : '');
+    if (applied) $('inActions').value = '';
+    // A completed turn moves your playhead; follow it.
+    var v = match.view(me);
+    if (!committed() || v.over) focusT = v.me.t;
+    refresh();
+  };
+
+  $('btnCopyAction').onclick = function () { copy($('outAction'), this, 'Copy my action'); };
+  $('btnCopyExport').onclick = function () { copy($('outExport'), this, 'Copy export'); };
+
+  $('sl').oninput = function () { focusT = +this.value; refresh(); };
+  $('rd').oninput = function () { refresh(); };
+
+  function copy(area, btn, restore) {
+    area.select();
+    navigator.clipboard.writeText(area.value).catch(function () { document.execCommand('copy'); });
+    btn.textContent = 'Copied';
+    setTimeout(function () { btn.textContent = restore; }, 1200);
+  }
+})();
+</script>
+</body>
+</html>

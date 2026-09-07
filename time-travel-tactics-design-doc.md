@@ -1,6 +1,6 @@
 # Turn-Based Time Travel Tactics — Design Document
 
-*Working draft. Digital (PC/web). Status: mechanics workshopped, unbuilt.*
+*Working draft. Digital (PC/web). Status: mechanics workshopped; the time-travel layer is prototyped and playable (§12), everything from §5 onward is unbuilt.*
 
 ---
 
@@ -73,6 +73,46 @@ This is self-balancing without tuning. Each inversion buys presence, but each co
 You can only shoot another player's **live** body if your playhead is at the same world-turn as theirs. Before anyone inverts, both presents coincide every turn. After an inversion they diverge and present-on-present duels become rare and special.
 
 This makes inversion a **pursuit tool**, not just a utility: you invert in order to chase someone into their own past. Close to Tenet's pincer structure.
+
+### The horizon
+
+**You can only view world turns up to the furthest one you have personally reached.** A player who inverted at t7 and is now walking back cannot see t8 onward; a forward opponent at t11 can.
+
+This is the only rule in the game that hides real information, and it is what makes the asymmetry above concrete rather than rhetorical. Hiding turns *after* your selected view slice is a viewing convention — you lived through them, nothing is concealed. Hiding turns beyond your horizon is genuine hidden information.
+
+### Movement
+
+1. **Two different players can never occupy the same tile at the same world turn.**
+2. **Two instances of the same player may.** This is the turnstile: inverting is an action, not a move, so your inverted instance begins on the tile your forward self occupied.
+3. **A move may not.** Once you have shared a tile with your other instance, your next *step* cannot land on the tile that instance occupies at that world turn.
+
+The move/invert distinction in 2 and 3 is load-bearing rather than cosmetic. Without it, a player who inverts at t1 arrives at t0 with nowhere to stand and is trapped there permanently.
+
+**Consequence worth stating plainly:** a forward player moving into a world turn that does not yet exist can only ever be blocked by walls and by other forward players. Every other kind of block applies to someone moving backward through already-written history. Inverting costs mobility as well as visibility.
+
+### The t0 wall
+
+An inverted player at world turn 0 cannot step further back — there is no t−1. Inverting is their only legal action there. The approach to t0 ends in a wall, not merely in the diminishing returns described above.
+
+### Collisions
+
+Actions resolve **simultaneously**. A per-turn priority order is derived from the match seed and is **public**, so players can work out in advance who wins a contested tile.
+
+Two classes of action matter here. A **move** changes your (x, y). **Holding** does not: inverting is one, and so is being bounced out of a tile you lost. A holder still travels through time, just not through space, so their playhead and personal index advance exactly as a mover's would. You lose the ground, not the turn.
+
+1. **Two movers after one tile** — the higher-priority one takes it. The loser holds instead.
+2. **A mover against a holder** — the holder keeps the square, whatever the priority order says. Standing still cannot be pushed out of the way by someone arriving.
+3. **A bounced mover is now a holder**, so it can bounce the next player, who can bounce the one after. Resolution repeats until nobody else moves. The set of holders only grows, so this settles in at most one round per player.
+4. **Two holders after one tile** — the rare case where an inverting player and a bounced player both land on the same (t, x, y). Priority breaks it and the loser is stuck.
+5. **A holder's tile is already recorded to another colour** — nothing can be overridden, because that history is already written. The holder is stuck.
+
+Rule 2 is the one that surprises people. A player far down the priority order who happens to be standing where you wanted to go beats you outright, and nothing you can read off the public order predicts it, because you cannot see whether they are about to lose their own contest somewhere else.
+
+### Stuck turns
+
+If a player has no legal action at all, they take a **pass**: the turn is skipped and their playhead and personal index both freeze. This is the shape of §6's moving hole with the death taken out.
+
+A pass is a real action in the protocol, not an absence of one. A stuck player still has to participate in the turn exchange, or the turn never completes and the match deadlocks.
 
 ### Rejected: the oxygen meter
 
@@ -238,9 +278,20 @@ Deliberately small, aimed at proving the erasure-front chase is fun before anyth
 
 - Small grid or single corridor
 - One weapon (gun)
-- One inversion allowed per player, per match
 - Two players, **hotseat only — no netcode**
 - Full front visualisation and phase countdowns (these are not polish; they are the mechanic)
 - A handful of solo puzzles
 
-Cut from v0: multiple weapons, mines and grenades, the other two time mechanics, 3P, matchmaking, repeated inversion.
+Cut from v0: multiple weapons, mines and grenades, the other two time mechanics, 3P, matchmaking.
+
+### The time-travel-only prototype
+
+A playable prototype of the time-travel layer alone now exists at `prototype/tbtt_prototype_time_travel_only.html` — one static HTML file, no build step, opened from the filesystem.
+
+It implements §3's three clocks, §4's inversion, the horizon, and the movement, collision, t0-wall and stuck rules. Inversion is unlimited. Board size is configurable, defaulting to 16×9; 2–4 players spawn at fixed corners in palette order (coral top-left, purple bottom-right, teal top-right, amber bottom-left); the meta-turn cap defaults to `ceil(1.7·(w+h))`.
+
+**No weapons.** §5 erasure fronts, §6 the moving hole, §7 the win condition and §8 cycles are not implemented and are not cancelled — they are later versions. The prototype is a sandbox with no objective and runs to the meta-turn cap. What it is for is proving the three-clock model is coherent and legible before anything is built on top of it.
+
+There is no server. Players share a **match code** that encodes the whole config, then exchange one action string per turn. Every string carries a hash of the pre-turn state, and a mismatched string is refused rather than applied, so a desync is caught at the moment it happens instead of drifting.
+
+**Known limitation: the horizon is honour-system.** The UI hides beyond-horizon information, but a beyond-horizon move is present in the action string regardless — a modified client can read it. There is no serverless fix for this. Enforcing the horizon needs an authoritative server, and that is a decision for a later version, not a hole to patch in this one.

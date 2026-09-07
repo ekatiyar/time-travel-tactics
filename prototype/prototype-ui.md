@@ -1,12 +1,12 @@
 # Prototype UI — Turn-Based Time Travel Tactics
 
-*Companion to `time-travel-tactics-design-doc.md`. Covers the visual and interaction layer only. Status: explored in mockup, unbuilt.*
+*Companion to `../time-travel-tactics-design-doc.md`. Covers the visual and interaction layer only. Status: explored in mockup; the time-travel layer is now built (§9).*
 
 ---
 
 ## 1. What this settles
 
-The main doc's §9 lists what the UI must convey but not what it looks like. This document records the decisions taken while mocking it up, the reasoning behind them, and the rules that surfaced as a result — several of which are new mechanics, not presentation choices, and should be folded back into the main doc (see §8).
+The main doc's §9 lists what the UI must convey but not what it looks like. This document records the decisions taken while mocking it up, the reasoning behind them, and the rules that surfaced as a result — several of which are new mechanics, not presentation choices, and have since been folded back into the main doc (see §8).
 
 ---
 
@@ -25,7 +25,7 @@ The main doc's §9 lists what the UI must convey but not what it looks like. Thi
 
 Visible window is `[T − R, T]`. Nothing after `T` is drawn.
 
-**Board size.** 10×10 with interspersed walls acting as cover and forcing navigation. Wall density untested.
+**Board size.** Configurable, defaulting to 16×9, with interspersed walls acting as cover and forcing navigation. Wall density is settable too and is still untested; the default is 11%.
 
 ---
 
@@ -47,7 +47,7 @@ Deliberately few channels. An earlier pass carried five simultaneously — playe
 
 | Channel | Carries |
 |---|---|
-| Hue | Player identity (coral / purple) |
+| Hue | Player identity (coral / purple / teal / amber, for 2–4 players) |
 | Opacity | Distance back from the focus slice |
 | Size | Focus slice = large token with index; history = small dot |
 | Number | Personal index |
@@ -64,7 +64,7 @@ Deliberately few channels. An earlier pass carried five simultaneously — playe
 
 ## 5. Movement rules
 
-These emerged from the mockup and are mechanics, not UI.
+These emerged from the mockup and are mechanics, not UI. They now live in the main doc's §4; kept here because §4 of this document depends on them.
 
 1. **Two different players can never occupy the same tile at the same world turn.**
 2. **Two instances of the same player may.** This happens naturally at the turnstile: inverting is an action, not a move, so your inverted instance begins on the same tile your forward self occupied.
@@ -92,21 +92,31 @@ These emerged from the mockup and are mechanics, not UI.
 - **Should the look-back window hide your own known future?** It currently does, and it's the reason the board can look sparse. Since you lived those turns, hiding them conceals nothing and may just cost legibility.
 - **Should you be able to see your opponent's horizon?** The mockup displays it as a readout. That is a real strategic disclosure — it tells you exactly how blind they are — and may need to be earned rather than given.
 - **Hover is the only route to a history dot's index.** Fine on desktop, unavailable on touch. Needs a tap-to-inspect equivalent, or history dots need to carry numbers, which reintroduces noise.
-- **Stacks larger than two.** The pill handles two. Three or more, at 10×10 tile size, does not obviously fit.
-- **Wall density and grid size.** Both picked by eye.
+- **Stacks larger than two.** The pill handles two. Three or more, at default tile size, does not obviously fit.
+- **Wall density and grid size.** Both configurable now, but the defaults were picked by eye.
 - **Does the colour ramp need to come back** for at-a-glance target valuation, and can pastel carry it alongside a front accent.
 
 ---
 
 ## 8. Changes to fold into the main design doc
 
-- §5 movement rules above are new and belong in the mechanics, not here.
-- The horizon rule (§3) belongs in the main doc's §4 as the concrete expression of the forward/inverted asymmetry.
+Done:
+
+- §5 movement rules are now in the main doc's §4, together with the rules that surfaced while building the prototype: the t0 wall, the move/invert distinction at the turnstile, seed-derived collision priority, the rule that holding a tile beats moving into it regardless of priority, and stuck turns.
+- The horizon rule (§3) is now in the main doc's §4 as the concrete expression of the forward/inverted asymmetry, along with the note that it is honour-system in a serverless build.
+
+Still outstanding:
+
 - §9 of the main doc should gain a tenth requirement: move legality display.
-- The main doc's §12 v0 scope says "small grid or single corridor." A corridor would make the board and the timeline strip the same picture — one spatial axis plus time. That option is now closed; 10×10 forces a separate timeline panel.
+- The main doc's §12 v0 scope says "small grid or single corridor." A corridor would make the board and the timeline strip the same picture — one spatial axis plus time. The prototype's board is configurable, so a narrow board keeps that option open, but the default 16×9 needs a separate timeline panel and the prototype ships one.
 
 ---
 
 ## 9. Files
 
-- `prototype-ui.html` — standalone interactive mockup. Two-sided view, world-turn scrubber, look-back control, legal-move display. Open in any browser.
+Both prototype files now live in `prototype/`; the design doc stays at the repo root.
+
+- `prototype/tbtt_prototype_time_travel_only.html` — the playable prototype. Three clocks, unlimited inversion, horizon, movement legality, seed-derived collision priority, stuck turns, and serverless string passing between 2–4 players. No weapons and no win condition; it runs to a meta-turn cap.
+- `prototype/prototype-ui.html` — the earlier standalone mockup, kept as a visual reference. Two-sided view, world-turn scrubber, look-back control, legal-move display. Hardcoded bodies, no engine. Open in any browser.
+- `prototype/prototype-ui.md` — this document.
+- `time-travel-tactics-design-doc.md` — the main design doc, at the repo root.
