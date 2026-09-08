@@ -7,13 +7,15 @@ numbers are that document's. Detail about any one prototype lives in its own fol
 ## Built
 
 - **The three clocks and inversion** (§3, §4). World time, meta time, personal index, and the
-  playhead flip. Inversion is unlimited. *time_travel*
+  playhead flip. Inversion is unlimited and spends no world turn, so it can never be blocked.
+  *time_travel*
 - **The horizon** (§4). Enforced in the engine, drawn as dashed outlines on the strip.
   Honour-system only, as §4 says it must be without a server. *both*
 - **Movement legality** (§4). The three occupancy rules, the t0 wall, and greyed illegal tiles
   with a reason on hover. *both*
-- **Collision resolution** (§4). Seed-derived public priority, holders beating movers, bounce
-  cascades, and stuck-turn passes. *time_travel*
+- **Collision resolution** (§4). Seed-derived public priority, holders beating movers, hold as
+  an action that joins them, bounce cascades, and the stuck turn a loser takes when the square
+  they fall back on is already written to another colour. *time_travel*
 - **Timeline strip and body encoding** (§9). Playheads and direction on a world-time axis; hue
   for player, opacity for age, a number for personal index. *both*
 - **Combined view** (§9). One board for history and present, with world-turn and look-back

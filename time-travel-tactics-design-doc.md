@@ -89,36 +89,42 @@ Which is why it is the one rule that cannot be enforced client-side. A client ca
 The board is a grid with interspersed walls. Walls block movement and act as cover, so the shape of the board is itself a tactical constraint rather than a container.
 
 1. **Two different players can never occupy the same tile at the same world turn.**
-2. **Two instances of the same player may.** This is the turnstile: inverting is an action, not a move, so your inverted instance begins on the tile your forward self occupied.
+2. **Two instances of the same player may.** This is the turnstile. Inverting spends no world turn: your playhead stays at the (t, x, y) you already hold and only your direction flips, so the inverted instance begins stacked on the forward one.
 3. **A move may not.** Once you have shared a tile with your other instance, your next *step* cannot land on the tile that instance occupies at that world turn.
 
-The move/invert distinction in 2 and 3 is load-bearing rather than cosmetic. Without it, a player who inverts at t1 arrives at t0 with nowhere to stand and is trapped there permanently.
+The move/invert distinction in 2 and 3 is load-bearing rather than cosmetic. Inverting asks for the tile you are already standing on, so nothing can refuse it — not the edge of the board, not a wall, not rule 1 — and it follows that no player is ever left without a legal action.
+
+One consequence is that inverting twice running is a legal stall: the same world turn, three bodies stacked, personal index up by two. That is allowed on purpose. Stalling freezes your own horizon while every other player pushes the frontier forward, and each body it stacks is one more target (§5). It costs what presence always costs.
 
 **Consequence worth stating plainly:** a forward player moving into a world turn that does not yet exist can only ever be blocked by walls and by other forward players. Every other kind of block applies to someone moving backward through already-written history. Inverting costs mobility as well as visibility.
 
 ### The t0 wall
 
-An inverted player at world turn 0 cannot step further back — there is no t−1. Inverting is their only legal action there. The approach to t0 ends in a wall, not merely in the diminishing returns described above.
+An inverted player at world turn 0 cannot step further back, and cannot hold their ground either — both spend a world turn, and there is no t−1 to spend it into. Inverting is the only thing left, because it is the one action that spends no world turn at all. The approach to t0 ends in a wall, not merely in the diminishing returns described above.
 
 ### Collisions
 
 Actions resolve **simultaneously**. A per-turn priority order is derived from the match seed and is **public**, so players can work out in advance who wins a contested tile.
 
-Two classes of action matter here. A **move** changes your (x, y). **Holding** does not: inverting is one, and so is being bounced out of a tile you lost. A holder still travels through time, just not through space, so their playhead and personal index advance exactly as a mover's would. You lose the ground, not the turn.
+Two classes of action matter here. A **move** changes your (x, y). **Holding** does not: standing your ground is an action in its own right, and so is being bounced out of a tile you lost. A holder still travels through time, just not through space, so their playhead and personal index advance exactly as a mover's would. You lose the ground, not the turn.
+
+Inverting sits outside the contest altogether. It asks for the (t, x, y) already recorded to you, and nobody else can be standing there, so it never competes with anyone for anything.
 
 1. **Two movers after one tile** — the higher-priority one takes it. The loser holds instead.
 2. **A mover against a holder** — the holder keeps the square, whatever the priority order says. Standing still cannot be pushed out of the way by someone arriving.
 3. **A bounced mover is now a holder**, so it can bounce the next player, who can bounce the one after. Resolution repeats until nobody else moves. The set of holders only grows, so this settles in at most one round per player.
-4. **Two holders after one tile** — the rare case where an inverting player and a bounced player both land on the same (t, x, y). Priority breaks it and the loser is stuck.
+4. **Two holders after one tile** — rare, but reachable, because two players standing on one square at different world turns can hold it into the same (t, x, y) from opposite directions. Priority breaks it and the loser is stuck.
 5. **A holder's tile is already recorded to another colour** — nothing can be overridden, because that history is already written. The holder is stuck.
 
 Rule 2 is the one that surprises people. A player far down the priority order who happens to be standing where you wanted to go beats you outright, and nothing you can read off the public order predicts it, because you cannot see whether they are about to lose their own contest somewhere else.
 
 ### Stuck turns
 
-If a player has no legal action at all, they take a **pass**: the turn is skipped and their playhead and personal index both freeze. This is the shape of §6's moving hole with the death taken out.
+Every player always has at least one legal action, because inverting cannot be refused. Being stuck is therefore never a matter of having nothing to choose from. It is an outcome rather than a choice: collision rule 5, where a player loses a contest, falls back on the square they were already standing on, and finds that square recorded to another colour at the world turn they were about to spend. The turn is skipped and their playhead and personal index both freeze. This is the shape of §6's moving hole with the death taken out.
 
-A pass is a real action in the protocol, not an absence of one. A stuck player still has to participate in the turn exchange, or the turn never completes and the match deadlocks.
+Only an inverted player can end up there. A forward player's fallback is their own tile one world turn further into a future nobody has written yet, so there is nothing there to collide with. Getting stuck takes walking backward through a crowded past.
+
+A stuck player still participates in the turn exchange like everyone else. They chose an action and submitted it; the resolver is what took it away from them.
 
 ### Rejected: the oxygen meter
 
