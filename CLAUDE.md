@@ -12,12 +12,17 @@ prototypes/
   run_tests.py                       Shared test harness. Runs a prototype's tests.js
                                      against its HTML in headless Chromium.
   time_travel/
-    README.md                        How to run and play this prototype.
+    time_travel_inversion.md         How to run and play this prototype.
     tbtt_prototype_time_travel_only.html   The playable engine. One static file.
     tests.js                         Engine tests. Run via run_tests.py.
   turn_transport/
     turn-transport-handoff.md        Investigation and decisions for moving turns
-                                     between players. Relay mailbox vs P2P.
+                                     between players. Start here.
+    tbtt_prototype_turn_transport.html     The engine plus a transport block.
+                                     Same engine, byte-identical.
+    tests.js                         Transport tests. Run via run_tests.py.
+    live_check.py                    Two-phase handshake against real nostr
+                                     relays. Slow, networked, run on its own.
   ui/
     prototype-ui.md                  UI design doc. View model, visual encoding,
                                      open questions.

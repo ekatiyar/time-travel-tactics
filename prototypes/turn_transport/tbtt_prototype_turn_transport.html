@@ -127,7 +127,7 @@
   <div style="display:flex;justify-content:space-between;align-items:flex-start;gap:16px;">
     <div>
       <h1>Time travel tactics — prototype</h1>
-      <p class="sub">Inversion only. No weapons, no erasure fronts, no win condition. Everyone runs their own copy and passes strings.</p>
+      <p class="sub">Inversion only. No weapons, no erasure fronts, no win condition. Everyone runs their own copy and the turns travel between them.</p>
     </div>
     <button id="btnTheme" title="Switch between dark and light">Light</button>
   </div>
@@ -159,12 +159,6 @@
                 <option value="CPTA" selected>4 — + amber</option>
               </select>
             </label>
-            <label class="f">Turns move
-              <select id="fTransport">
-                <option value="P" selected>Live — straight to the other players</option>
-                <option value="X">By copy-paste only</option>
-              </select>
-            </label>
           </div>
         </div>
         <button id="btnMake" style="width:100%;margin-top:6px;">Create match</button>
@@ -172,7 +166,7 @@
 
       <div id="paneJoin" class="hide">
         <h2>Paste the match code the host sent you.</h2>
-        <textarea id="fCode" rows="2" placeholder="M1:16x9:11:19f4:43:CPTA:P"></textarea>
+        <textarea id="fCode" rows="2" placeholder="M1:16x9:11:19f4:43:CPTA"></textarea>
         <button id="btnJoin" style="width:100%;margin-top:8px;">Join</button>
       </div>
 
@@ -200,6 +194,7 @@
           stay on colour codes, so nobody has to agree on names to stay in sync.
         </div>
         <div id="nameErr" class="err"></div>
+        <div id="pickErr" class="err"></div>
         <button id="btnPlay" style="width:100%;margin-top:12px;" disabled>Play</button>
       </div>
     </div>
@@ -217,7 +212,7 @@
         </div>
         <div class="card">
           <h2>Export</h2>
-          <div class="muted" style="font-size:12.5px;margin-bottom:8px;">Nothing is saved. Copy this if you might reload, or send it to someone who needs to catch up.</div>
+          <div class="muted" style="font-size:12.5px;margin-bottom:8px;">Nothing is saved, and there is no fallback if the connection dies. Copy this if you might reload, and to get back in step with someone who has dropped.</div>
           <textarea id="outExport" rows="3" readonly></textarea>
           <button id="btnCopyExport" style="margin-top:8px;">Copy export</button>
         </div>
@@ -272,23 +267,9 @@
             <div id="pending" class="mono muted" style="margin-bottom:8px;"></div>
             <div style="display:flex;gap:8px;margin:0 0 6px;">
               <button id="btnUndo">Change my action</button>
-              <button id="btnPasteToggle">Copy-paste instead</button>
             </div>
-            <div class="keyhint" style="margin:0 0 14px;">Esc changes it too. Only worth it
-              before it goes out — once someone has your string, changing it puts you a
-              turn out of step with them.</div>
-
-            <div id="pasteBox" class="hide">
-              <h2>Send this to the other players.</h2>
-              <textarea id="outAction" rows="2" readonly></textarea>
-              <button id="btnCopyAction" style="margin:8px 0 14px;">Copy my action</button>
-              <h2>Paste everyone else's actions. All at once is fine.</h2>
-              <textarea id="inActions" rows="4" placeholder="7P:D#a3f2&#10;7T:W#a3f2"></textarea>
-              <button id="btnApply" style="width:100%;margin-top:8px;">Apply</button>
-              <div id="pasteMsg"></div>
-              <div class="keyhint">Enter applies — click outside the box first, since Enter
-                inside it is a newline and several strings can go in at once.</div>
-            </div>
+            <div class="keyhint" style="margin:0 0 14px;" id="keyUndo">Esc changes it too.</div>
+            <div id="shareMsg"></div>
           </div>
 
           <div id="phaseOver" class="hide">
@@ -898,31 +879,34 @@
   function hex8(n) { return (n >>> 0).toString(16).padStart(8, '0'); }
   function rid() { return hex8(fnv1a(Math.random() + '-' + Date.now())) + hex8(fnv1a(Math.random() + '')); }
 
+  // ---------- the sealed half of a turn ----------
+
+  function hexOf(bytes) {
+    var out = '';
+    for (var i = 0; i < bytes.length; i++) out += bytes[i].toString(16).padStart(2, '0');
+    return out;
+  }
+  function nonce128() {
+    var b = new Uint8Array(16);
+    crypto.getRandomValues(b);
+    return hexOf(b);
+  }
+  // Pinned down to the byte, because two clients disagreeing on this preimage
+  // would look exactly like a diverged timeline: unpadded decimal turn, UTF-8,
+  // lowercase hex nonce, and the first 128 bits of the digest. Turn and colour
+  // are in it so a commitment cannot be lifted into another turn.
+  function digest128(turn, color, action, nonce) {
+    var pre = new TextEncoder().encode(turn + ':' + color + ':' + action + ':' + nonce);
+    return crypto.subtle.digest('SHA-256', pre).then(function (buf) {
+      return hexOf(new Uint8Array(buf, 0, 16));
+    });
+  }
+
   // ---------- the match code envelope ----------
 
-  // Transport is not game config. It does not affect determinism and is not in the
-  // state hash, so it rides on the end of the code rather than inside Wire's.
-  var TRANSPORTS = { P: 'live', X: 'paste' };
-
+  // One transport now, so a match code is the engine's own six-segment string and
+  // nothing else. All that is left here is turning it into a room.
   var Code = {
-    encode: function (cfg, transport) {
-      return Wire.encodeMatchCode(cfg) + ':' + (TRANSPORTS[transport] ? transport : 'X');
-    },
-    // A bare six-segment code is paste, so every code the time_travel prototype
-    // ever printed still decodes and still behaves the way it always did.
-    decode: function (s) {
-      var str = String(s == null ? '' : s).trim();
-      var parts = str.split(':'), transport = 'X', game = str;
-      if (parts.length === 7 && TRANSPORTS[parts[6]]) {
-        transport = parts[6];
-        game = parts.slice(0, 6).join(':');
-      }
-      var r = Wire.decodeMatchCode(game);
-      if (!r.ok) return { ok: false, error: r.error };
-      return { ok: true, cfg: r.value, transport: transport, game: game, error: null };
-    },
-    // Over the whole string, so two players who disagree about the transport do not
-    // land in one room and talk past each other.
     roomId: function (s) {
       var str = String(s == null ? '' : s).trim();
       return 'tbtt-' + hex8(fnv1a(str)) + hex8(fnv1a('~' + str));
@@ -935,7 +919,7 @@
   //   channel.send(text)   broadcast to the room
   //   channel.onMessage    fn(text); duplicates are fine, order does not matter
   //   channel.onStatus     fn({state, peers, detail}); state is one of
-  //                        offline | connecting | live | failed | manual
+  //                        offline | connecting | live | failed
   //   channel.close()
   //
   // No acks, no ordering, no retries: Match.submit already refuses a repeat and
@@ -979,23 +963,32 @@
       emit({ state: 'offline', peers: [], detail: null });
     };
 
+    // A room with nobody in it is not live, it is still connecting: joinRoom
+    // resolving only means the relays were reached.
+    function report() {
+      emit({ state: peers.length ? 'live' : 'connecting', peers: peers.slice(), detail: null });
+    }
+
     import(TRYSTERO).then(function (m) {
       if (closed) return;
-      room = m.joinRoom({ appId: 'tbtt' }, roomId);
+      // Trystero shuffles its relay pool by appId and keeps the first five, so a
+      // fixed one draws the same five relays forever, dead ones included. The
+      // room id varies per match and both peers already compute it identically.
+      room = m.joinRoom({ appId: roomId }, roomId);
       act = room.makeAction('m');                       // {send, onMessage, onReceiveProgress}
       act.onMessage = function (data) {                 // assigned, not called
         if (ch.onMessage) ch.onMessage(String(data));
       };
       room.onPeerJoin = function (id) {                 // assigned, not called
         if (peers.indexOf(id) < 0) peers.push(id);
-        emit({ state: 'live', peers: peers.slice(), detail: null });
+        report();
       };
       room.onPeerLeave = function (id) {
         peers = peers.filter(function (p) { return p !== id; });
-        emit({ state: 'live', peers: peers.slice(), detail: null });
+        report();
       };
       peers = Object.keys(room.getPeers() || {});
-      emit({ state: 'live', peers: peers.slice(), detail: null });
+      report();
     }).catch(function (e) {
       emit({ state: 'failed', peers: [], detail: String((e && e.message) || e) });
     });
@@ -1003,25 +996,13 @@
     return ch;
   }
 
-  // The existing paste boxes, as an adapter rather than a special case. send()
-  // queues into the outbox the UI displays; the Apply button calls receive().
-  function PasteChannel() {
-    var ch = { id: 'x-' + rid(), onMessage: null, outbox: [] };
-    var emit = statusPort(ch, { state: 'manual', peers: [], detail: null });
-    ch.send = function (text) { ch.outbox.push(String(text)); emit({ state: 'manual', peers: [], detail: null }); };
-    ch.receive = function (text) { if (ch.onMessage) ch.onMessage(String(text)); };
-    ch.close = function () { ch.onMessage = null; emit({ state: 'offline', peers: [], detail: null }); };
-    return ch;
-  }
-
   // Test-only. Delivery is synchronous, so a test never has to wait or pump.
   var lbSeq = 0;
   function LoopbackChannel(id) {
-    var ch = { id: id, onMessage: null, sent: [], wires: [] };
+    var ch = { id: id, onMessage: null, wires: [] };
     var emit = statusPort(ch, { state: 'live', peers: [], detail: null });
     ch.emit = emit;
     ch.send = function (text) {
-      ch.sent.push(String(text));
       ch.wires.slice().forEach(function (o) { if (o.onMessage) o.onMessage(String(text)); });
     };
     ch.close = function () { ch.wires = []; ch.onMessage = null; emit({ state: 'offline', peers: [], detail: null }); };
@@ -1045,11 +1026,23 @@
 
   // ---------- Session: the module above the seam ----------
   //
-  // Owns the Match and the Channel. Two message kinds share the one send() and are
-  // told apart by their first character: an action string starts with a digit,
-  // a claim with '!'.
+  // Owns the Match and the Channel. Three message kinds share the one send() and
+  // are told apart by their first character: a claim with '!', a commitment with
+  // '#', a reveal with a digit.
+  //
+  //   !C~Rook@k3f9x2               a colour claim
+  //   #7C:9f3a1c4e...              a commitment: turn, colour, 128-bit digest
+  //   7C:D#a3f2|4b1e...            a reveal: the engine's action string, then the nonce
+  //
+  // The reveal is the only message anyone acts on, and that is what makes changing
+  // your mind safe. A commitment discloses nothing, so publishing three of them for
+  // one turn costs nobody anything; whichever one you open is the one that counts.
 
   var CLAIM_RE = /^!([CPTA])~([A-Za-z0-9_-]{1,12})@([A-Za-z0-9_-]{1,80})$/;
+  var COMMIT_RE = /^#(\d{1,4})([CPTA]):([0-9a-f]{32})$/;
+  var REVEAL_RE = /^(.*)\|([0-9a-f]{32})$/;
+
+  function ckey(turn, color) { return turn + color; }
 
   function Session(o) {
     this._match = o.match;
@@ -1058,9 +1051,16 @@
     this._claims = {};
     this._me = null;
     this._buffer = [];
+    this._commitments = {};   // "0C" -> [digest, ...]; more than one is legitimate
+    this._reveals = {};       // "0C" -> reveals whose commitment has not arrived yet
+    this._mine = null;        // {turn, action, nonce, digest, revealed}
     this._peers = [];
     this._status = { state: 'offline', peers: [], detail: null };
+    // Two kinds of bad news, and they behave differently. A notice is something
+    // you can act on — pick another colour — and it clears when you do. An error
+    // is a divergence: nothing you do at the keyboard fixes it, so it latches.
     this._error = null;
+    this._notice = null;
     var self = this;
     this._ch.onMessage = function (text) { self._receive(String(text)); };
     this._ch.onStatus = function (s) { self._statusChanged(s); };
@@ -1083,9 +1083,16 @@
   Session.prototype._announce = function () {
     if (!this._me) return;
     if (this._claims[this._me]) this._ch.send(this._claimString(this._me));
-    var a = this._match.view(this._me).myAction;
-    if (a) this._ch.send(a);
+    var m = this._mine;
+    if (!m || m.turn !== this._match.currentTurn()) return;
+    this._ch.send(this._commitString(m));
+    // Given only the commitment, a client arriving after you opened would sit
+    // forever on a turn everyone else has finished with.
+    if (m.revealed) this._ch.send(this._revealString(m));
   };
+
+  Session.prototype._commitString = function (m) { return '#' + m.turn + this._me + ':' + m.digest; };
+  Session.prototype._revealString = function (m) { return m.action + '|' + m.nonce; };
 
   Session.prototype._claimString = function (color) {
     var c = this._claims[color];
@@ -1106,16 +1113,19 @@
   // every client runs that same comparison, so the same player is bounced on every
   // screen.
   Session.prototype.claim = function (color, name) {
+    var self = this;
+    function refuse(msg) { self._notice = msg; return { ok: false, error: msg }; }
     if (this._match.config().roster.indexOf(color) < 0) {
-      return { ok: false, error: 'colour ' + color + ' is not in this match' };
+      return refuse('colour ' + color + ' is not in this match');
     }
     var held = this._claims[color];
     if (held && held.clientId !== this._ch.id && held.clientId < this._ch.id) {
-      return { ok: false, error: COLORS[color].name + ' is taken by ' + held.name };
+      return refuse(COLORS[color].name + ' is taken by ' + held.name);
     }
-    if (this._me && this._me !== color) delete this._claims[this._me];
     this._claims[color] = { name: name, clientId: this._ch.id };
     this._me = color;
+    this._notice = null;
+    this._match.setName(color, name);
     this._ch.send(this._claimString(color));
     this._changed();
     return { ok: true, error: null };
@@ -1130,83 +1140,214 @@
     this._claims[color] = { name: name, clientId: id };
     if (this._me === color && id < this._ch.id) {
       this._me = null;
-      this._error = COLORS[color].name + ' was claimed first by ' + name + '. Pick another colour.';
+      this._notice = COLORS[color].name + ' was claimed first by ' + name + '. Pick another colour.';
     }
     this._changed();
   };
 
   Session.prototype._receive = function (text) {
     if (text.charAt(0) === '!') return this._claimReceived(text);
-    var d = Wire.decodeAction(text);
-    if (!d.ok) return;                       // noise on a public room is not the match's problem
-    if (d.value.color === this._me) return;  // our own broadcast coming back
-    if (this._buffer.indexOf(text) < 0) this._buffer.push(text);
-    // Held, not applied, until we have committed. Automatic delivery would
-    // otherwise hand a free look at the opponent's move to whoever commits second.
-    if (this._committed()) this._flush();
+    if (text.charAt(0) === '#') return this._commitmentReceived(text);
+    return this._revealReceived(text);
+  };
+
+  // ---------- commitments ----------
+
+  Session.prototype._hasCommitment = function (turn, color) {
+    var set = this._commitments[ckey(turn, color)];
+    return !!(set && set.length);
+  };
+
+  Session.prototype._addCommitment = function (turn, color, digest) {
+    var k = ckey(turn, color), set = this._commitments[k] || (this._commitments[k] = []);
+    if (set.indexOf(digest) < 0) set.push(digest);
+  };
+
+  Session.prototype._commitmentReceived = function (text) {
+    var m = COMMIT_RE.exec(text);
+    if (!m) return;                          // noise on a public room is not the match's problem
+    var turn = +m[1], color = m[2], digest = m[3];
+    if (color === this._me) return;          // nobody else gets to seal for our colour
+    if (this._match.config().roster.indexOf(color) < 0) return;
+    if (turn < this._match.currentTurn() || turn >= this._match.config().cap) return;
+    this._addCommitment(turn, color, digest);
+    // Before reopening anything: a held reveal completing this turn would advance
+    // the match and prune our own draft out from under us, unsent.
+    this._maybeReveal();
+    var self = this;
+    this._reopen(turn, color).then(function () { self._changed(); });
     this._changed();
+  };
+
+  // ---------- reveals ----------
+
+  // A reveal that opens nothing is not dropped, it is kept: over a channel with no
+  // ordering it may simply have overtaken its own commitment.
+  Session.prototype._revealReceived = function (text) {
+    var m = REVEAL_RE.exec(text);
+    if (!m) return;
+    var d = Wire.decodeAction(m[1]);
+    if (!d.ok) return;
+    if (d.value.color === this._me) return;  // our own broadcast coming back
+    if (this._match.config().roster.indexOf(d.value.color) < 0) return;
+    if (d.value.turn < this._match.currentTurn() || d.value.turn >= this._match.config().cap) return;
+    var self = this, rec = { action: m[1], nonce: m[2], v: d.value };
+    this._open(rec).then(function (opened) {
+      if (!opened) self._hold(rec);
+      self._changed();
+    });
+  };
+
+  Session.prototype._open = function (rec) {
+    var self = this, v = rec.v;
+    return digest128(v.turn, v.color, v.action, rec.nonce).then(function (d) {
+      var set = self._commitments[ckey(v.turn, v.color)];
+      if (!set || set.indexOf(d) < 0) return false;
+      if (self._buffer.indexOf(rec.action) < 0) self._buffer.push(rec.action);
+      // Held, not applied, until we have committed. Automatic delivery would
+      // otherwise hand a free look at the opponent's move to whoever commits second.
+      if (self._committed()) self._flush();
+      return true;
+    });
+  };
+
+  // Held reveals are capped as well as pruned. A distinct nonce makes a distinct
+  // reveal, so on a public room an unbounded store is something a stranger can
+  // fill; an honest client needs one slot per colour per turn and never more.
+  var HELD_MAX = 8;
+  Session.prototype._hold = function (rec) {
+    var k = ckey(rec.v.turn, rec.v.color), list = this._reveals[k] || (this._reveals[k] = []);
+    var dup = list.some(function (o) { return o.action === rec.action && o.nonce === rec.nonce; });
+    if (!dup && list.length < HELD_MAX) list.push(rec);
+  };
+
+  Session.prototype._reopen = function (turn, color) {
+    var self = this, k = ckey(turn, color), list = this._reveals[k] || [];
+    if (!list.length) return Promise.resolve();
+    return Promise.all(list.map(function (rec) {
+      return self._open(rec).then(function (opened) { return opened ? null : rec; });
+    })).then(function (rest) {
+      self._reveals[k] = rest.filter(function (r) { return r; });
+    });
+  };
+
+  // Everything behind the playhead is settled and can go. Everything ahead of it
+  // stays: a commitment for the next turn arriving during this one is ordinary.
+  Session.prototype._prune = function () {
+    var turn = this._match.currentTurn();
+    [this._commitments, this._reveals].forEach(function (store) {
+      Object.keys(store).forEach(function (k) { if (parseInt(k, 10) < turn) delete store[k]; });
+    });
+    if (this._mine && this._mine.turn < turn) this._mine = null;
   };
 
   Session.prototype._committed = function () {
     return !!this._me && this._match.pendingColors().indexOf(this._me) < 0;
   };
 
+  // Every case the engine would refuse is decided here instead, on the numbers.
+  // Reading submit's reply to find out which one it was would tie the transport
+  // to the wording of a message written for a player to read.
   Session.prototype._flush = function () {
     var self = this, keep = [];
+    if (this._match.currentTurn() >= this._match.config().cap) { this._buffer = []; this._prune(); return; }
     this._buffer.forEach(function (text) {
-      var d = Wire.decodeAction(text);
+      var d = Wire.decodeAction(text), turn = self._match.currentTurn();
       if (!d.ok) return;
+      if (d.value.turn > turn) { keep.push(text); return; }   // ahead of us: hold it
+      if (d.value.turn < turn) return;                        // behind us: already applied
+      if (self._match.pendingColors().indexOf(d.value.color) < 0) return;
+      if (d.value.hash !== self._match.stateHash()) {
+        // The two matches are already broken and the only cure is a fresh
+        // export/import, so this latches rather than flashes.
+        self._error = 'turn ' + d.value.turn + ' arrived on state ' + d.value.hash +
+          ', but this match is on ' + self._match.stateHash() +
+          ' — your timelines have diverged. Export and re-import to get back in step.';
+        return;
+      }
       var r = self._match.submit(d.value);
-      if (r.ok) return;
-      // A divergence means the two matches are already broken and the only cure is
-      // a fresh export/import, so it is latched rather than flashed.
-      if (/diverged/.test(r.error)) { self._error = r.error; return; }
-      if (/already acted/.test(r.error)) return;
-      if (d.value.turn > self._match.currentTurn()) keep.push(text);
+      if (!r.ok) self._error = r.error;   // nothing legitimate is left to fail on
     });
     this._buffer = keep;
+    this._prune();
   };
 
+  // Async, because sealing an action means hashing it. The local submit still
+  // happens first and synchronously, so the screen has something to draw while
+  // the opponent is still deciding, and myAction keeps working.
   Session.prototype.commit = function (action) {
-    if (!this._me) return { ok: false, error: 'pick a colour first' };
+    if (!this._me) return Promise.resolve({ ok: false, error: 'pick a colour first' });
+    var self = this, turn = this._match.currentTurn(), color = this._me;
     var r = this._match.submit({
-      turn: this._match.currentTurn(), color: this._me,
-      action: action, hash: this._match.stateHash()
+      turn: turn, color: color, action: action, hash: this._match.stateHash()
     });
-    if (!r.ok) return r;
+    if (!r.ok) return Promise.resolve(r);
     // The engine's own string, so a name still rides along on turn 0. An export is
     // never broadcast: it serialises partial turns and would leak the current one.
-    var out = this._match.view(this._me).myAction;
-    if (out) this._ch.send(out);
-    this._flush();
-    this._changed();
-    return { ok: true, error: null };
+    var out = this._match.view(color).myAction;
+    var nonce = nonce128();
+    return digest128(turn, color, action, nonce).then(function (digest) {
+      self._mine = { turn: turn, action: out, nonce: nonce, digest: digest, revealed: false };
+      self._addCommitment(turn, color, digest);
+      self._ch.send(self._commitString(self._mine));
+      self._maybeReveal();
+      self._flush();
+      self._changed();
+      return { ok: true, error: null };
+    });
+  };
+
+  // Nobody asks for a reveal and nobody acks one. The last commitment landing is
+  // the signal, and every client sees it, so everything opens at once.
+  Session.prototype._maybeReveal = function () {
+    var m = this._mine, self = this;
+    if (!m || m.revealed || m.turn !== this._match.currentTurn()) return;
+    var all = this._match.config().roster.every(function (c) { return self._hasCommitment(m.turn, c); });
+    if (!all) return;
+    m.revealed = true;
+    this._ch.send(this._revealString(m));
   };
 
   Session.prototype.withdraw = function () {
     if (!this._me) return { ok: false, error: 'pick a colour first' };
+    var m = this._mine;
+    if (m && m.revealed && m.turn === this._match.currentTurn()) {
+      return { ok: false, error: 'your action is already open, everyone has it' };
+    }
     var r = this._match.withdraw(this._me);
-    if (r.ok) this._changed();
+    if (!r.ok) return r;
+    // Dropping the digest only tidies our own books: the opponent cannot unsee a
+    // commitment, and does not need to. It discloses nothing, and the replacement
+    // we publish next is the one we will open.
+    if (m) {
+      var set = this._commitments[ckey(m.turn, this._me)] || [];
+      this._commitments[ckey(m.turn, this._me)] = set.filter(function (d) { return d !== m.digest; });
+      this._mine = null;
+    }
+    this._changed();
     return r;
   };
 
   // The engine's view with the transport's own fields merged in, so renderBoard,
   // renderStrip, renderLegend and renderLog keep working untouched.
+  //
+  // Seatless, this renders the first colour in the roster so the picker has
+  // something to read. Do not put that on screen as a board: check color() first.
   Session.prototype.view = function () {
     var color = this._me || this._match.config().roster[0];
-    var v = this._match.view(color);
-    var held = {};
-    this._buffer.forEach(function (t) {
-      var d = Wire.decodeAction(t);
-      if (d.ok && d.value.turn === v.turn) held[d.value.color] = 1;
-    });
+    var self = this, v = this._match.view(color);
     v.status = this._status.state;
     v.peers = this._status.peers.slice();
     v.detail = this._status.detail;
-    // A held action still counts as in. That is exactly what a string landing in
-    // your chat window used to tell you; hiding it would be a downgrade.
-    v.waiting = v.pending.filter(function (c) { return c !== color && !held[c]; });
+    // A commitment counts as in, one phase earlier than a submission does. That is
+    // the moment you lose the right to change your action, so it is the moment the
+    // strip has to stop saying you are owed something.
+    v.waiting = v.pending.filter(function (c) {
+      return c !== color && !self._hasCommitment(v.turn, c);
+    });
+    v.canChange = !!(this._mine && !this._mine.revealed && this._mine.turn === v.turn);
     v.error = this._error;
+    v.notice = this._notice;
     return v;
   };
 
@@ -1219,7 +1360,7 @@
 
   root.TBTT_TRANSPORT = {
     Session: Session, Code: Code,
-    PeerChannel: PeerChannel, PasteChannel: PasteChannel, LoopbackChannel: LoopbackChannel
+    PeerChannel: PeerChannel, LoopbackChannel: LoopbackChannel
   };
 })(window);
 /* TRANSPORT-END */
@@ -1408,8 +1549,12 @@
 
   // ---------- app state ----------
 
-  var match = null, me = null, pick = null, focusT = 0, lookBack = 999, dirty = true;
-  var session = null, transport = 'P', channel = null;
+  var match = null, pick = null, focusT = 0, lookBack = 999, shownTurn = -1;
+  var session = null, channel = null;
+
+  // One source of truth for which seat is yours. The session can take it away —
+  // a claim that arrives late outranks yours — and the app has to notice.
+  function me() { return session ? session.color() : null; }
 
   // Theme is a display preference, so it persists even though match state never does.
   var THEME_KEY = 'tbtt-theme';
@@ -1417,7 +1562,7 @@
     document.documentElement.setAttribute('data-theme', t);
     $('btnTheme').textContent = t === 'light' ? 'Dark' : 'Light';
     try { localStorage.setItem(THEME_KEY, t); } catch (e) { /* file:// with storage off */ }
-    if (match && me) refresh();
+    if (match && me()) refresh();
   }
   var saved = null;
   try { saved = localStorage.getItem(THEME_KEY); } catch (e) { /* ignore */ }
@@ -1450,14 +1595,13 @@
 
   var chosen = null;
 
-  function offerColours(m, tr) {
+  function offerColours(m) {
     match = m;
     chosen = null;
-    transport = tr === 'X' ? 'X' : 'P';
-    var code = Code.encode(m.config(), transport);
+    var code = Wire.encodeMatchCode(m.config());
     $('outCode').value = code;
     if (session) session.close();
-    channel = transport === 'P' ? TT.PeerChannel(Code.roomId(code)) : TT.PasteChannel();
+    channel = TT.PeerChannel(Code.roomId(code));
     session = Session.open({ match: m, channel: channel, onChange: onSessionChange });
     $('pickCard').classList.remove('hide');
     var known = m.view(m.config().roster[0]).names;
@@ -1486,7 +1630,21 @@
   }
 
   function onSessionChange() {
+    // Losing the seat mid-play is not a message to read on someone else's board.
+    // Back to the picker, where the reason and the free colours already live.
+    if (!$('play').classList.contains('hide') && !me()) toPicker();
     if ($('play').classList.contains('hide')) syncClaims(); else refresh();
+  }
+
+  function toPicker() {
+    $('play').classList.add('hide');
+    $('setup').classList.remove('hide');
+    pick = null;
+    shownTurn = -1;
+    Array.prototype.forEach.call(document.querySelectorAll('#pickRows .pickrow'), function (row) {
+      row.classList.remove('on');
+    });
+    chosen = null;
   }
 
   // Claimed colours grey out. The rows are never rebuilt, so a name someone is
@@ -1500,6 +1658,8 @@
       row.classList.toggle('taken', !!theirs);
       row.querySelector('.who').textContent = theirs ? held.name : '';
     });
+    var v = session.view();
+    $('pickErr').textContent = v.notice || v.error || '';
     syncPlay();
   }
 
@@ -1521,9 +1681,8 @@
     if (!on) return;
     var name = on.querySelector('input').value.trim();
     var r = session.claim(chosen, name);
-    // syncClaims runs first: it calls syncPlay, which would otherwise wipe the message.
-    if (!r.ok) { syncClaims(); $('nameErr').textContent = r.error; return; }
-    start(chosen, name);
+    if (!r.ok) { syncClaims(); return; }   // the refusal is already a notice
+    start();
   };
 
   $('btnMake').onclick = function () {
@@ -1533,7 +1692,7 @@
         seed: $('fSeed').value.trim(), cap: +$('fCap').value,
         roster: $('fRoster').value.split('')
       };
-      offerColours(Match.fromConfig(cfg), $('fTransport').value);
+      offerColours(Match.fromConfig(cfg));
       $('setupErr').textContent = '';
     } catch (e) {
       $('setupErr').textContent = String(e.message || e);
@@ -1541,10 +1700,10 @@
   };
 
   $('btnJoin').onclick = function () {
-    var r = Code.decode($('fCode').value);
+    var r = Wire.decodeMatchCode($('fCode').value);
     if (!r.ok) { $('setupErr').textContent = r.error; return; }
     try {
-      offerColours(Match.fromConfig(r.cfg), r.transport);
+      offerColours(Match.fromConfig(r.value));
       $('setupErr').textContent = '';
     } catch (e) { $('setupErr').textContent = String(e.message || e); }
   };
@@ -1552,8 +1711,7 @@
   $('btnImport').onclick = function () {
     var r = Match.fromExport($('fExport').value);
     if (!r.ok) { $('setupErr').textContent = r.error; return; }
-    // An export carries no transport segment. Rejoining mid-match is the live case.
-    offerColours(r.value, 'P');
+    offerColours(r.value);
     $('setupErr').textContent = '';
   };
 
@@ -1561,14 +1719,10 @@
 
   // ---------- play screen ----------
 
-  function start(color, name) {
-    me = color;
-    match.setName(color, name);
+  function start() {
     $('setup').classList.add('hide');
     $('play').classList.remove('hide');
-    setPasteBox(transport === 'X');
     var v = session.view();
-    focusT = v.me.t;
     // A quarter of the turn cap is as far back as the window ever reaches. Running
     // it to the full cap put every dot ever recorded in one cell.
     var maxBack = Math.max(1, Math.ceil(v.cap / 4));
@@ -1579,10 +1733,14 @@
   }
 
   function refresh() {
-    if (!me) return;
+    if (!me()) return;
     var v = session.view();
-    var c = COLORS[me];
+    var c = COLORS[v.me.color];
 
+    // A resolved turn moves your playhead, and the world turn follows it. Keyed on
+    // the turn number rather than on who resolved it, so committing, receiving and
+    // importing all get the same behaviour and the slider still scrubs freely.
+    if (v.turn !== shownTurn) { shownTurn = v.turn; focusT = v.me.t; }
     if (focusT > v.me.horizon) focusT = v.me.horizon;
     $('sl').max = v.me.horizon;
     $('sl').value = focusT;
@@ -1593,12 +1751,12 @@
     // Hold first, then invert. An inverted player at t0 can do nothing else, and
     // leaving Commit dead there points at nothing.
     if (pick && !legalNow(v, pick)) pick = null;
-    if (!pick && !v.over && !committed()) {
+    if (!pick && !v.over && !committed(v)) {
       pick = legalNow(v, 'H') ? 'H' : legalNow(v, 'I') ? 'I' : null;
     }
 
     $('youAre').innerHTML = '<span class="pill" style="background:' + c.hex + ';color:' + c.ink + '">' +
-      nameOf(v, me) + '</span>';
+      nameOf(v, v.me.color) + '</span>';
     $('youAt').textContent = 'index ' + v.me.p + ' · t' + v.me.t + ' · ' +
       (v.me.dir === 1 ? 'forward' : 'inverted') + ' · (' + v.me.x + ',' + v.me.y + ')';
     $('turnInfo').textContent = v.over ? 'match over at turn ' + v.cap
@@ -1611,35 +1769,36 @@
     // Once committed the pick panel is hidden, so a board click could only arm a
     // move invisibly and fire it on the next turn. Kill the handler instead.
     renderBoard($('board'), v, focusT, lookBack, pick,
-      v.over || committed() ? null : setPick);
+      v.over || committed(v) ? null : setPick);
     renderStrip($('strip'), v, focusT, lookBack);
     renderLegend($('legend'), v);
     renderLog($('log'), v);
     $('outExport').value = session.export();
 
     var lbl = { offline: 'not connected', connecting: 'connecting\u2026', live: 'live',
-      failed: 'connection failed', manual: 'copy-paste only' }[v.status] || v.status;
+      failed: 'connection failed' }[v.status] || v.status;
     $('netInfo').textContent = 'turns move: ' + lbl +
       (v.status === 'live' ? ' \u00b7 ' + v.peers.length + ' peer' + (v.peers.length === 1 ? '' : 's') : '') +
       (v.detail ? ' \u00b7 ' + v.detail : '');
-    $('netErr').textContent = v.error || '';
-    // Nothing else can get a turn out, so stop hiding the thing that can.
-    if (v.status === 'failed') setPasteBox(true);
-    $('outAction').value = v.myAction || '';
+    $('netErr').textContent = v.error || v.notice || '';
 
     $('phaseOver').classList.toggle('hide', !v.over);
-    $('phasePick').classList.toggle('hide', v.over || committed());
-    $('phaseShare').classList.toggle('hide', v.over || !committed());
+    $('phasePick').classList.toggle('hide', v.over || committed(v));
+    $('phaseShare').classList.toggle('hide', v.over || !committed(v));
 
-    if (!v.over && !committed()) renderPad(v);
-    if (!v.over && committed()) {
+    if (!v.over && !committed(v)) renderPad(v);
+    if (!v.over && committed(v)) {
       $('pending').textContent = v.waiting.length
         ? 'still waiting on: ' + v.waiting.map(function (x) { return nameOf(v, x); }).join(', ')
-        : 'everyone is in — applying...';
+        : 'everyone is in — opening...';
+      // Your action is out in the open the moment the last commitment lands, so
+      // there is nothing left to take back and the button says so by leaving.
+      $('btnUndo').classList.toggle('hide', !v.canChange);
+      $('keyUndo').classList.toggle('hide', !v.canChange);
     }
   }
 
-  function committed() { return match.pendingColors().indexOf(me) < 0; }
+  function committed(v) { return v.pending.indexOf(v.me.color) < 0; }
 
   function legalNow(v, a) {
     for (var i = 0; i < v.actions.length; i++) {
@@ -1652,7 +1811,7 @@
 
   function setPick(action) {
     var v = session.view();
-    if (v.over || committed() || !legalNow(v, action)) return;
+    if (v.over || committed(v) || !legalNow(v, action)) return;
     pick = action;
     renderPad(v);
     renderBoard($('board'), v, focusT, lookBack, pick, setPick);
@@ -1679,46 +1838,54 @@
         : reasons.H !== null ? 'Holding is blocked here — ' + reasons.H + '.' : '';
   }
 
+  // commit hashes before it sends, so this is async and the button has to stay
+  // down for the whole round trip or Enter twice commits twice.
   $('btnCommit').onclick = function () {
-    if (!pick) return;
-    var r = session.commit(pick);
-    // #pasteMsg lives in the share phase, which is still hidden here, so a failed
-    // commit has to report into the pick phase or it reports nowhere.
-    if (!r.ok) { $('pickMsg').innerHTML = '<div class="err">' + r.error + '</div>'; return; }
-    $('pickMsg').innerHTML = '';
-    pick = null;
+    if (!pick || $('btnCommit').disabled) return;
+    var chosen = pick;
     $('btnCommit').disabled = true;
-    $('btnCommit').textContent = 'Commit';
-    $('inActions').value = '';
-    $('pasteMsg').innerHTML = '';
-    refresh();
+    session.commit(chosen).then(function (r) {
+      // The share phase is still hidden here, so a failed commit has to report
+      // into the pick phase or it reports nowhere.
+      if (!r.ok) {
+        $('pickMsg').innerHTML = '<div class="err">' + r.error + '</div>';
+        refresh();
+        return;
+      }
+      $('pickMsg').innerHTML = '';
+      $('shareMsg').innerHTML = '';
+      pick = null;
+      $('btnCommit').textContent = 'Commit';
+      refresh();
+    });
   };
 
   Array.prototype.forEach.call(document.querySelectorAll('#turnCard [data-act]'), function (b) {
     b.onclick = function () { setPick(b.getAttribute('data-act')); };
   });
 
-  // Arrows and WASD aim, Enter fires whichever button this phase shows, Escape
-  // goes back to the default. Invert is deliberately keyless: it flips your
-  // direction, which should not sit one keystroke from a movement key.
+  // Arrows and WASD aim, Enter commits, Escape goes back to the default. Invert is
+  // deliberately keyless: it flips your direction, which should not sit one
+  // keystroke from a movement key.
   document.addEventListener('keydown', function (e) {
-    if (!match || !me || $('play').classList.contains('hide')) return;
+    if (!match || !me() || $('play').classList.contains('hide')) return;
     if (/^(INPUT|TEXTAREA|SELECT)$/.test(e.target.tagName)) return;
     if (e.metaKey || e.ctrlKey || e.altKey) return;
+    var v = session.view();
 
     if (e.key === 'Enter') {
-      var btn = committed() ? $('btnApply') : $('btnCommit');
+      var btn = $('btnCommit');
       if (!btn.disabled && !btn.closest('.hide')) { btn.click(); e.preventDefault(); }
       return;
     }
     // Escape means "undo the last step of this turn" in both phases: take the
     // action back if it is committed, otherwise drop the aim.
     if (e.key === 'Escape') {
-      if (committed()) undo(); else { pick = null; refresh(); }
+      if (committed(v)) { if (v.canChange) undo(); } else { pick = null; refresh(); }
       e.preventDefault();
       return;
     }
-    if (committed() || session.view().over) return;
+    if (committed(v) || v.over) return;
     var k = { ArrowUp: 'W', ArrowDown: 'S', ArrowLeft: 'A', ArrowRight: 'D',
       w: 'W', a: 'A', s: 'S', d: 'D', W: 'W', A: 'A', S: 'S', D: 'D' }[e.key];
     if (k) { setPick(k); e.preventDefault(); }
@@ -1726,47 +1893,13 @@
 
   function undo() {
     var r = session.withdraw();
-    if (!r.ok) { $('pasteMsg').innerHTML = '<div class="err">' + r.error + '</div>'; return; }
-    $('inActions').value = '';
-    $('pasteMsg').innerHTML = '';
+    if (!r.ok) { $('shareMsg').innerHTML = '<div class="err">' + r.error + '</div>'; return; }
+    $('shareMsg').innerHTML = '';
     refresh();
   }
 
   $('btnUndo').onclick = undo;
 
-  $('btnApply').onclick = function () {
-    var raw = $('inActions').value.split(/[\s,]+/).filter(Boolean);
-    if (!raw.length) { $('pasteMsg').innerHTML = '<div class="err">Nothing pasted.</div>'; return; }
-    var took = 0, msgs = [], was = match.currentTurn();
-    for (var i = 0; i < raw.length; i++) {
-      var d = Wire.decodeAction(raw[i]);
-      if (!d.ok) { msgs.push(raw[i] + ' — ' + d.error); continue; }
-      if (d.value.color === me) { msgs.push(raw[i] + ' — that is your own action'); continue; }
-      // Straight into the channel, so a pasted string is held, deduplicated and
-      // hash-checked by exactly the same code a live one goes through.
-      channel.onMessage(raw[i]);
-      took++;
-    }
-    $('pasteMsg').innerHTML =
-      (took ? '<div class="ok">took ' + took +
-        (match.currentTurn() > was ? ' — turn resolved' : ' — held until everyone is in') + '</div>' : '') +
-      (msgs.length ? '<div class="err">' + msgs.join('<br>') + '</div>' : '');
-    if (took) $('inActions').value = '';
-    // A completed turn moves your playhead; follow it.
-    var v = session.view();
-    if (!committed() || v.over) focusT = v.me.t;
-    refresh();
-  };
-
-  function setPasteBox(open) {
-    $('pasteBox').classList.toggle('hide', !open);
-    $('btnPasteToggle').textContent = open ? 'Hide the paste boxes' : 'Copy-paste instead';
-  }
-  $('btnPasteToggle').onclick = function () {
-    setPasteBox($('pasteBox').classList.contains('hide'));
-  };
-
-  $('btnCopyAction').onclick = function () { copy($('outAction'), this, 'Copy my action'); };
   $('btnCopyExport').onclick = function () { copy($('outExport'), this, 'Copy export'); };
 
   $('sl').oninput = function () { focusT = +this.value; refresh(); };

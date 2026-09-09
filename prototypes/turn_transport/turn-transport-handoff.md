@@ -109,30 +109,90 @@ Note the irony that killed the enthusiasm for P2P: if you fall back to TURN, you
 
 ## 6. Cheat resistance
 
-### Where we are now
+### Where we were
 
-The action letter travels in plaintext. The UI does stop you pasting opponents' actions before committing your own — `phaseShare` is hidden until `committed()` — but that only enforces order *inside* the app. Nothing stops someone reading the incoming string in their chat window and then choosing. **Simultaneity is currently an honour system.**
+The action letter travelled in plaintext. The UI did stop you pasting an opponent's action before
+committing your own — `phaseShare` stayed hidden until `committed()` — but that only enforced
+order *inside* the app. Nothing stopped someone reading the incoming string in their chat window
+and then choosing. **Simultaneity was an honour system.**
 
-Automating the transport makes this worse, not better: messages arrive the instant the opponent commits, so whoever commits later gets a free look.
+Automating the transport made that worse rather than better: messages arrive the instant the
+opponent commits, so whoever commits later gets a free look.
 
-### Commit-reveal
+### Commit-reveal, as built
 
-Two phases per turn:
+Two phases per turn, three message kinds sharing the one `send` and told apart by their first
+character:
 
-1. Publish `commit = SHA-256(turn ‖ color ‖ action ‖ nonce)` with a fresh 128-bit nonce, plus the existing state hash. Binding turn and colour into the preimage stops a commit being replayed into another turn.
-2. Once every colour's commit for that turn has landed, publish `action ‖ nonce`. Verify each reveal against the stored commit, then feed them all to `submit()`.
+```
+!C~Rook@k3f9x2                    a colour claim
+#7C:9f3a1c4e08b27d55a1e4...       a commitment: turn, colour, 128-bit digest
+7C:D#a3f2|4b1e...                 a reveal: the engine's action string, then the nonce
+```
 
-A reveal that does not match its commit means tampering or a diverged build. Halt with an explicit error, the same way the state-hash mismatch does now.
+You publish a commitment when you commit. Once every colour in the roster has published one for
+that turn, every client publishes its reveal, with nobody asking and nobody acking. A reveal is
+verified against a commitment that colour published for that turn, and only then handed to
+`submit()`.
 
-**The nonce is not optional.** With only six possible actions an unsalted hash is brute-forced in six tries. The existing `fnv1a` 4-hex hash is fine as a divergence check and useless as a commitment.
+The useful property turned out not to be secrecy. It is that **the reveal is the only message
+anyone acts on.** A commitment discloses nothing, so publishing three of them for one turn costs
+nobody anything, and whichever one you open is the one that counts. That is what makes changing
+your action safe: withdraw drops your draft and your digest, and the replacement you publish next
+is the one you will open. Every client converges in any arrival order, with no acks and no
+authority.
 
-### Sequencing
+The rule a player sees is **you can change your action until the other player commits.** Commit
+last and you get no window, which is correct, because everything opens at once.
 
-Defer this to a second step. It is additive and does not touch the transport layer, so nothing built first gets thrown away. But it doubles messages per turn and needs `crypto.subtle`, which needs a secure context — GitHub Pages qualifies, `file://` does not. Given the `file:// with storage off` comment in the current code, development is presumably by opening the file directly, so this forces a local http server. (An ES module import for Trystero would force the same thing.)
+**The nonce is not optional.** With only six possible actions an unsalted hash is brute-forced in
+six tries. The engine's `fnv1a` 4-hex hash is fine as a divergence check and useless as a
+commitment.
 
-### Interim mitigation, three lines
+### The preimage, pinned
 
-Buffer incoming actions and only feed them to `submit` after committing your own. Preserves today's blind simultaneity: a cheater would need devtools rather than just their chat window.
+Two clients disagreeing here would produce commitments that never open, which on screen looks
+exactly like a diverged timeline and is not. So it is written down to the byte:
+
+```
+SHA-256(turn + ':' + color + ':' + action + ':' + nonce)
+```
+
+encoded UTF-8, where `turn` is the unpadded decimal turn number, `color` is one of `CPTA`,
+`action` is the bare action letter, and `nonce` is 32 lowercase hex characters from
+`crypto.getRandomValues`. The commitment is the **first 128 bits** of the digest, lowercase hex.
+Turn and colour are in the preimage so a commitment cannot be lifted into another turn.
+
+### Arrival order
+
+Nothing about the channel orders messages, so a reveal can overtake the commitment it opens. Such
+a reveal is **held**, not dropped, and re-checked when a commitment for that turn and colour
+arrives. Held reveals and commitments alike are pruned once the playhead passes their turn;
+anything ahead of the playhead stays, because a commitment for the next turn arriving during this
+one is ordinary rather than suspect. A reveal that never opens anything is simply never applied,
+and is not an error: on a public room, noise is not the match's problem.
+
+### The blind-simultaneity buffer
+
+Incoming actions are still buffered and only fed to `submit` after you have committed. Under one
+phase that was the whole mitigation. Under two it is a second lock on a door that is already
+locked, and it stays because commit-reveal binds an honest client and this binds a client that
+reveals early.
+
+### What the blocker turned out to be
+
+This section used to end by deferring commit-reveal, on the grounds that it "needs `crypto.subtle`,
+which needs a secure context — GitHub Pages qualifies, `file://` does not", and that this would
+force a local http server.
+
+That is wrong, and measured wrong in both browsers: `isSecureContext` is true on a `file://` page
+in stock Chromium and in stock Firefox 153, and `crypto.subtle.digest` works on both. No local
+server and no hand-rolled hash. Recorded here rather than quietly deleted, because it is the only
+thing that kept commit-reveal out of the first pass.
+
+The one real consequence of the change is that **`Session.commit` is async**, since
+`crypto.subtle.digest` returns a promise. That reaches every caller, including the Enter
+keybinding.
 
 ---
 
@@ -201,18 +261,22 @@ Headless Chromium against `file://`, on the development machine:
 
 Two things follow. The `file://` dev loop survives a CDN-loaded ES module, so §9's question about moving to a local http server stays answered "later" — but do not vendor the library, because the local copy is the one the browser refuses. And the relay mailbox is still a working option if it is ever needed; it was not rejected, only deferred.
 
-**NAT is still untested.** Both probe peers were on one machine. One session with a real opponent settles it.
+**NAT is still untested.** Both probe peers were on one machine. One session with a real opponent settles it. *(Settled in the second pass, below: it works.)*
 
 ### The seam
 
 §3 said the engine is transport-agnostic and any transport is a thin adapter over `submit` and `pendingColors`. That held. The transport block is two modules:
 
-- **`Channel`** is the seam. Five members: `id`, `send(text)`, `onMessage`, `onStatus`, `close()`. Status carries `{state, peers, detail}` where state is one of `offline | connecting | live | failed | manual`. Three adapters satisfy it — `PeerChannel` over Trystero, `PasteChannel` over the existing textareas, and `LoopbackChannel` for tests. Three adapters is what makes the seam real rather than hypothetical; swapping in an MQTT adapter is a fourth.
+- **`Channel`** is the seam. Five members: `id`, `send(text)`, `onMessage`, `onStatus`, `close()`. Status carries `{state, peers, detail}` where state is one of `offline | connecting | live | failed | manual`. Three adapters satisfy it — `PeerChannel` over Trystero, `PasteChannel` over the existing textareas, and `LoopbackChannel` for tests. Three adapters is what makes the seam real rather than hypothetical; swapping in an MQTT adapter is a fourth. *(The second pass deleted `PasteChannel` and the `manual` state. Two adapters remain, one of them test-only.)*
 - **`Session`** sits above it and owns both the `Match` and the `Channel`. The play screen talks only to `Session`. Its `view()` returns the engine's view object with `{status, peers, waiting, error}` merged in, so the four render functions were not touched at all.
 
 `Session` hides §8's steps 2, 3 and 4. Incoming actions are buffered until you have committed, which preserves the blind simultaneity the paste flow had by accident. Colour claims are settled without an authority: the lower client id keeps a contested colour, every client computes the same answer, and exactly one player is bounced on every screen. Reconnect collapsed into the claim mechanism — when a peer appears, you send it your claim and your current-turn action, and that is the whole protocol. No timers, no heartbeats.
 
 ### Transport in the match code
+
+*Deleted in the second pass along with `PasteChannel`: with one transport there is nothing to
+choose, and codes are back to the plain six segments `time_travel` produces. Kept here because
+the segment comes back if MQTT ever lands.*
 
 The code gained a trailing segment: `M1:16x9:11:19f4:43:CPTA:P`, where `P` is live and `X` is paste-only. The transport layer splits that off and hands the rest to an untouched `Wire.decodeMatchCode`, so a bare six-segment code still decodes and still means paste. Transport is not game config — it does not affect determinism and is not in the state hash — so it does not belong beside board width inside the engine. The room id is a hash of the whole string, including the segment, so two players who disagree about the transport cannot land in one room and talk past each other.
 
@@ -235,7 +299,81 @@ Pin the version. Recovering this cost six probes, and the peer callbacks cost an
 
 ### Still open
 
-- **NAT.** Unmeasured, and the reason the seam exists.
+- **NAT.** Unmeasured, and the reason the seam exists. *(Measured in the second pass. It works.)*
 - **Nostr relay quality.** The probes logged `rate-limited: you note too much` from one relay and 502s from two others. Trystero dials several in parallel and connected anyway, but the status line reports the state honestly rather than pretending.
-- **Commit-reveal** (§6), unchanged and still worth doing. It is additive, it needs `crypto.subtle`, and it forces the local http server. Doing it in the same pass as transport debugging would have made it impossible to tell which layer was lying.
+- **Commit-reveal** (§6), unchanged and still worth doing. It is additive, it needs `crypto.subtle`, and it forces the local http server. Doing it in the same pass as transport debugging would have made it impossible to tell which layer was lying. *(Built in the second pass. It does not need a local server; see §6.)*
 - **The `Match.export()` bug in §8.** Not fixed, and deliberately so: a full export including the current turn is what makes reload work. The fix was to never broadcast one, which a test now enforces.
+
+---
+
+## 11. The second pass
+
+A review found eight defects and playing the thing found two more. Two of them meant the first
+build only worked as a demo: changing your action silently forked the match, and losing a colour
+tiebreak handed you someone else's board under your own name. The pass fixed all ten, deleted the
+per-turn paste transport outright, and made turns two-phase. §6 has the protocol.
+
+### What the second round of probes measured
+
+Run against the real page, on the development machine unless noted.
+
+| | Result |
+|---|---|
+| `crypto.subtle` on a `file://` page, **Chromium and Firefox** | **works** — `isSecureContext` is true in both |
+| Stock Firefox 153, raw WebRTC, `file://` and localhost | connects, message delivered |
+| Stock Firefox 153, `PeerChannel` over Trystero | peer in 4.0s, message delivered |
+| Chromium, same | peer in 4.0s, message delivered |
+| **Two machines across NAT, Chrome and Firefox** | **connects and plays** |
+| Trystero relay pool | 37 of 47 reachable |
+| The 5 relays `appId: 'tbtt'` draws | 2 dead (`strfry.openhoofd.nl`, `relay.agorist.space`) |
+
+Two conclusions, and both close questions §9 left open.
+
+**The transport is sound.** Stock Firefox runs the real transport, and two machines on separate
+networks play a match in both browsers. The `ICE failed` report the first pass recorded belonged
+to one browser profile, not to our code. Part of what made it believable was a lie on our side:
+`PeerChannel` reported `live` the moment `joinRoom` returned, before any peer existed, so a
+channel that had reached the relays and found nobody looked like a channel that was up. It now
+stays `connecting` until a peer actually joins.
+
+**Commit-reveal had no blocker.** See §6.
+
+### The relay draw
+
+Trystero shuffles its 47-relay pool by `appId` and takes the first five, so a fixed
+`appId: 'tbtt'` draws the same five relays for every match ever played, and two of ours are down.
+Measured across eight appIds, one browser context each so no relay sockets were shared:
+
+| appId | alive of 5 |
+|---|---|
+| `tbtt` (the old fixed one) | 3 |
+| six per-match variants | 5, 4, 4, 4, 4, 3 |
+| `tbtt-ffff` | 3 |
+
+Deriving the appId from the room id, which both peers already compute identically from the match
+code, averages 3.75 of 5 against a fixed 3. It does not silence the console — roughly one dead
+relay per match remains — but it removes the structural problem, which is being locked to one
+below-average hand forever.
+
+Filtering the pool would go further and is deliberately **not** done. The only dead list anyone
+here could write is a single measurement from one network at one moment, and it contains
+`relay.damus.io`, one of the largest relays on the network and far more likely to have been
+transiently unreachable than actually gone.
+
+### What deleting paste cost
+
+Per-turn copy-paste is gone: `PasteChannel`, the toggle, both textareas, Apply, Copy-my-action.
+Export and import stay untouched, because they live on the setup screen and are the rejoin path
+rather than per-turn work.
+
+The consequence worth stating plainly is that **a connection that dies mid-match now has no
+fallback.** Recovery is export and re-import, and the status line has to be honest about that.
+
+### Still open after the second pass
+
+- **A roster colour nobody claims never resolves.** Two phases need a commitment from every colour
+  before anything opens, so an unclaimed seat stalls the turn. That was already true of `submit`,
+  but the stall now happens a phase earlier and needs to read as "waiting for Purple" rather than
+  as a hang.
+- **An MQTT adapter.** Not built, and the argument for it is gone now that Firefox works and NAT is
+  measured. The broker numbers in §10 stay in case it is ever needed.
