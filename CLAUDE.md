@@ -1,6 +1,6 @@
 # tbtt
 
-Turn-based time travel tactics. A design-stage game project: two design documents and two
+Turn-based time travel tactics. A design-stage game project: four design documents and three
 prototypes, no engine or build system.
 
 ```
