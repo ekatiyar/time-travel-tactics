@@ -10,8 +10,8 @@ lists what the UI must convey. This document is what it looks like and why.*
 
 **Combined view, not split.** One board showing history and present together. A split view —
 where you only ever see one world turn — falls out of this for free by setting look-back to 0,
-so it doesn't need to be a separate mode. That leaves the default tunable rather than
-architectural.
+so it doesn't need to be a separate mode. The default becomes a setting rather than a
+structural choice.
 
 **Top-down orthographic, not isometric.** Multiple bodies can occupy one tile. A square
 subdivides and fans cleanly; an isometric rhombus produces genuine occlusion, where a body
@@ -34,9 +34,9 @@ the world-turn slider will not travel past them.
 
 ## 2. Visual encoding
 
-Deliberately few channels. An earlier pass carried five simultaneously — player, personal
-index by colour depth, world distance by opacity, forward/inverted by outline, live by ring —
-and was unreadable.
+A channel is one visual variable carrying one piece of information. Use few. Five at once —
+player, personal index by colour depth, world distance by opacity, forward/inverted by outline,
+live by ring — is unreadable.
 
 | Channel | Carries |
 |---|---|
@@ -45,12 +45,11 @@ and was unreadable.
 | Size | Focus slice = large token with index; history = small dot |
 | Number | Personal index |
 
-**Dropped: the forward/inverted marker.** The index number is strictly more information than
-the binary flag was, and the flag was the noisiest element on the board. Where two of a
-player's bodies sit on one tile, the gap between their indices tells you which is the
-expensive target with no extra symbol.
+**Rejected: a forward/inverted marker.** The index number carries strictly more than a binary
+flag, and the flag was the noisiest thing on the board. Where two of a player's bodies sit on
+one tile, the gap between their indices already tells you which is the expensive target.
 
-**Dropped: the personal-index colour ramp.** Superseded by the number. Worth revisiting if
+**Rejected: a personal-index colour ramp.** The number covers it. Worth revisiting if
 playtesting shows target valuation needs to be readable at a glance rather than on inspection.
 
 **Overlaps** render as a single pill containing both indices (`7·8`) rather than two crowded

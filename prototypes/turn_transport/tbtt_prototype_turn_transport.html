@@ -817,7 +817,7 @@
     decodeExport: function (s) {
       s = String(s == null ? '' : s).trim();
       if (s.slice(0, 3) !== 'X1:') return { ok: false, error: 'not an export string (it should start with X1:)' };
-      // Three sections since names arrived; two-section exports still load.
+      // Two-section exports, with no name section, still load.
       var parts = s.slice(3).split('|');
       if (parts.length < 2 || parts.length > 3) {
         return { ok: false, error: 'export string is missing its action section' };
@@ -904,8 +904,8 @@
 
   // ---------- the match code envelope ----------
 
-  // One transport now, so a match code is the engine's own six-segment string and
-  // nothing else. All that is left here is turning it into a room.
+  // One transport, so a match code is the engine's own six-segment string and
+  // nothing else. All this does is turn it into a room.
   var Code = {
     roomId: function (s) {
       var str = String(s == null ? '' : s).trim();
@@ -939,12 +939,11 @@
     return { state: s.state, peers: (s.peers || []).slice(), detail: s.detail || null };
   }
 
-  // Trystero over nostr. The API changed in 0.23 (scoped packages) and again in
-  // 0.25, where the callbacks became assignable properties rather than subscribe
-  // functions — room.onPeerJoin = fn, not room.onPeerJoin(fn). Calling one throws,
-  // and because the message channel is already wired by then the match keeps
-  // working while the status line says it failed. The URL is pinned and the shape
-  // is spelled out below for exactly that reason.
+  // Trystero over nostr, version-pinned because 0.23 and 0.25 both changed the API.
+  // In 0.25 the peer callbacks are assignable properties, not subscribe functions:
+  // room.onPeerJoin = fn, not room.onPeerJoin(fn). Calling one throws, and because
+  // the message channel is already wired by then the match keeps working while the
+  // status line says it failed. Hence the pin and the shape spelled out below.
   // Imported from the CDN rather than vendored: a local .js module is blocked by
   // CORS on a file:// page, a remote one is not. Dynamic import so a CDN or relay
   // failure is catchable instead of killing the page.
@@ -1377,7 +1376,7 @@
   // ---------- renderers: pure view -> DOM, no Match access ----------
 
   // Rank the distinct world turns that actually have a visible dot, then spread
-  // opacity across the whole range. Straight distance-based fading put three dots
+  // opacity across the whole range. Fading by raw distance instead puts three dots
   // at 1.00 / 0.92 / 0.83, which reads as one shade. On a busy board the two
   // converge; this only bites when there is little to show.
   function shade(bodies, focusT, lookBack) {
@@ -1667,8 +1666,8 @@
   // ends up called something else.
   function syncPlay() {
     var on = document.querySelector('#pickRows .pickrow.on');
-    // Trimmed before checking: a space is no longer a legal name character, so a
-    // stray one off a paste would otherwise dead-end the Play button.
+    // Trimmed before checking: a space is not a legal name character, so a stray
+    // one off a paste would otherwise dead-end the Play button.
     var raw = (on ? on.querySelector('input').value : '').trim();
     var bad = raw.length && !/^[A-Za-z0-9_-]{1,12}$/.test(raw);
     $('nameErr').textContent = bad
@@ -1723,8 +1722,8 @@
     $('setup').classList.add('hide');
     $('play').classList.remove('hide');
     var v = session.view();
-    // A quarter of the turn cap is as far back as the window ever reaches. Running
-    // it to the full cap put every dot ever recorded in one cell.
+    // A quarter of the turn cap is as far back as the window ever reaches. At the
+    // full cap every dot ever recorded lands in one cell.
     var maxBack = Math.max(1, Math.ceil(v.cap / 4));
     $('rd').max = maxBack; $('rd').value = maxBack;
     $('rdNote').textContent = 'look back caps at ' + maxBack +

@@ -16,8 +16,8 @@ prototypes/
     tbtt_prototype_time_travel_only.html   The playable engine. One static file.
     tests.js                         Engine tests. Run via run_tests.py.
   turn_transport/
-    turn-transport-handoff.md        Investigation and decisions for moving turns
-                                     between players. Start here.
+    turn-transport.md                How turns move between players: the transport,
+                                     commit-reveal, the seam. Start here.
     tbtt_prototype_turn_transport.html     The engine plus a transport block.
                                      Same engine, byte-identical.
     tests.js                         Transport tests. Run via run_tests.py.

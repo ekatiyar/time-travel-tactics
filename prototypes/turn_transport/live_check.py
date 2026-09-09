@@ -5,22 +5,22 @@
 
 Opens the turn_transport prototype in two headless Chromium pages, builds a
 real Session over a real PeerChannel in each (bypassing the UI), and drives
-two full turns: claim a colour on each side, commit-then-commit, and check
-that a commitment alone moves nothing while the second commitment resolves
-the turn on both sides with matching state. It also checks the wire itself —
-every string either page sends must parse as a claim, a commitment, or a
-reveal, and each side must send exactly one commitment and one reveal per
-turn. Slow and dependent on relay availability by design, so it is NOT picked
-up by run_tests.py (that only runs tests.js and tests.include) and must be
-run on its own:
+two full turns: claim a colour on each side, commit on each side, and check
+that one commitment alone moves nothing while the second resolves the turn on
+both sides with matching state. It also checks the wire: every string either
+page sends must parse as a claim, a commitment or a reveal, and each side must
+send exactly one commitment and one reveal per turn.
+
+Slow and dependent on relay availability, so run_tests.py does not pick it up
+(that runs tests.js and tests.include only). Run it on its own:
 
     uv run --with playwright python prototypes/turn_transport/live_check.py [timeout_seconds]
 
 timeout_seconds (default 60) bounds each wait: for a peer, for a claim to
-cross, for a commitment to land, and for a turn to resolve. A pass here only
-proves two pages on this one machine can reach each other through the relay
-and complete the handshake; it says nothing about NAT traversal between two
-separate players on separate networks.
+cross, for a commitment to land, and for a turn to resolve. A pass proves two
+pages on this one machine can reach each other through the relay and complete
+the handshake. It says nothing about NAT traversal between separate players on
+separate networks.
 """
 import pathlib
 import random

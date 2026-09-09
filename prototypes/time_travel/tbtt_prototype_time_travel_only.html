@@ -822,7 +822,7 @@
     decodeExport: function (s) {
       s = String(s == null ? '' : s).trim();
       if (s.slice(0, 3) !== 'X1:') return { ok: false, error: 'not an export string (it should start with X1:)' };
-      // Three sections since names arrived; two-section exports still load.
+      // Two-section exports, with no name section, still load.
       var parts = s.slice(3).split('|');
       if (parts.length < 2 || parts.length > 3) {
         return { ok: false, error: 'export string is missing its action section' };
@@ -874,7 +874,7 @@
   // ---------- renderers: pure view -> DOM, no Match access ----------
 
   // Rank the distinct world turns that actually have a visible dot, then spread
-  // opacity across the whole range. Straight distance-based fading put three dots
+  // opacity across the whole range. Fading by raw distance instead puts three dots
   // at 1.00 / 0.92 / 0.83, which reads as one shade. On a busy board the two
   // converge; this only bites when there is little to show.
   function shade(bodies, focusT, lookBack) {
@@ -1120,8 +1120,8 @@
   // ends up called something else.
   function syncPlay() {
     var on = document.querySelector('#pickRows .pickrow.on');
-    // Trimmed before checking: a space is no longer a legal name character, so a
-    // stray one off a paste would otherwise dead-end the Play button.
+    // Trimmed before checking: a space is not a legal name character, so a stray
+    // one off a paste would otherwise dead-end the Play button.
     var raw = (on ? on.querySelector('input').value : '').trim();
     var bad = raw.length && !/^[A-Za-z0-9_-]{1,12}$/.test(raw);
     $('nameErr').textContent = bad
@@ -1176,8 +1176,8 @@
     $('play').classList.remove('hide');
     var v = match.view(me);
     focusT = v.me.t;
-    // A quarter of the turn cap is as far back as the window ever reaches. Running
-    // it to the full cap put every dot ever recorded in one cell.
+    // A quarter of the turn cap is as far back as the window ever reaches. At the
+    // full cap every dot ever recorded lands in one cell.
     var maxBack = Math.max(1, Math.ceil(v.cap / 4));
     $('rd').max = maxBack; $('rd').value = maxBack;
     $('rdNote').textContent = 'look back caps at ' + maxBack +

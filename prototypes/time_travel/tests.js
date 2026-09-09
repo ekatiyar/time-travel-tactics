@@ -710,9 +710,9 @@ function runTests() {
     }
   });
 
-  test('the reported horizon leak stays plugged', () => {
-    // Purple turns around at t1 while coral runs on. Before the fix, hovering a
-    // blocked direction reported "Coral is there at t3".
+  test('a blocked direction never names a body past your horizon', () => {
+    // Purple turns around at t1 while coral runs on. Hovering a blocked direction
+    // must not report "Coral is there at t3".
     const m = Match.fromConfig(cfg({ w: 4, h: 2, seed: 'leak' }));
     play(m, { C: 'D', P: 'A' }); // C (1,0)@t1 ; P (2,1)@t1
     play(m, { C: 'D', P: 'I' }); // C (2,0)@t2 ; P turns around on (2,1)@t1

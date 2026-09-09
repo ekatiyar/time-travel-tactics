@@ -20,15 +20,19 @@ numbers are that document's. Detail about any one prototype lives in its own fol
   for player, opacity for age, a number for personal index. *both*
 - **Combined view** (§9). One board for history and present, with world-turn and look-back
   controls and a configurable board and wall density. *both*
-- **Serverless play**, which no design doc asked for. A match code encodes the config, then
-  each turn is one hashed action string, so a desync is refused rather than applied.
-  *time_travel*
-- **Turns that move themselves**, also unasked for. The same hashed action strings, sent over
-  WebRTC instead of a chat window, behind a `Channel` seam. Measured across NAT on two machines,
-  in Chrome and in Firefox. *turn_transport*
-- **Commit-reveal**, which §12 wanted for solo mode and which turns out to be what makes changing
-  your action safe. You publish a hash of your move, everyone opens together once the last hash
-  lands, and until then you can change your mind. *turn_transport*
+
+### Beyond the design doc
+
+Nothing below was asked for by any design document.
+
+- **Serverless play.** A match code encodes the config, then each turn is one hashed action
+  string, so a desync is refused rather than applied. *time_travel*
+- **Turns that move themselves.** The same hashed action strings, sent over WebRTC instead of a
+  chat window, behind a `Channel` interface. Works across NAT on two machines, in Chrome and in
+  Firefox. *turn_transport*
+- **Commit-reveal.** You publish a hash of your move, everyone opens together once the last hash
+  lands, and until then you can change your mind. This is what makes changing your action safe.
+  *turn_transport*
 
 ## Not built
 
@@ -40,6 +44,4 @@ Everything from §5 onward. No prototype implements any of it:
 - Cycles (§8) and the phase countdowns they need (§9).
 - Front visualisation (§9), which the UI prototype calls the largest gap in the view model.
 - The other two time mechanics, time charges and Loop (§10).
-- Solo puzzle mode (§2, §12). Cheat resistance is no longer on this list: commit-reveal shipped in
-  *turn_transport*, so simultaneity is enforced rather than trusted. See
-  [`turn_transport/`](turn_transport/turn-transport-handoff.md).
+- Solo puzzle mode (§2, §12).

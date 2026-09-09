@@ -205,7 +205,7 @@ async function runTests() {
   });
 
   await test('changing your mind before the other player commits reaches them', async () => {
-    // The bug two-phase exists for. Under one phase the first action is already
+    // What two phases prevent. Under one phase the first action is already
     // on the wire and already applied on the far side, so the withdrawal is
     // invisible there and the two matches fork on the next hash without saying so.
     const { sa, sb } = mkPair();
