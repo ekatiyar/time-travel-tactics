@@ -1,0 +1,81 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>Time travel tactics</title>
+<style>
+  /* Dark is the default; the light theme is the original mockup palette. */
+  :root{
+    color-scheme:dark;
+    --surface-0:#17161A; --surface-1:#212024; --surface-2:#2B2A2F;
+    --text-primary:#EDEAE4; --text-secondary:#A8A49C; --text-muted:#787469;
+    --border:#37353B; --btn-border:#4E4B53;
+    --mono:ui-monospace,SFMono-Regular,Menlo,monospace;
+  }
+  :root[data-theme="light"]{
+    color-scheme:light;
+    --surface-0:#F6F4F0; --surface-1:#EFECE6; --surface-2:#FFFFFF;
+    --text-primary:#2C2C2A; --text-secondary:#5F5E5A; --text-muted:#888780;
+    --border:#DDD9D2; --btn-border:#B4B2A9;
+  }
+  *{box-sizing:border-box;}
+  body{margin:0;padding:14px 18px 40px;background:var(--surface-0);color:var(--text-primary);
+    font:400 15px/1.6 system-ui,-apple-system,"Segoe UI",sans-serif;}
+  .narrow{max-width:640px;margin:0 auto;}
+  h1{font-size:19px;font-weight:500;margin:0 0 2px;}
+  .sub{font-size:13px;color:var(--text-secondary);margin:0 0 18px;}
+  button{font:inherit;font-size:12.5px;padding:4px 10px;border-radius:8px;
+    border:1px solid var(--btn-border);background:transparent;color:inherit;cursor:pointer;}
+  button:hover{background:var(--surface-2);}
+  a.card{display:block;background:var(--surface-1);border:1px solid var(--border);
+    border-radius:12px;padding:14px 16px;margin-bottom:10px;text-decoration:none;color:inherit;}
+  a.card:hover{background:var(--surface-2);}
+  a.card .name{font-family:var(--mono);font-size:14px;}
+  a.card .what{font-size:13px;color:var(--text-secondary);margin-top:2px;}
+</style>
+</head>
+<body>
+<div class="narrow">
+  <div style="display:flex;justify-content:space-between;align-items:flex-start;gap:16px;">
+    <div>
+      <h1>Time travel tactics</h1>
+      <p class="sub">Design-stage prototypes.</p>
+    </div>
+    <button id="btnTheme" title="Switch between dark and light">Light</button>
+  </div>
+
+  <a class="card" href="prototypes/ui/prototype-ui.html">
+    <div class="name">UI mockup</div>
+    <div class="what">The view model, drawn by hand. Board, timeline strip, horizon. No engine.</div>
+  </a>
+
+  <a class="card" href="prototypes/time_travel/tbtt_prototype_time_travel_only.html">
+    <div class="name">Time travel</div>
+    <div class="what">Adds the engine. Three clocks, inversion, collision resolution. Players pass codes by hand.</div>
+  </a>
+
+  <a class="card" href="prototypes/turn_transport/tbtt_prototype_turn_transport.html">
+    <div class="name">Turn transport</div>
+    <div class="what">Adds the network. The same engine, turns sent peer-to-peer. Share a code once, then stop pasting.</div>
+  </a>
+</div>
+
+<script>
+  // Same key as the prototypes, so a choice here carries into them on a shared origin.
+  var THEME_KEY = 'tbtt-theme';
+  var btn = document.getElementById('btnTheme');
+  function setTheme(t) {
+    document.documentElement.setAttribute('data-theme', t);
+    btn.textContent = t === 'light' ? 'Dark' : 'Light';
+    try { localStorage.setItem(THEME_KEY, t); } catch (e) { /* file:// with storage off */ }
+  }
+  var saved = null;
+  try { saved = localStorage.getItem(THEME_KEY); } catch (e) { /* ignore */ }
+  setTheme(saved === 'light' ? 'light' : 'dark');
+  btn.onclick = function () {
+    setTheme(document.documentElement.getAttribute('data-theme') === 'light' ? 'dark' : 'light');
+  };
+</script>
+</body>
+</html>

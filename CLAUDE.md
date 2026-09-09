@@ -4,6 +4,10 @@ Turn-based time travel tactics. A design-stage game project: two design document
 prototypes, no engine or build system.
 
 ```
+README.md                            The repo landing page. Pitch and a link to the
+                                     published prototypes.
+index.html                           The GitHub Pages index. Links to the three
+                                     prototypes, nothing else.
 time-travel-tactics-design-doc.md    The main design doc. Mechanics, clocks, erasure
                                      fronts, win condition, v0 scope.
 prototypes/
