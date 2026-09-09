@@ -23,6 +23,9 @@ numbers are that document's. Detail about any one prototype lives in its own fol
 - **Serverless play**, which no design doc asked for. A match code encodes the config, then
   each turn is one hashed action string, so a desync is refused rather than applied.
   *time_travel*
+- **Turns that move themselves**, also unasked for. The same hashed action strings, sent over
+  WebRTC instead of a chat window, behind a `Channel` seam with paste as one of its adapters.
+  *turn_transport*
 
 ## Not built
 
@@ -34,4 +37,6 @@ Everything from §5 onward. No prototype implements any of it:
 - Cycles (§8) and the phase countdowns they need (§9).
 - Front visualisation (§9), which the UI prototype calls the largest gap in the view model.
 - The other two time mechanics, time charges and Loop (§10).
-- Solo puzzle mode (§2, §12) and netcode, both cut from the current scope.
+- Solo puzzle mode (§2, §12), and cheat resistance: simultaneity is still an honour system,
+  since commit-reveal was deferred. See
+  [`turn_transport/`](turn_transport/turn-transport-handoff.md).

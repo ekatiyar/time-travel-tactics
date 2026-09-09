@@ -9,6 +9,12 @@ load the page, inject tests.js, evaluate. Usage:
 
 prototype_dir defaults to time_travel and is resolved against this script's
 directory. The page is whichever single .html file the directory holds.
+
+If the prototype directory has a tests.include file, it lists other test
+files (one path per line, relative to the prototype directory, '#' comments
+allowed) to run against the same page before tests.js. Each is injected and
+evaluated on its own, since every test file defines a global runTests and
+injecting the next one overwrites it.
 """
 import pathlib
 import sys
@@ -40,27 +46,42 @@ def main() -> int:
         print(f"missing {TESTS}")
         return 1
 
+    includes = []
+    include_file = target / "tests.include"
+    if include_file.exists():
+        for line in include_file.read_text().splitlines():
+            line = line.strip()
+            if not line or line.startswith("#"):
+                continue
+            included = target / line
+            if not included.exists():
+                print(f"missing included test file {included}")
+                return 1
+            includes.append(included)
+
+    all_results = []
     with sync_playwright() as p:
         browser = p.chromium.launch()
         page = browser.new_page()
         errors = []
         page.on("pageerror", lambda e: errors.append(str(e)))
         page.goto(PAGE.as_uri())
-        page.add_script_tag(path=str(TESTS))
-        result = page.evaluate("runTests()")
+        for included in includes + [TESTS]:
+            page.add_script_tag(path=str(included))
+            all_results.extend(page.evaluate("runTests()")["results"])
         browser.close()
 
     for e in errors:
         print(f"page error: {e}")
 
-    for r in result["results"]:
+    for r in all_results:
         if r["ok"]:
             print(f"  ok   {r['name']}")
         else:
             print(f"  FAIL {r['name']}\n         {r['error']}")
 
-    passed = sum(1 for r in result["results"] if r["ok"])
-    total = len(result["results"])
+    passed = sum(1 for r in all_results if r["ok"])
+    total = len(all_results)
     print(f"\n{passed}/{total} passed")
     return 0 if passed == total and not errors else 1
 

@@ -15,6 +15,9 @@ prototypes/
     README.md                        How to run and play this prototype.
     tbtt_prototype_time_travel_only.html   The playable engine. One static file.
     tests.js                         Engine tests. Run via run_tests.py.
+  turn_transport/
+    turn-transport-handoff.md        Investigation and decisions for moving turns
+                                     between players. Relay mailbox vs P2P.
   ui/
     prototype-ui.md                  UI design doc. View model, visual encoding,
                                      open questions.
