@@ -1,12 +1,10 @@
-# Time-travel prototype
+# Playing
 
-A playable prototype of the time-travel layer alone. Open
-`tbtt_prototype_time_travel_only.html` in any browser straight off the filesystem. One
-static file, no build step, no server.
+How to run and use the prototype in `play/index.html`. Open it in any browser straight off
+the filesystem. One static file, no build step, no server.
 
 The rules it implements are §3 and §4 of
-[`../../time-travel-tactics-design-doc.md`](../../time-travel-tactics-design-doc.md); this
-file covers how to run and use it.
+[`time-travel-tactics-design-doc.md`](time-travel-tactics-design-doc.md).
 
 ## Running a match
 
@@ -116,7 +114,7 @@ maxes out at a quarter of the turn cap, and starts there.
 ## What it does not do
 
 No weapons and no win condition. It is a sandbox with no objective that runs until the
-meta-turn cap. See [`../prototypes.md`](../prototypes.md) for the full split.
+meta-turn cap. See [`prototypes.md`](prototypes.md) for the full split.
 
 **The horizon is honour-system.** The UI hides beyond-horizon information, but a
 beyond-horizon move is present in the action string regardless, so a modified client can read
@@ -124,12 +122,13 @@ it. Play with people you trust.
 
 ## Tests
 
-`tests.js` holds the assertions. The harness is shared and lives one level up:
+`play/tests.engine.js` holds the engine assertions and `play/tests.js` the transport ones.
+The harness runs both, from the repo root:
 
 ```
-uv run --with playwright python ../run_tests.py time_travel
+uv run --with playwright python run_tests.py
 ```
 
-It loads the page in headless Chromium, injects `tests.js`, and calls `runTests()`, because
-there is no node on this machine. Run it from anywhere with the path adjusted; the harness
-resolves the argument against its own directory and defaults to `time_travel`.
+It loads the page in headless Chromium, injects each test file, and calls `runTests()`,
+because there is no node on this machine. Run it from anywhere with the path adjusted; the
+harness resolves its argument against its own directory and defaults to `play`.

@@ -14,7 +14,7 @@ commitment and one reveal per turn.
 Slow and dependent on relay availability, so run_tests.py does not pick it up
 (that runs tests.js and tests.include only). Run it on its own:
 
-    uv run --with playwright python prototypes/turn_transport/live_check.py [timeout_seconds]
+    uv run --with playwright python play/live_check.py [timeout_seconds]
 
 timeout_seconds (default 60) bounds each wait: for a peer, for a claim to
 cross, for a commitment to land, and for a turn to resolve. A pass proves two
@@ -31,7 +31,7 @@ import time
 from playwright.sync_api import sync_playwright
 
 HERE = pathlib.Path(__file__).parent
-PAGE = HERE / "tbtt_prototype_turn_transport.html"
+PAGE = HERE / "index.html"
 
 CLAIM_RE = re.compile(r"^!")
 COMMIT_RE = re.compile(r"^#\d{1,4}[CPTA]:[0-9a-f]{32}$")

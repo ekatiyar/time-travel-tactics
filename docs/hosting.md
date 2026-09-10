@@ -5,19 +5,40 @@ Read this before building a new prototype. What's built and what isn't is in
 
 ## Where this runs
 
-GitHub Pages, publishing from `master` at the repo root, served at
-`https://ekatiyar.github.io/time-travel-tactics/`. Anything Pages can serve is fair game. Don't
-assume tighter limits than that.
+GitHub Pages, served at `https://ekatiyar.github.io/time-travel-tactics/`. Anything Pages can
+serve is fair game. Don't assume tighter limits than that.
+
+`.github/workflows/pages.yml` builds the site and deploys the result, so nothing about the
+repo's layout has to match the site's. `tools/build_site.py` does the work: `master`'s tip goes
+to the root, and every annotated `v*` tag is exported to `/v/<tag>/`. That is how old versions
+stay playable without living in the working tree. To release, tag and push:
+
+```
+git tag -a v0.4 -m "Title" -m "One sentence for the card."
+git push origin master v0.4
+```
+
+The tag's subject becomes the card title and its body the blurb. An `entry: <path>` line in the
+body points at the playable file inside that tag's tree; without one the build looks for
+`play/index.html` and fails the deploy if it isn't there. Build the site locally the same way CI
+does:
+
+```
+python tools/build_site.py --root-ref HEAD
+python3 -m http.server -d _site
+```
 
 ## You can
 
 - Split a prototype across as many files as you want. ES modules import by relative path.
 - `fetch` JSON, images, anything else sitting beside the page.
-- Add a build step. Pages publishes the branch as-is today, so you'd switch the Pages source to
-  a GitHub Actions workflow.
+- Add a build step. The workflow already runs one, so extend `tools/build_site.py` or add a step
+  ahead of it.
 - Use `crypto.subtle`, service workers, WebRTC. The origin is HTTPS, so they all work.
-- Use `localStorage`. One store, shared by every prototype, so prefix your keys unless you want
-  the sharing. `tbtt-theme` wants it.
+- Use `localStorage`. One store, shared by every version, so prefix your keys unless you want the
+  sharing. `tbtt-theme` wants it; it's the only key stored today. Anything a version persists
+  about a match in progress needs its version in the key, or a released copy and the tip will
+  read each other's state.
 
 ## You can't
 
@@ -46,11 +67,11 @@ it; nothing enforces it. Fine for a prototype.
 
 - Paths are case-sensitive on the server and usually aren't on your machine. A link that works
   locally can 404 once published.
-- The site lives at `/time-travel-tactics/`, not a domain root. Links and imports must be
-  relative. A leading `/` points outside the site.
-- Branch publishing runs everything through Jekyll, which skips names starting with `_` or `.`,
-  so a directory called `_engine` silently doesn't publish. A `.nojekyll` file at the repo root
-  turns it off. Worth doing before it costs someone an afternoon.
+- The site lives at `/time-travel-tactics/`, not a domain root, and a released copy sits deeper
+  still at `/time-travel-tactics/v/v0.3/`. Links and imports must be relative. A leading `/`
+  points outside the site, and `../` walks out of the version.
+- A tag is frozen. Fixing a released version means moving the tag, which rewrites what that URL
+  serves. Cut a new tag instead unless the old one was outright broken.
 
 ## Two rules that no longer apply
 
@@ -60,8 +81,7 @@ toolchain to install before editing. The published site covers both.
 **Running from `file://`.** That was the dev loop, never a hosting requirement. It's also why
 the transport prototype loads Trystero from esm.sh instead of vendoring a copy: CORS blocks a
 local `.js` module on a `file://` page but allows the same file from a CDN
-([`turn_transport/turn-transport.md`](turn_transport/turn-transport.md) §4). Over http, a local
-module loads fine.
+([`turn-transport.md`](turn-transport.md) §4). Over http, a local module loads fine.
 
 Dropping these costs the double-click dev loop. Serve the repo root instead:
 
@@ -69,4 +89,5 @@ Dropping these costs the double-click dev loop. Serve the repo root instead:
 python3 -m http.server
 ```
 
-The three existing prototypes still open from `file://`, and should keep working that way.
+`play/index.html` still opens from `file://`, and should keep working that way. The front page
+does not, because it reads `releases.json` over `fetch`, which `file://` blocks.

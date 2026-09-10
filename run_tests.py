@@ -5,9 +5,9 @@
 
 No node on this machine, so headless Chromium runs it. Load the page,
 inject tests.js, evaluate. Usage:
-    uv run --with playwright python prototypes/run_tests.py [prototype_dir]
+    uv run --with playwright python run_tests.py [prototype_dir]
 
-prototype_dir defaults to time_travel and is resolved against this script's
+prototype_dir defaults to play and is resolved against this script's
 directory. The page is whichever single .html file the directory holds.
 
 If the prototype directory has a tests.include file, it lists other test
@@ -22,7 +22,7 @@ import sys
 from playwright.sync_api import sync_playwright
 
 HERE = pathlib.Path(__file__).parent
-DEFAULT_PROTOTYPE = "time_travel"
+DEFAULT_PROTOTYPE = "play"
 
 
 def main() -> int:

@@ -1,7 +1,7 @@
 # Prototype UI — Turn-Based Time Travel Tactics
 
 *The visual and interaction layer. The game's design is
-[`../../time-travel-tactics-design-doc.md`](../../time-travel-tactics-design-doc.md); its §9
+[`time-travel-tactics-design-doc.md`](time-travel-tactics-design-doc.md); its §9
 lists what the UI must convey. This document is what it looks like and why.*
 
 ---

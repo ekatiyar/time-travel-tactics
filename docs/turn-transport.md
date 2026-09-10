@@ -1,15 +1,15 @@
 # Turn Transport
 
 *Companion to `time-travel-tactics-design-doc.md`. Covers how turns get from one player to
-another. Built, in `tbtt_prototype_turn_transport.html`. No game mechanics change here.*
+another. Built, in `play/index.html`. No game mechanics change here.*
 
 ---
 
 ## 1. The problem it solves
 
-`tbtt_prototype_time_travel_only.html` exchanges turns by copy-paste. Every meta-turn costs both
-players a copy, a switch to a chat app, a paste, a switch back, and a paste in. On the default
-board that is 43 turns of clerical work between decisions.
+The v0.2 prototype exchanged turns by copy-paste. Every meta-turn cost both players a copy, a
+switch to a chat app, a paste, a switch back, and a paste in. On the default board that is 43
+turns of clerical work between decisions.
 
 The target: share a code once at the start, then never think about transport again. No links to
 click, no separate chat channel, no per-turn clipboard work.
@@ -22,7 +22,7 @@ genuinely useful in a game like this.
 
 ## 2. Constraints
 
-On top of the hosting limits in [`../hosting.md`](../hosting.md):
+On top of the hosting limits in [`hosting.md`](hosting.md):
 
 | Constraint | Status |
 |---|---|
