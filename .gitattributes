@@ -1,0 +1,15 @@
+# Keep the published site to the two things it serves. git archive honours these,
+# so tools/build_site.py exports only index.html and play/. Tags predating this
+# file export whole, which is right: a frozen version stays what it was.
+.github/        export-ignore
+.gitattributes  export-ignore
+.gitignore      export-ignore
+CLAUDE.md       export-ignore
+README.md       export-ignore
+docs/           export-ignore
+tools/          export-ignore
+run_tests.py    export-ignore
+play/tests.js         export-ignore
+play/tests.engine.js  export-ignore
+play/tests.include    export-ignore
+play/live_check.py    export-ignore
