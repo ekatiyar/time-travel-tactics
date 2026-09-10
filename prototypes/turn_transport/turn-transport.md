@@ -196,9 +196,10 @@ Anything ahead of the playhead stays, because a commitment for the next turn arr
 one is ordinary rather than suspect. A reveal that never opens anything is never applied,
 and is not an error. On a public room, noise is not the match's problem.
 
-Held reveals are capped as well as pruned. A distinct nonce makes a distinct reveal, so an
-unbounded store is something a stranger can fill. An honest client needs one slot per colour per
-turn and never more.
+A held reveal is one record per colour per turn, latest wins. A colour reveals once per turn, so
+one slot is all an honest client needs, and it stays bounded against a stranger who sends more.
+The trade: a junk reveal displaces a real one already held, and nobody resends it. A capped list
+had the same hole in a different shape.
 
 ### The blind-simultaneity buffer
 
@@ -225,13 +226,24 @@ nothing in the four render functions changed.
 
 `Session` also handles claims and reconnection:
 
+- **Live means every seat is connected.** Nothing opens until every roster colour commits, so one
+  peer in a four-colour room resolves nothing. `view()` reports `connecting` until the room holds
+  `roster.length - 1` peers; `peersNeeded` says how many are missing. Play stays disabled.
 - **Colour claims settle without an authority.** The lower client id keeps a contested colour,
   every client computes the same answer, and exactly one player is bounced on every screen.
 - **Reconnect is the claim mechanism.** When a peer appears, you send it your claim and your
   current-turn action. That is the whole protocol. No timers, no heartbeats.
 - **An export is never broadcast.** `Match.export()` serialises partial turns, so broadcasting one
-  would leak the current turn. That partial export is also what makes reload work, so the export
-  stays as it is and a test enforces that nothing sends it over the channel.
+  would leak the current turn. A test enforces that nothing sends it over the channel.
+- **An import drops the unfinished turn.** Import a partial export and you hold a draft you never
+  saw a commitment for. Commit, and the turn resolves locally on the spot: your reveal never goes
+  out and the other side waits forever. `trimUnresolved` cuts the export back to the last finished
+  turn before `Match.fromExport` sees it. Nothing is lost, because your arrival is a peer join and
+  the room announces its claims and commitments again.
+- **Giving up a colour gives up what you played with it.** Losing the tiebreak, or switching seats
+  by hand, withdraws the draft and forgets the commitment. The broadcast commitment cannot be taken
+  back, so the colour's real owner counts as in one beat early. The turn still resolves and both
+  sides agree; it costs one moment of simultaneity in a rare race.
 
 ---
 
@@ -291,10 +303,10 @@ turn that trade never made sense. The mailbox is the better answer.
 
 ## 8. Still open
 
-- **A roster colour nobody claims never resolves.** Two phases need a commitment from every colour
-  before anything opens, so an unclaimed seat stalls the turn. That was already true of `submit`,
-  but the stall now happens a phase earlier and needs to read as "waiting for Purple" rather than
-  as a hang.
+- **A seat nobody claims still never resolves.** Live means the room is full, so a four-colour
+  match with two people no longer hangs on turn 0. What is left: a peer who joins and never picks
+  a colour. The count is satisfied, the seat is not. It needs to read as "waiting for Purple"
+  rather than as a hang.
 - **Player count in practice.** 2 or up to 4. A WebRTC mesh cares: 4 players is 6 connections.
 - **Nostr relay quality.** The probes logged `rate-limited: you note too much` from one relay and
   502s from two others. Trystero dials several in parallel and connects anyway, but the status

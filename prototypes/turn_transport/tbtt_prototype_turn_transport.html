@@ -58,7 +58,7 @@
   @media(max-width:1120px){
     .cols{grid-template-columns:1fr;}
     .cols>:nth-child(2){order:-1;}
-    .dpad,#panePick>button{max-width:320px;}
+    .dpad{max-width:320px;}
   }
 
   /* ---- board: square cells at any w x h, CSS only, no resize listener ---- */
@@ -194,6 +194,7 @@
         </div>
         <div id="nameErr" class="err"></div>
         <div id="pickErr" class="err"></div>
+        <div id="pickWait" class="sec" style="margin-top:12px;"></div>
         <button id="btnPlay" style="width:100%;margin-top:12px;" disabled>Play</button>
       </div>
     </div>
@@ -902,6 +903,22 @@
     }
   };
 
+  // Match.export() serialises partial turns. Importing one hands you a draft you
+  // never saw a commitment for, and the turn then resolves locally the moment you
+  // commit, so your reveal never goes out and the other side waits forever. Cut
+  // back to the last finished turn instead. Nothing is lost: anyone still in the
+  // room sees you arrive as a peer and announces their claim and commitment again.
+  function trimUnresolved(str) {
+    var r = Wire.decodeExport(str);
+    if (!r.ok) return str;              // leave the error to Match.fromExport
+    var full = r.value.config.roster.length, count = {};
+    r.value.log.forEach(function (e) { count[e.turn] = (count[e.turn] || 0) + 1; });
+    var cut = 0;
+    while (count[cut] === full) cut++;  // the same stop _derive makes
+    var log = r.value.log.filter(function (e) { return e.turn < cut; });
+    return Wire.encodeExport(r.value.config, log, r.value.names);
+  }
+
   // ---------- Channel: the seam ----------
   //
   //   channel.id           stable client id, used for claim tiebreaks
@@ -1099,6 +1116,20 @@
 
   Session.prototype.color = function () { return this._me; };
 
+  // Giving up a seat has to give up what was played with it, or the draft stays in
+  // the log under a colour we no longer speak for and we run a turn ahead of the
+  // room. The broadcast commitment cannot be retracted, but our own copy of it can,
+  // or _maybeReveal counts that colour as in and opens our next action early.
+  Session.prototype._dropSeat = function (color) {
+    var m = this._mine, turn = this._match.currentTurn();
+    this._match.withdraw(color);        // no draft on this turn is not an error here
+    if (m && m.turn === turn) {
+      var k = ckey(turn, color), set = this._commitments[k] || [];
+      this._commitments[k] = set.filter(function (d) { return d !== m.digest; });
+    }
+    this._mine = null;
+  };
+
   // No authority and none needed. The lower client id keeps a contested colour, and
   // every client runs that same comparison, so the same player is bounced on every
   // screen.
@@ -1112,6 +1143,7 @@
     if (held && held.clientId !== this._ch.id && held.clientId < this._ch.id) {
       return refuse(COLORS[color].name + ' is taken by ' + held.name);
     }
+    if (this._me && this._me !== color) this._dropSeat(this._me);
     this._claims[color] = { name: name, clientId: this._ch.id };
     this._me = color;
     this._notice = null;
@@ -1129,6 +1161,7 @@
     if (held && held.clientId <= id) return;
     this._claims[color] = { name: name, clientId: id };
     if (this._me === color && id < this._ch.id) {
+      this._dropSeat(color);
       this._me = null;
       this._notice = COLORS[color].name + ' was claimed first by ' + name + '. Pick another colour.';
     }
@@ -1201,24 +1234,17 @@
     });
   };
 
-  // Held reveals are capped as well as pruned. A distinct nonce makes a distinct
-  // reveal, so on a public room an unbounded store is something a stranger can
-  // fill; an honest client needs one slot per colour per turn and never more.
-  var HELD_MAX = 8;
+  // A colour reveals once per turn, so one slot per colour per turn is the whole
+  // store. Latest wins: on a public room the store stays bounded either way, and a
+  // peer that changed its mind is better served by its newer reveal.
   Session.prototype._hold = function (rec) {
-    var k = ckey(rec.v.turn, rec.v.color), list = this._reveals[k] || (this._reveals[k] = []);
-    var dup = list.some(function (o) { return o.action === rec.action && o.nonce === rec.nonce; });
-    if (!dup && list.length < HELD_MAX) list.push(rec);
+    this._reveals[ckey(rec.v.turn, rec.v.color)] = rec;
   };
 
   Session.prototype._reopen = function (turn, color) {
-    var self = this, k = ckey(turn, color), list = this._reveals[k] || [];
-    if (!list.length) return Promise.resolve();
-    return Promise.all(list.map(function (rec) {
-      return self._open(rec).then(function (opened) { return opened ? null : rec; });
-    })).then(function (rest) {
-      self._reveals[k] = rest.filter(function (r) { return r; });
-    });
+    var self = this, k = ckey(turn, color), rec = this._reveals[k];
+    if (!rec) return Promise.resolve();
+    return this._open(rec).then(function (opened) { if (opened) delete self._reveals[k]; });
   };
 
   // Everything behind the playhead is settled and can go. Everything ahead of it
@@ -1326,9 +1352,14 @@
   Session.prototype.view = function () {
     var color = this._me || this._match.config().roster[0];
     var self = this, v = this._match.view(color);
-    v.status = this._status.state;
     v.peers = this._status.peers.slice();
     v.detail = this._status.detail;
+    // Live means a turn can actually resolve. Nothing opens until every roster
+    // colour has committed, so a room short of players is still connecting no
+    // matter what the channel thinks of its own sockets.
+    v.peersNeeded = Math.max(0, this._match.config().roster.length - 1 - v.peers.length);
+    v.status = this._status.state;
+    if (v.status === 'live' && v.peersNeeded) v.status = 'connecting';
     // A commitment counts as in, one phase earlier than a submission does. That is
     // the moment you lose the right to change your action, so it is the moment the
     // strip has to stop saying you are owed something.
@@ -1349,7 +1380,7 @@
   };
 
   root.TBTT_TRANSPORT = {
-    Session: Session, Code: Code,
+    Session: Session, Code: Code, trimUnresolved: trimUnresolved,
     PeerChannel: PeerChannel, LoopbackChannel: LoopbackChannel
   };
 })(window);
@@ -1363,6 +1394,7 @@
   var T = window.TBTT, Match = T.Match, Wire = T.Wire, COLORS = T.COLORS;
   var TT = window.TBTT_TRANSPORT, Session = TT.Session, Code = TT.Code;
   var $ = function (id) { return document.getElementById(id); };
+  function plural(n, word) { return n + ' ' + word + (n === 1 ? '' : 's'); }
 
   // ---------- renderers: pure view -> DOM, no Match access ----------
 
@@ -1663,7 +1695,14 @@
     var bad = raw.length && !/^[A-Za-z0-9_-]{1,12}$/.test(raw);
     $('nameErr').textContent = bad
       ? 'A name can only use letters, digits, - and _, up to 12 characters.' : '';
-    $('btnPlay').disabled = !(on && !on.classList.contains('taken') && raw && !bad);
+    // A turn needs everyone in before anything opens, so an empty room is not a
+    // match you can start playing. Waiting here beats walking into one and hanging.
+    var v = session ? session.view() : { status: 'offline', peersNeeded: 1 };
+    var live = v.status === 'live';
+    $('pickWait').textContent = live ? '' : (v.status === 'failed'
+      ? 'No connection: ' + (v.detail || 'the relays did not answer.')
+      : 'Waiting for ' + plural(v.peersNeeded, 'more player') + ' to open this match code.');
+    $('btnPlay').disabled = !(live && on && !on.classList.contains('taken') && raw && !bad);
   }
 
   $('btnPlay').onclick = function () {
@@ -1699,7 +1738,7 @@
   };
 
   $('btnImport').onclick = function () {
-    var r = Match.fromExport($('fExport').value);
+    var r = Match.fromExport(TT.trimUnresolved($('fExport').value));
     if (!r.ok) { $('setupErr').textContent = r.error; return; }
     offerColours(r.value);
     $('setupErr').textContent = '';
@@ -1768,7 +1807,8 @@
     var lbl = { offline: 'not connected', connecting: 'connecting\u2026', live: 'live',
       failed: 'connection failed, export to rejoin' }[v.status] || v.status;
     $('netInfo').textContent = 'turns move: ' + lbl +
-      (v.status === 'live' ? ' \u00b7 ' + v.peers.length + ' peer' + (v.peers.length === 1 ? '' : 's') : '') +
+      (v.peersNeeded ? ' \u00b7 waiting for ' + plural(v.peersNeeded, 'more player') : '') +
+      (v.status === 'live' ? ' \u00b7 ' + plural(v.peers.length, 'peer') : '') +
       (v.detail ? ' \u00b7 ' + v.detail : '');
     $('netErr').textContent = v.error || v.notice || '';
 

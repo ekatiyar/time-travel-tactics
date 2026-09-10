@@ -458,6 +458,38 @@ async function runTests() {
     assert(!sa.view().error, 'no error: ' + sa.view().error);
   });
 
+  await test('a held reveal is one record per colour per turn, and the latest wins', async () => {
+    const { peer, sa } = mkSolo();
+    seat(sa, 'C', 'Rook');
+    peerClaim(peer, 'P', 'Vale');
+
+    const hash = sa.view().hash;
+    const first = await twoPhase({ turn: 0, color: 'P', action: 'A', hash, nonce: NONCE_A });
+    const second = await twoPhase({ turn: 0, color: 'P', action: 'H', hash, nonce: NONCE_B });
+
+    peer.send(first.reveal); // nothing opens it yet, so it is kept
+    await settle();
+    const held = sa._reveals['0P'];
+    assert(held && !Array.isArray(held),
+      'a colour reveals once per turn, so one record is the whole store, not a list of them');
+    eq(held.nonce, NONCE_A, 'and it is the reveal that arrived');
+
+    // Purple thought better of it before opening anything. The reveal it will
+    // actually open is the last one it sent, so that is the one worth keeping.
+    peer.send(second.reveal);
+    await settle();
+    eq(sa._reveals['0P'].nonce, NONCE_B, 'the later reveal replaces the earlier one');
+
+    await sa.commit('D');
+    peer.send(second.commitment);
+    await settle();
+
+    eq(sa.view().turn, 1, 'the commitment arriving last still opens what was held');
+    assert(sa.view().bodies.some((bd) => bd.color === 'P' && bd.t === 1 && bd.x === 15),
+      'purple held, which is the reveal that was kept');
+    assert(!sa.view().error, 'no error: ' + sa.view().error);
+  });
+
   // ---- claims -------------------------------------------------------------
 
   await test('two clients claiming one colour: the lower client id keeps it', async () => {
@@ -489,6 +521,19 @@ async function runTests() {
     eq(second.sa.claims().C.name, 'Rook');
   });
 
+  await test('live means every seat is connected, not just one peer', async () => {
+    // A turn needs a commitment from every roster colour, so one peer on a
+    // four-colour roster cannot resolve anything. Saying live there invites a
+    // player to start a match that hangs on turn 0.
+    const four = mkPair({ roster: ['C', 'P', 'T', 'A'] });
+    eq(four.sa.view().status, 'connecting', 'one peer of the three needed is not live');
+    eq(four.sa.view().peersNeeded, 2, 'and it says how many are still missing');
+
+    const two = mkPair();
+    eq(two.sa.view().status, 'live', 'the one peer a two-colour roster needs is live');
+    eq(two.sa.view().peersNeeded, 0);
+  });
+
   await test('claims() tells the colour picker what to grey out', async () => {
     const { a, b, sa, sb } = mkPair({ roster: ['C', 'P', 'T', 'A'] });
     seat(sa, 'C', 'Rook');
@@ -502,6 +547,39 @@ async function runTests() {
     const theirs = sb.claims();
     eq(theirs.C.clientId, a.id, 'both sides see the same board');
     eq(theirs.P.clientId, b.id);
+  });
+
+  await test('losing a contested colour takes back what you played with it', async () => {
+    // The seat can go out from under you between committing and the turn
+    // resolving. What you submitted locally has to go with it, or you carry on
+    // holding a draft for a colour that is no longer yours and nobody is told.
+    const { Session, LoopbackChannel } = transport();
+    const c = cfg();
+    const mine = LoopbackChannel.make('zzMine');  // the higher id: the contest goes against us
+    const peer = LoopbackChannel.make('aaThem');
+    const sa = Session.open({ match: Match.fromConfig(c), channel: mine, onChange: function () {} });
+    LoopbackChannel.link(mine, peer);
+
+    seat(sa, 'C', 'Rook');
+    await sa.commit('D');
+    await settle();
+
+    peerClaim(peer, 'C', 'Vale');
+    await settle();
+    eq(sa.color(), null, 'the lower id keeps coral');
+    assert(sa.view().notice, 'and we are told to pick another colour');
+
+    const r = sa.claim('P', 'Rook');
+    assert(r && r.ok, 'purple is free: ' + (r && r.error));
+    await sa.commit('A');
+    await settle();
+
+    eq(sa.view().turn, 0, 'purple is the only colour we act for, so the turn is not complete');
+    const dec = Wire.decodeExport(sa.export());
+    assert(dec.ok, 'the export should decode: ' + dec.error);
+    eq(dec.value.log.length, 1, 'one action in the log, not two: ' + JSON.stringify(dec.value.log));
+    eq(dec.value.log[0].color, 'P', 'and it is the colour we still hold');
+    assert(sa.view().pending.indexOf('C') >= 0, 'coral is owed by whoever holds it now');
   });
 
   // ---- rejoin -------------------------------------------------------------
@@ -572,6 +650,90 @@ async function runTests() {
     eq(announced.filter((s) => kindOf(s) === 'reveal').length, 1,
       'and the reveal coral has already published: ' + announced.join(' '));
     eq(announced.length, 3, 'and nothing else: ' + announced.join(' '));
+  });
+
+  await test('an export taken mid-turn is trimmed back to the last finished turn', async () => {
+    const T = transport();
+    assert(typeof T.trimUnresolved === 'function', 'TBTT_TRANSPORT.trimUnresolved is missing');
+    const { sa, sb } = mkPair();
+    seat(sa, 'C', 'Rook');
+    seat(sb, 'P', 'Vale');
+    await sa.commit('D');
+    await sb.commit('A');
+    await settle();
+    eq(sa.view().turn, 1, 'turn 0 finished');
+    await commitLegal(sa); // and turn 1 is under way, with only coral in
+
+    const raw = sa.export();
+    const asIs = Match.fromExport(raw);
+    assert(asIs.ok, 'the untrimmed export still loads: ' + asIs.error);
+    assert(asIs.value.pendingColors().indexOf('C') < 0,
+      'and it carries the draft, which is the whole problem');
+
+    const r = Match.fromExport(T.trimUnresolved(raw));
+    assert(r.ok, 'a trimmed export loads too: ' + r.error);
+    eq(r.value.currentTurn(), sa.view().turn, 'the finished turns are all still there');
+    eq(r.value.pendingColors().join(''), 'CP', 'and the unfinished one is owed by everybody again');
+    eq(r.value.view('C').myAction, null, 'no draft comes back, so commit() has something to do');
+    eq(r.value.stateHash(), sa.view().hash, 'on the state the live session is already on');
+    eq(r.value.names().C, 'Rook', 'and the names survive the cut');
+  });
+
+  await test('trimming an export taken at a turn boundary changes nothing', async () => {
+    const T = transport();
+    assert(typeof T.trimUnresolved === 'function', 'TBTT_TRANSPORT.trimUnresolved is missing');
+    const { sa, sb } = mkPair();
+    seat(sa, 'C', 'Rook');
+    seat(sb, 'P', 'Vale');
+    await sa.commit('D');
+    await sb.commit('A');
+    await settle();
+    eq(sa.view().turn, 1, 'nobody is mid-turn');
+
+    const raw = sa.export();
+    const before = Match.fromExport(raw);
+    const after = Match.fromExport(T.trimUnresolved(raw));
+    assert(before.ok, 'the export loads: ' + before.error);
+    assert(after.ok, 'and so does the trimmed one: ' + after.error);
+    eq(after.value.export(), before.value.export(), 'there was nothing to cut');
+    eq(after.value.currentTurn(), before.value.currentTurn(), 'same turn');
+    eq(after.value.stateHash(), before.value.stateHash(), 'same state');
+  });
+
+  await test('a trimmed mid-turn import rejoins the peer that is still waiting on it', async () => {
+    // Untrimmed, this hangs. The import carries coral's draft, so purple's own
+    // commit completes the turn locally on the spot, _maybeReveal finds the turn
+    // has already moved and returns, and coral waits for a reveal that never comes.
+    const T = transport();
+    assert(typeof T.trimUnresolved === 'function', 'TBTT_TRANSPORT.trimUnresolved is missing');
+    const { Session, LoopbackChannel } = T;
+    const c = cfg();
+    const a = LoopbackChannel.make('liveA');
+    const sa = Session.open({ match: Match.fromConfig(c), channel: a, onChange: function () {} });
+    seat(sa, 'C', 'Rook');
+    await sa.commit('D'); // into an empty room, so the turn is still open
+    await settle();
+
+    const r = Match.fromExport(T.trimUnresolved(sa.export()));
+    assert(r.ok, 'the trimmed export should load: ' + r.error);
+    const b = LoopbackChannel.make('joinB');
+    const sb = Session.open({ match: r.value, channel: b, onChange: function () {} });
+    LoopbackChannel.link(a, b);
+    await settle();
+    eq(sb.claims().C.clientId, a.id, 'linking announces the seat coral already holds');
+    eq(sb.view().turn, 0, 'and the importer is on the turn coral is waiting to finish');
+
+    seat(sb, 'P', 'Vale');
+    await sb.commit('A');
+    await settle();
+
+    eq(sb.view().turn, 1, 'the joiner resolved the turn');
+    eq(sa.view().turn, 1, 'and so did the peer that had been waiting on it');
+    eq(sa.view().hash, sb.view().hash, 'on one state, not two');
+    assert(sa.view().bodies.some((bd) => bd.color === 'P' && bd.t === 1 && bd.x === 14),
+      "coral saw the joiner's move");
+    assert(!sa.view().error, 'no error: ' + sa.view().error);
+    assert(!sb.view().error, 'none on the joiner either: ' + sb.view().error);
   });
 
   // ---- match code ---------------------------------------------------------
