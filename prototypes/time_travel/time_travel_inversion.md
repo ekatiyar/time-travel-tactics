@@ -17,21 +17,23 @@ There is no server, so players pass strings.
    roster.
 2. Everyone else pastes that code and gets a byte-identical board.
 3. On the setup screen each player claims a colour and types a **name** beside it, then
-   presses Play. A name is 1 to 12 characters of letters, digits, `-` and `_`. Space is
-   excluded because an action string carries the name after a `~` and the paste box splits
-   on whitespace, so a name containing one would tear in half. Anything outside the set is
-   refused at the input rather than quietly stripped, so nobody types a tilde and ends up
-   called something else. Duplicates are allowed: uniqueness needs a server.
+   presses Play.
 4. Each turn, the acting player copies one **action string** and sends it on:
    `12C:D#a3f1` is turn, colour, action, hash. Actions are `W` `A` `S` `D` to step up,
    left, down and right on screen, `H` to hold, and `I` to invert. A turn-0 string carries
    the sender's name as well, `0C:D#a3f2~Rook`; turns after that do not, because by then
    everyone has it.
 
+A name is 1 to 12 characters of letters, digits, `-` and `_`. The paste box splits on
+whitespace and an action string carries the name after a `~`, so a name with a space in it
+would tear in half. Anything outside the set is refused at the input rather than quietly
+stripped, so nobody types a tilde and ends up called something else. Duplicates are allowed.
+Uniqueness needs a server.
+
 The hash is of the pre-turn state. A string whose hash does not match is refused rather
 than applied, so a desync is caught the moment it happens instead of drifting. Names sit
-outside all of that. They are display-only, and the wire, the state hash and every internal
-identifier stay on colour codes, so until a player's turn-0 string reaches you their colour
+outside all of that. They are display-only. The wire, the state hash and every internal
+identifier stay on colour codes. Until a player's turn-0 string reaches you, their colour
 name stands in.
 
 `X1:` codes export a whole match in progress. They carry every name they know in a third
@@ -45,20 +47,20 @@ Neither action changes your (x, y). They differ in what they spend.
 **Hold** spends the world turn without the step. Your playhead advances by your direction,
 your personal index goes up by one, and you stay where you are. It is a holder under §4's
 collision rules, so it keeps the square against any mover arriving on it, whatever the
-public priority order says. It can still be refused: the tile you are holding into may
-already be recorded to another colour, and for an inverted player at t0 it is off the start
-of time.
+public priority order says. A hold can still be refused. The tile you are holding into may
+already be recorded to another colour, and an inverted player at t0 is holding into a turn
+that does not exist.
 
 **Invert** spends no world turn at all. Your direction flips and your personal index goes
 up by one, but `t` does not move, so you finish stacked on your own forward body at a single
 `(t, x, y)`. That is the turnstile, and the board draws it as both indices joined, `1·2`.
 Its target is a tile you already occupy, so bounds, walls and the same-colour occupancy
-exemption all pass and inverting can never be blocked. Which is why the prototype has no
-pass action: there is no state in which a player has nothing legal to do.
+exemption all pass and inverting can never be blocked. That is why the prototype has no
+pass action. There is no state in which a player has nothing legal to do.
 
-It follows that inverting twice running is a legal stall. You sit at the same world turn
+Inverting twice running is therefore a legal stall. You sit at the same world turn
 with three bodies stacked and your personal index up by two. This is deliberate. Stalling
-freezes your own horizon while everyone else pushes the frontier forward, and personal
+freezes your own horizon while everyone else pushes the frontier forward. Personal
 index is what erasure fronts eat in later versions, so the stall buys time at a price.
 
 ## Defaults
@@ -76,9 +78,9 @@ index is what erasure fronts eat in later versions, so the stall buys time at a 
 
 The defaults for board size and wall density were picked by eye and are untested. The match
 config refuses anything outside the ranges above, checked in the engine and not just on the
-setup form: unbounded, a typed 999 builds a 998001-cell board and freezes the tab. The seed
-is bounded for a different reason. It travels inside the match code between colons, so a
-seed carrying a colon would make the code ambiguous to split.
+setup form. Without the bound, a typed 999 builds a 998001-cell board and freezes the tab.
+The seed is bounded for a different reason. It travels inside the match code between
+colons, so a seed carrying a colon would make the code ambiguous to split.
 
 ## The interface
 
@@ -86,20 +88,20 @@ Three columns. The running log and the export box on the left, the board in the 
 turn panel on the right.
 
 Actions are a D-pad: four arrows around a centre hold button, with invert on its own below.
-Arrows or `W` `A` `S` `D` aim, Enter commits, Escape drops the aim and returns to the
-default, which is hold when hold is legal and invert when it is not. Invert is the fallback
-because a player walking backwards who has reached turn 0 can neither move nor hold, so
-Commit would otherwise sit dead with nothing pointing at it. Inverting has no key on purpose:
-it flips your direction, and that should not sit one keystroke from a movement key. Once
-you have committed, Enter applies whatever is in the paste box instead, so long as the
-cursor is not inside the box itself, where Enter has to stay a newline because several
-strings can go in at once.
+Arrows or `W` `A` `S` `D` aim, Enter commits, and Escape drops the aim and returns to the
+default. The default is hold when hold is legal and invert when it is not. Invert is the
+fallback because a player walking backwards who has reached turn 0 can neither move nor
+hold, so Commit would otherwise sit dead with nothing pointing at it. Inverting has no key
+on purpose. It flips your direction, and that should not sit one keystroke from a movement
+key. Once you have committed, Enter applies whatever is in the paste box. The exception is
+when the cursor sits inside the box, where Enter stays a newline, since several strings can
+go in at once.
 
 You can take an action back before you send it. The share panel has a **Change my action**
 button, and Escape does the same, because Escape means undo the last step of this turn in
 both phases. You land back in the picking phase with nothing committed, and neither the turn
 number nor the state hash moves. It only works while the turn is still open, which in
-practice is always: the paste box is hidden until you commit, so you can never be the last
+practice is always. The paste box is hidden until you commit, so you can never be the last
 player in. Like the horizon, it is honour-system. If you have already sent the string and
 somebody pasted it, they keep the action you took back. Your replacement is refused as a
 repeat, and neither of you finds out until your next string carries a hash they disagree
@@ -108,8 +110,8 @@ with.
 The log accumulates across the whole match rather than showing only the last turn.
 
 Look back sets how many world turns of history the board and the strip draw behind your
-focus turn. At the full turn cap every dot ever recorded lands in one cell, so it caps at a
-quarter of the turn cap and starts there.
+focus turn. At the full turn cap every dot ever recorded lands in one cell, so look-back
+maxes out at a quarter of the turn cap, and starts there.
 
 ## What it does not do
 
@@ -129,5 +131,5 @@ uv run --with playwright python ../run_tests.py time_travel
 ```
 
 It loads the page in headless Chromium, injects `tests.js`, and calls `runTests()`, because
-there is no node on this machine. Run it from anywhere with the path adjusted; the argument
-is resolved against the harness's own directory and defaults to `time_travel`.
+there is no node on this machine. Run it from anywhere with the path adjusted; the harness
+resolves the argument against its own directory and defaults to `time_travel`.

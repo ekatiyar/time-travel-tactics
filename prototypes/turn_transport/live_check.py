@@ -3,13 +3,13 @@
 # ///
 """Smoke-check the two-phase turn handshake over real nostr relays.
 
-Opens the turn_transport prototype in two headless Chromium pages, builds a
-real Session over a real PeerChannel in each (bypassing the UI), and drives
-two full turns: claim a colour on each side, commit on each side, and check
-that one commitment alone moves nothing while the second resolves the turn on
-both sides with matching state. It also checks the wire: every string either
-page sends must parse as a claim, a commitment or a reveal, and each side must
-send exactly one commitment and one reveal per turn.
+Opens the prototype in two headless Chromium pages and builds a real Session
+over a real PeerChannel in each, bypassing the UI. Then it drives two full
+turns. Each side claims a colour and commits. One commitment alone must move
+nothing; the second must resolve the turn on both sides with matching state.
+It also checks the wire: every string either page sends must parse as a
+claim, a commitment or a reveal, and each side must send exactly one
+commitment and one reveal per turn.
 
 Slow and dependent on relay availability, so run_tests.py does not pick it up
 (that runs tests.js and tests.include only). Run it on its own:
@@ -97,7 +97,7 @@ def collect_console(page, errors, console_errors):
 
 
 def check_wire_discipline(sent):
-    """Every message must be a claim, commitment, or reveal, and nothing else."""
+    """Every message must be a claim, commitment, or reveal."""
     bad = [t for t in sent if not (CLAIM_RE.match(t) or COMMIT_RE.match(t) or REVEAL_RE.match(t))]
     return bad
 
@@ -145,8 +145,7 @@ def main() -> int:
             if claim_time_a is None or claim_time_b is None:
                 fail = "claims did not cross the wire"
 
-        # Turn 0: A commits first, B should see coral drop off waiting before
-        # anything resolves, then B commits and both sides should reach turn 1.
+        # Turn 0.
         commit0_time = resolve0_time = None
         if not fail:
             commit(page_a, "D")
@@ -167,7 +166,7 @@ def main() -> int:
                 fail = "turn 0 resolved but the two sides disagree on state hash"
 
         # Turn 1: same shape, to exercise prune and the per-turn stores once the
-        # playhead has actually moved.
+        # playhead has moved.
         commit1_time = resolve1_time = None
         if not fail:
             commit(page_a, "D")

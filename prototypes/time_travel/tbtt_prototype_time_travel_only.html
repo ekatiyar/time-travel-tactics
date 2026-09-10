@@ -54,7 +54,7 @@
   /* ---- three columns; the board column never drops below half the window ---- */
   .cols{display:grid;gap:14px;align-items:start;
     grid-template-columns:minmax(240px,1fr) minmax(50vw,2.4fr) minmax(270px,1fr);}
-  /* Stacked, the board comes first — the log and export can scroll below it. */
+  /* Stacked, the board comes first. The log and export can scroll below it. */
   @media(max-width:1120px){
     .cols{grid-template-columns:1fr;}
     .cols>:nth-child(2){order:-1;}
@@ -72,10 +72,9 @@
     grid-template-columns:repeat(var(--bw),1fr);
     grid-template-rows:repeat(var(--bh),1fr);
   }
-  /* Border rather than gap: the gutter comes out of the cell, so the grid's aspect
-     ratio stays exact and cells stay square at every board shape. Each cell is its
-     own size container, so tokens scale with the cell rather than with the board —
-     a 40-wide board and a 4-wide board both stay readable. */
+  /* Border rather than gap keeps the grid's aspect ratio exact, so cells stay
+     square at any board shape. Each cell is a size container so tokens scale
+     with the cell, not the board. */
   .cell{border:1px solid var(--surface-2);border-radius:3px;min-width:0;min-height:0;
     container-type:size;display:flex;align-items:center;justify-content:center;
     gap:4cqmin;overflow:hidden;}
@@ -266,14 +265,14 @@
               <button id="btnUndo">Change my action</button>
             </div>
             <div class="keyhint" style="margin:0 0 14px;">Esc does the same. Only worth it
-              before you send — once someone has pasted your string, changing it puts you a
+              before you send. Once someone has pasted your string, changing it puts you a
               turn out of step with them.</div>
             <h2>Paste everyone else's actions. All at once is fine.</h2>
             <textarea id="inActions" rows="4" placeholder="7P:D#a3f2&#10;7T:W#a3f2"></textarea>
             <button id="btnApply" style="width:100%;margin-top:8px;">Apply</button>
             <div id="pasteMsg"></div>
             <div id="pending" class="mono muted" style="margin-top:8px;"></div>
-            <div class="keyhint">Enter applies — click outside the box first, since Enter
+            <div class="keyhint">Enter applies. Click outside the box first, since Enter
               inside it is a newline and several strings can go in at once.</div>
           </div>
 
@@ -366,8 +365,7 @@
     return cfg;
   }
 
-  // Seeded walls, then carve until every spawn is mutually reachable. Without the
-  // carve pass a seed can silently seal a player into their corner.
+  // Without the carve pass, a seed can silently seal a player into their corner.
   function genWalls(cfg) {
     var w = cfg.w, h = cfg.h;
     var spawns = cfg.roster.map(function (c) { return spawnFor(c, w, h); });
@@ -468,7 +466,7 @@
   };
 
   // Where an action would put you, given a player's current playhead. Inverting
-  // spends no world turn: you stay on the tile you already hold and only your
+  // spends no world turn. You stay on the tile you already hold and only your
   // direction flips, so its target can never be refused. Holding spends the world
   // turn without the step, and can be refused like any other target.
   function targetOf(pl, action) {
@@ -487,11 +485,9 @@
     if (tg.x < 0 || tg.y < 0 || tg.x >= cfg.w || tg.y >= cfg.h) return 'off the board';
     if (this._walls.has(tg.x + ',' + tg.y)) return 'wall';
     var who = occ.get(tg.t + ',' + tg.x + ',' + tg.y);
-    // Same colour on the same tile is the turnstile, which inverting is allowed to
-    // use. A move must diverge from your other instance immediately.
-    // The reason reaches the player as a tooltip, so it must never name a colour or
-    // a world turn — the target can sit past their horizon. "Occupied" tells them
-    // no more than the greyed tile already does.
+    // Same colour on one tile is the turnstile; a move must diverge immediately.
+    // The reason is shown as a tooltip and the target can sit past the viewer's
+    // horizon, so it must never name a colour or a world turn.
     if (who && (who !== pl.color || tg.move)) return 'occupied';
     return null;
   };
@@ -544,12 +540,8 @@
       // during this turn are a separate, later check.
       var occBase = new Map(occ);
 
-      // Two classes of action. A move changes your (x,y); holding and inverting do
-      // not, and neither does being bounced out of a contested tile — those still
-      // travel in time, just not in space. Holding your square beats moving into it
-      // no matter who has priority, and a bounced mover becomes a holder, which can
-      // bounce someone else in turn. So this runs to a fixed point. The holder and
-      // stuck sets only ever grow, so it terminates.
+      // Holders beat movers, and a bounced mover becomes a holder, so this iterates.
+      // The holder and stuck sets only grow, which is why it terminates.
       var holds = {}, frozen = {}, bounceBy = {}, claim = null;
 
       for (var i = 0; i < prio.length; i++) {
@@ -572,7 +564,7 @@
           var k = targetOf(pl, acts[c]).t + ',' + pl.x + ',' + pl.y;
           var occWho = occBase.get(k);
           // Another colour already recorded there, or two holders after one square
-          // (priority breaks that tie): nothing left to do but lose the turn.
+          // (priority breaks that tie). Nothing left to do but lose the turn.
           if ((occWho && occWho !== c) || claim.has(k)) { frozen[c] = 1; changed = true; continue; }
           claim.set(k, c);
         }
@@ -640,7 +632,7 @@
 
   // Index into _log of this colour's entry for the current turn, or -1. A turn
   // resolves the moment everyone is in, so an entry found here is always still a
-  // draft: it has not been applied to anything.
+  // draft. It has not been applied to anything.
   Match.prototype._draftIndex = function (color, d) {
     var turn = d.turn;
     for (var i = this._log.length - 1; i >= 0; i--) {
@@ -658,10 +650,8 @@
     });
   };
 
-  // Taking back an action you have committed but not yet sent. The turn number and
-  // the state hash do not move. Anyone who already pasted your first string keeps it:
-  // your replacement bounces off pendingColors as a repeat, and the two of you only
-  // find out a turn later, when your next string carries a hash they disagree with.
+  // If someone already pasted your first string, your replacement bounces off
+  // pendingColors as a repeat and neither of you finds out until the next hash.
   Match.prototype.withdraw = function (color) {
     if (this._cfg.roster.indexOf(color) < 0) return { ok: false, error: 'colour ' + color + ' is not in this match' };
     var d = this._derive();
@@ -689,7 +679,7 @@
     if (d.over) return { ok: false, error: 'the match is over' };
     if (this._cfg.roster.indexOf(sub.color) < 0) return { ok: false, error: 'colour ' + sub.color + ' is not in this match' };
     if (sub.turn !== d.turn) return { ok: false, error: 'that string is for turn ' + sub.turn + ', this match is on turn ' + d.turn };
-    if (sub.hash !== d.hash) return { ok: false, error: 'state hash ' + sub.hash + ' does not match yours (' + d.hash + ') — your timelines have diverged' };
+    if (sub.hash !== d.hash) return { ok: false, error: 'state hash ' + sub.hash + ' does not match yours (' + d.hash + '). Your timelines have diverged' };
     if (this.pendingColors().indexOf(sub.color) < 0) return { ok: false, error: COLORS[sub.color].name + ' has already acted this turn' };
     var legal = this.legalActions(sub.color);
     if (!(sub.action in legal)) return { ok: false, error: '"' + sub.action + '" is not an action' };
@@ -703,7 +693,7 @@
   };
 
   // Names arrive on turn-0 action strings, in an export, or from the local setup
-  // screen. Late arrivals are ignored rather than refused: a player who renamed
+  // screen. Late arrivals are ignored rather than refused. A player who renamed
   // themselves mid-match would otherwise desync everyone who saw them first.
   Match.prototype.setName = function (color, name) {
     if (this._cfg.roster.indexOf(color) < 0 || !validName(name)) return false;
@@ -742,7 +732,7 @@
       bodies: d.bodies.filter(function (b) { return b.t <= hz; }).map(function (b) {
         return { color: b.color, p: b.p, t: b.t, x: b.x, y: b.y, live: d.players[b.color].p === b.p };
       }),
-      // Copied, not filtered: filter clones the array but not the entries, and a
+      // Copied, not filtered. Filter clones the array but not the entries, and a
       // caller holding a reference into the cache could edit the match's own past.
       events: d.events.filter(function (e) { return e.t <= hz; }).map(function (e) {
         return {
@@ -875,8 +865,7 @@
 
   // Rank the distinct world turns that actually have a visible dot, then spread
   // opacity across the whole range. Fading by raw distance instead puts three dots
-  // at 1.00 / 0.92 / 0.83, which reads as one shade. On a busy board the two
-  // converge; this only bites when there is little to show.
+  // at 1.00 / 0.92 / 0.83, which reads as one shade.
   function shade(bodies, focusT, lookBack) {
     var floor = parseFloat(getComputedStyle(document.documentElement)
       .getPropertyValue('--dot-floor')) || 0.14;
@@ -908,7 +897,7 @@
     });
 
     // Only offer actions while looking at the slice you actually act from. Invert
-    // is left off the board: it lands on the tile you already stand on, which is
+    // is left off the board. It lands on the tile you already stand on, which is
     // where hold goes, and hold is the one you mean when you click yourself.
     var targets = {};
     if (onPick && focusT === view.me.t) {
@@ -993,7 +982,7 @@
         (t === focusT ? 'var(--text-primary)' : 'var(--text-muted)') + ';">' +
         (span <= 24 || t % 5 === 0 ? t : '') + '</div>';
     }
-    // Beyond your horizon: dashed and unreadable.
+    // Beyond your horizon, dashed and unreadable.
     var beyond = '';
     if (!view.over && view.me.horizon < view.cap) {
       beyond = '<div style="flex:2;min-width:14px;height:9px;border-radius:2px;border:1px dashed var(--border);"></div>';
@@ -1053,11 +1042,11 @@
   function setTheme(t) {
     document.documentElement.setAttribute('data-theme', t);
     $('btnTheme').textContent = t === 'light' ? 'Dark' : 'Light';
-    try { localStorage.setItem(THEME_KEY, t); } catch (e) { /* file:// with storage off */ }
+    try { localStorage.setItem(THEME_KEY, t); } catch (e) { /* storage off */ }
     if (match && me) refresh();
   }
   var saved = null;
-  try { saved = localStorage.getItem(THEME_KEY); } catch (e) { /* ignore */ }
+  try { saved = localStorage.getItem(THEME_KEY); } catch (e) { /* storage off */ }
   setTheme(saved === 'light' ? 'light' : 'dark');
   $('btnTheme').onclick = function () {
     setTheme(document.documentElement.getAttribute('data-theme') === 'light' ? 'dark' : 'light');
@@ -1120,7 +1109,7 @@
   // ends up called something else.
   function syncPlay() {
     var on = document.querySelector('#pickRows .pickrow.on');
-    // Trimmed before checking: a space is not a legal name character, so a stray
+    // Trimmed before checking. A space is not a legal name character, so a stray
     // one off a paste would otherwise dead-end the Play button.
     var raw = (on ? on.querySelector('input').value : '').trim();
     var bad = raw.length && !/^[A-Za-z0-9_-]{1,12}$/.test(raw);
@@ -1176,8 +1165,7 @@
     $('play').classList.remove('hide');
     var v = match.view(me);
     focusT = v.me.t;
-    // A quarter of the turn cap is as far back as the window ever reaches. At the
-    // full cap every dot ever recorded lands in one cell.
+    // At the full cap every dot ever recorded lands in one cell.
     var maxBack = Math.max(1, Math.ceil(v.cap / 4));
     $('rd').max = maxBack; $('rd').value = maxBack;
     $('rdNote').textContent = 'look back caps at ' + maxBack +
@@ -1233,7 +1221,7 @@
       var pend = v.pending.filter(function (x) { return x !== me; });
       $('pending').textContent = pend.length
         ? 'still waiting on: ' + pend.map(function (x) { return nameOf(v, x); }).join(', ')
-        : 'everyone is in — applying...';
+        : 'everyone is in, applying';
     }
   }
 
@@ -1297,9 +1285,8 @@
     b.onclick = function () { setPick(b.getAttribute('data-act')); };
   });
 
-  // Arrows and WASD aim, Enter fires whichever button this phase shows, Escape
-  // goes back to the default. Invert is deliberately keyless: it flips your
-  // direction, which should not sit one keystroke from a movement key.
+  // Invert is deliberately keyless. Flipping your direction should not sit one
+  // keystroke from a movement key.
   document.addEventListener('keydown', function (e) {
     if (!match || !me || $('play').classList.contains('hide')) return;
     if (/^(INPUT|TEXTAREA|SELECT)$/.test(e.target.tagName)) return;
@@ -1310,7 +1297,7 @@
       if (!btn.disabled && !btn.closest('.hide')) { btn.click(); e.preventDefault(); }
       return;
     }
-    // Escape means "undo the last step of this turn" in both phases: take the
+    // Escape means "undo the last step of this turn" in both phases. Take the
     // action back if it is committed, otherwise drop the aim.
     if (e.key === 'Escape') {
       if (committed()) undo(); else { pick = null; refresh(); }

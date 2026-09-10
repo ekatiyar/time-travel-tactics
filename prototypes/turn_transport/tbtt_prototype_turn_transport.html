@@ -54,7 +54,7 @@
   /* ---- three columns; the board column never drops below half the window ---- */
   .cols{display:grid;gap:14px;align-items:start;
     grid-template-columns:minmax(240px,1fr) minmax(50vw,2.4fr) minmax(270px,1fr);}
-  /* Stacked, the board comes first — the log and export can scroll below it. */
+  /* Stacked, the board comes first. The log and export can scroll below it. */
   @media(max-width:1120px){
     .cols{grid-template-columns:1fr;}
     .cols>:nth-child(2){order:-1;}
@@ -72,10 +72,9 @@
     grid-template-columns:repeat(var(--bw),1fr);
     grid-template-rows:repeat(var(--bh),1fr);
   }
-  /* Border rather than gap: the gutter comes out of the cell, so the grid's aspect
-     ratio stays exact and cells stay square at every board shape. Each cell is its
-     own size container, so tokens scale with the cell rather than with the board —
-     a 40-wide board and a 4-wide board both stay readable. */
+  /* Border rather than gap keeps the grid's aspect ratio exact, so cells stay
+     square at any board shape. Each cell is a size container so tokens scale
+     with the cell, not the board. */
   .cell{border:1px solid var(--surface-2);border-radius:3px;min-width:0;min-height:0;
     container-type:size;display:flex;align-items:center;justify-content:center;
     gap:4cqmin;overflow:hidden;}
@@ -361,8 +360,7 @@
     return cfg;
   }
 
-  // Seeded walls, then carve until every spawn is mutually reachable. Without the
-  // carve pass a seed can silently seal a player into their corner.
+  // Without the carve pass, a seed can silently seal a player into their corner.
   function genWalls(cfg) {
     var w = cfg.w, h = cfg.h;
     var spawns = cfg.roster.map(function (c) { return spawnFor(c, w, h); });
@@ -463,7 +461,7 @@
   };
 
   // Where an action would put you, given a player's current playhead. Inverting
-  // spends no world turn: you stay on the tile you already hold and only your
+  // spends no world turn. You stay on the tile you already hold and only your
   // direction flips, so its target can never be refused. Holding spends the world
   // turn without the step, and can be refused like any other target.
   function targetOf(pl, action) {
@@ -482,11 +480,9 @@
     if (tg.x < 0 || tg.y < 0 || tg.x >= cfg.w || tg.y >= cfg.h) return 'off the board';
     if (this._walls.has(tg.x + ',' + tg.y)) return 'wall';
     var who = occ.get(tg.t + ',' + tg.x + ',' + tg.y);
-    // Same colour on the same tile is the turnstile, which inverting is allowed to
-    // use. A move must diverge from your other instance immediately.
-    // The reason reaches the player as a tooltip, so it must never name a colour or
-    // a world turn — the target can sit past their horizon. "Occupied" tells them
-    // no more than the greyed tile already does.
+    // Same colour on one tile is the turnstile; a move must diverge immediately.
+    // The reason is shown as a tooltip and the target can sit past the viewer's
+    // horizon, so it must never name a colour or a world turn.
     if (who && (who !== pl.color || tg.move)) return 'occupied';
     return null;
   };
@@ -539,12 +535,8 @@
       // during this turn are a separate, later check.
       var occBase = new Map(occ);
 
-      // Two classes of action. A move changes your (x,y); holding and inverting do
-      // not, and neither does being bounced out of a contested tile — those still
-      // travel in time, just not in space. Holding your square beats moving into it
-      // no matter who has priority, and a bounced mover becomes a holder, which can
-      // bounce someone else in turn. So this runs to a fixed point. The holder and
-      // stuck sets only ever grow, so it terminates.
+      // Holders beat movers, and a bounced mover becomes a holder, so this iterates.
+      // The holder and stuck sets only grow, which is why it terminates.
       var holds = {}, frozen = {}, bounceBy = {}, claim = null;
 
       for (var i = 0; i < prio.length; i++) {
@@ -567,7 +559,7 @@
           var k = targetOf(pl, acts[c]).t + ',' + pl.x + ',' + pl.y;
           var occWho = occBase.get(k);
           // Another colour already recorded there, or two holders after one square
-          // (priority breaks that tie): nothing left to do but lose the turn.
+          // (priority breaks that tie). Nothing left to do but lose the turn.
           if ((occWho && occWho !== c) || claim.has(k)) { frozen[c] = 1; changed = true; continue; }
           claim.set(k, c);
         }
@@ -635,7 +627,7 @@
 
   // Index into _log of this colour's entry for the current turn, or -1. A turn
   // resolves the moment everyone is in, so an entry found here is always still a
-  // draft: it has not been applied to anything.
+  // draft. It has not been applied to anything.
   Match.prototype._draftIndex = function (color, d) {
     var turn = d.turn;
     for (var i = this._log.length - 1; i >= 0; i--) {
@@ -653,10 +645,8 @@
     });
   };
 
-  // Taking back an action you have committed but not yet sent. The turn number and
-  // the state hash do not move. Anyone who already pasted your first string keeps it:
-  // your replacement bounces off pendingColors as a repeat, and the two of you only
-  // find out a turn later, when your next string carries a hash they disagree with.
+  // If someone already pasted your first string, your replacement bounces off
+  // pendingColors as a repeat and neither of you finds out until the next hash.
   Match.prototype.withdraw = function (color) {
     if (this._cfg.roster.indexOf(color) < 0) return { ok: false, error: 'colour ' + color + ' is not in this match' };
     var d = this._derive();
@@ -684,7 +674,7 @@
     if (d.over) return { ok: false, error: 'the match is over' };
     if (this._cfg.roster.indexOf(sub.color) < 0) return { ok: false, error: 'colour ' + sub.color + ' is not in this match' };
     if (sub.turn !== d.turn) return { ok: false, error: 'that string is for turn ' + sub.turn + ', this match is on turn ' + d.turn };
-    if (sub.hash !== d.hash) return { ok: false, error: 'state hash ' + sub.hash + ' does not match yours (' + d.hash + ') — your timelines have diverged' };
+    if (sub.hash !== d.hash) return { ok: false, error: 'state hash ' + sub.hash + ' does not match yours (' + d.hash + '). Your timelines have diverged' };
     if (this.pendingColors().indexOf(sub.color) < 0) return { ok: false, error: COLORS[sub.color].name + ' has already acted this turn' };
     var legal = this.legalActions(sub.color);
     if (!(sub.action in legal)) return { ok: false, error: '"' + sub.action + '" is not an action' };
@@ -698,7 +688,7 @@
   };
 
   // Names arrive on turn-0 action strings, in an export, or from the local setup
-  // screen. Late arrivals are ignored rather than refused: a player who renamed
+  // screen. Late arrivals are ignored rather than refused. A player who renamed
   // themselves mid-match would otherwise desync everyone who saw them first.
   Match.prototype.setName = function (color, name) {
     if (this._cfg.roster.indexOf(color) < 0 || !validName(name)) return false;
@@ -737,7 +727,7 @@
       bodies: d.bodies.filter(function (b) { return b.t <= hz; }).map(function (b) {
         return { color: b.color, p: b.p, t: b.t, x: b.x, y: b.y, live: d.players[b.color].p === b.p };
       }),
-      // Copied, not filtered: filter clones the array but not the entries, and a
+      // Copied, not filtered. Filter clones the array but not the entries, and a
       // caller holding a reference into the cache could edit the match's own past.
       events: d.events.filter(function (e) { return e.t <= hz; }).map(function (e) {
         return {
@@ -866,7 +856,7 @@
   'use strict';
   var T = root.TBTT, Wire = T.Wire, COLORS = T.COLORS;
 
-  // A copy of the engine's hash, not a call into it: the engine block is held
+  // A copy of the engine's hash, not a call into it. The engine block is held
   // byte-identical to the time_travel prototype and does not export fnv1a.
   function fnv1a(str) {
     var h = 0x811c9dc5;
@@ -891,10 +881,9 @@
     crypto.getRandomValues(b);
     return hexOf(b);
   }
-  // Pinned down to the byte, because two clients disagreeing on this preimage
-  // would look exactly like a diverged timeline: unpadded decimal turn, UTF-8,
-  // lowercase hex nonce, and the first 128 bits of the digest. Turn and colour
-  // are in it so a commitment cannot be lifted into another turn.
+  // Preimage is pinned in turn-transport.md §5. Changing one without the other
+  // produces commitments that never open, which on screen looks exactly like a
+  // diverged timeline and is not.
   function digest128(turn, color, action, nonce) {
     var pre = new TextEncoder().encode(turn + ':' + color + ':' + action + ':' + nonce);
     return crypto.subtle.digest('SHA-256', pre).then(function (buf) {
@@ -940,11 +929,13 @@
   }
 
   // Trystero over nostr, version-pinned because 0.23 and 0.25 both changed the API.
-  // In 0.25 the peer callbacks are assignable properties, not subscribe functions:
-  // room.onPeerJoin = fn, not room.onPeerJoin(fn). Calling one throws, and because
-  // the message channel is already wired by then the match keeps working while the
-  // status line says it failed. Hence the pin and the shape spelled out below.
-  // Imported from the CDN rather than vendored: a local .js module is blocked by
+
+  // In 0.25 the peer callbacks are assigned, not called: room.onPeerJoin = fn, not
+  // room.onPeerJoin(fn). Calling one throws, and because the message channel is
+  // already wired by then the match keeps working while the status line says it
+  // failed.
+
+  // Imported from the CDN rather than vendored. A local .js module is blocked by
   // CORS on a file:// page, a remote one is not. Dynamic import so a CDN or relay
   // failure is catchable instead of killing the page.
   var TRYSTERO = 'https://esm.sh/@trystero-p2p/nostr@0.25.2?bundle';
@@ -962,7 +953,7 @@
       emit({ state: 'offline', peers: [], detail: null });
     };
 
-    // A room with nobody in it is not live, it is still connecting: joinRoom
+    // A room with nobody in it is not live, it is still connecting. joinRoom
     // resolving only means the relays were reached.
     function report() {
       emit({ state: peers.length ? 'live' : 'connecting', peers: peers.slice(), detail: null });
@@ -1056,8 +1047,8 @@
     this._peers = [];
     this._status = { state: 'offline', peers: [], detail: null };
     // Two kinds of bad news, and they behave differently. A notice is something
-    // you can act on — pick another colour — and it clears when you do. An error
-    // is a divergence: nothing you do at the keyboard fixes it, so it latches.
+    // you can act on, such as picking another colour, and it clears when you do.
+    // An error is a divergence. Nothing you do at the keyboard fixes it, so it latches.
     this._error = null;
     this._notice = null;
     var self = this;
@@ -1073,7 +1064,7 @@
     this._status = copyStatus(s);
     this._peers = this._status.peers.slice();
     var fresh = this._peers.filter(function (p) { return before.indexOf(p) < 0; });
-    // A peer appearing is the whole reconnect mechanism: tell it who you are and
+    // A peer appearing is the whole reconnect mechanism. Tell it who you are and
     // what you have already done this turn. No timers, no heartbeats, no hello.
     if (fresh.length) this._announce();
     this._changed();
@@ -1108,7 +1099,7 @@
 
   Session.prototype.color = function () { return this._me; };
 
-  // No authority and none needed: the lower client id keeps a contested colour, and
+  // No authority and none needed. The lower client id keeps a contested colour, and
   // every client runs that same comparison, so the same player is bounced on every
   // screen.
   Session.prototype.claim = function (color, name) {
@@ -1170,8 +1161,8 @@
     if (this._match.config().roster.indexOf(color) < 0) return;
     if (turn < this._match.currentTurn() || turn >= this._match.config().cap) return;
     this._addCommitment(turn, color, digest);
-    // Before reopening anything: a held reveal completing this turn would advance
-    // the match and prune our own draft out from under us, unsent.
+    // This runs before reopening anything. A held reveal completing this turn
+    // would advance the match and prune our own draft out from under us, unsent.
     this._maybeReveal();
     var self = this;
     this._reopen(turn, color).then(function () { self._changed(); });
@@ -1180,7 +1171,7 @@
 
   // ---------- reveals ----------
 
-  // A reveal that opens nothing is not dropped, it is kept: over a channel with no
+  // A reveal that opens nothing is not dropped, it is kept. Over a channel with no
   // ordering it may simply have overtaken its own commitment.
   Session.prototype._revealReceived = function (text) {
     var m = REVEAL_RE.exec(text);
@@ -1231,7 +1222,7 @@
   };
 
   // Everything behind the playhead is settled and can go. Everything ahead of it
-  // stays: a commitment for the next turn arriving during this one is ordinary.
+  // stays. A commitment for the next turn arriving during this one is ordinary.
   Session.prototype._prune = function () {
     var turn = this._match.currentTurn();
     [this._commitments, this._reveals].forEach(function (store) {
@@ -1244,24 +1235,24 @@
     return !!this._me && this._match.pendingColors().indexOf(this._me) < 0;
   };
 
-  // Every case the engine would refuse is decided here instead, on the numbers.
-  // Reading submit's reply to find out which one it was would tie the transport
-  // to the wording of a message written for a player to read.
+  // Every case the engine would refuse is decided here instead, on turn and hash.
+  // Parsing submit's error text would couple the transport to wording meant for
+  // a player to read.
   Session.prototype._flush = function () {
     var self = this, keep = [];
     if (this._match.currentTurn() >= this._match.config().cap) { this._buffer = []; this._prune(); return; }
     this._buffer.forEach(function (text) {
       var d = Wire.decodeAction(text), turn = self._match.currentTurn();
       if (!d.ok) return;
-      if (d.value.turn > turn) { keep.push(text); return; }   // ahead of us: hold it
-      if (d.value.turn < turn) return;                        // behind us: already applied
+      if (d.value.turn > turn) { keep.push(text); return; }   // ahead of us, hold it
+      if (d.value.turn < turn) return;                        // behind us, already applied
       if (self._match.pendingColors().indexOf(d.value.color) < 0) return;
       if (d.value.hash !== self._match.stateHash()) {
         // The two matches are already broken and the only cure is a fresh
         // export/import, so this latches rather than flashes.
         self._error = 'turn ' + d.value.turn + ' arrived on state ' + d.value.hash +
           ', but this match is on ' + self._match.stateHash() +
-          ' — your timelines have diverged. Export and re-import to get back in step.';
+          ', your timelines have diverged. Export and re-import to get back in step.';
         return;
       }
       var r = self._match.submit(d.value);
@@ -1282,7 +1273,7 @@
     });
     if (!r.ok) return Promise.resolve(r);
     // The engine's own string, so a name still rides along on turn 0. An export is
-    // never broadcast: it serialises partial turns and would leak the current one.
+    // never broadcast. It serialises partial turns and would leak the current one.
     var out = this._match.view(color).myAction;
     var nonce = nonce128();
     return digest128(turn, color, action, nonce).then(function (digest) {
@@ -1297,7 +1288,7 @@
   };
 
   // Nobody asks for a reveal and nobody acks one. The last commitment landing is
-  // the signal, and every client sees it, so everything opens at once.
+  // the signal. Every client sees it, so everything opens at once.
   Session.prototype._maybeReveal = function () {
     var m = this._mine, self = this;
     if (!m || m.revealed || m.turn !== this._match.currentTurn()) return;
@@ -1315,7 +1306,7 @@
     }
     var r = this._match.withdraw(this._me);
     if (!r.ok) return r;
-    // Dropping the digest only tidies our own books: the opponent cannot unsee a
+    // Dropping the digest only tidies our own books. The opponent cannot unsee a
     // commitment, and does not need to. It discloses nothing, and the replacement
     // we publish next is the one we will open.
     if (m) {
@@ -1331,7 +1322,7 @@
   // renderStrip, renderLegend and renderLog keep working untouched.
   //
   // Seatless, this renders the first colour in the roster so the picker has
-  // something to read. Do not put that on screen as a board: check color() first.
+  // something to read. Do not put that on screen as a board. Check color() first.
   Session.prototype.view = function () {
     var color = this._me || this._match.config().roster[0];
     var self = this, v = this._match.view(color);
@@ -1410,7 +1401,7 @@
     });
 
     // Only offer actions while looking at the slice you actually act from. Invert
-    // is left off the board: it lands on the tile you already stand on, which is
+    // is left off the board. It lands on the tile you already stand on, which is
     // where hold goes, and hold is the one you mean when you click yourself.
     var targets = {};
     if (onPick && focusT === view.me.t) {
@@ -1495,7 +1486,7 @@
         (t === focusT ? 'var(--text-primary)' : 'var(--text-muted)') + ';">' +
         (span <= 24 || t % 5 === 0 ? t : '') + '</div>';
     }
-    // Beyond your horizon: dashed and unreadable.
+    // Beyond your horizon, dashed and unreadable.
     var beyond = '';
     if (!view.over && view.me.horizon < view.cap) {
       beyond = '<div style="flex:2;min-width:14px;height:9px;border-radius:2px;border:1px dashed var(--border);"></div>';
@@ -1551,8 +1542,8 @@
   var match = null, pick = null, focusT = 0, lookBack = 999, shownTurn = -1;
   var session = null, channel = null;
 
-  // One source of truth for which seat is yours. The session can take it away —
-  // a claim that arrives late outranks yours — and the app has to notice.
+  // One source of truth for which seat is yours. A claim that arrives late
+  // outranks yours, so the session can take the seat away, and the app has to notice.
   function me() { return session ? session.color() : null; }
 
   // Theme is a display preference, so it persists even though match state never does.
@@ -1560,11 +1551,11 @@
   function setTheme(t) {
     document.documentElement.setAttribute('data-theme', t);
     $('btnTheme').textContent = t === 'light' ? 'Dark' : 'Light';
-    try { localStorage.setItem(THEME_KEY, t); } catch (e) { /* file:// with storage off */ }
+    try { localStorage.setItem(THEME_KEY, t); } catch (e) { /* storage off */ }
     if (match && me()) refresh();
   }
   var saved = null;
-  try { saved = localStorage.getItem(THEME_KEY); } catch (e) { /* ignore */ }
+  try { saved = localStorage.getItem(THEME_KEY); } catch (e) { /* storage off */ }
   setTheme(saved === 'light' ? 'light' : 'dark');
   $('btnTheme').onclick = function () {
     setTheme(document.documentElement.getAttribute('data-theme') === 'light' ? 'dark' : 'light');
@@ -1666,7 +1657,7 @@
   // ends up called something else.
   function syncPlay() {
     var on = document.querySelector('#pickRows .pickrow.on');
-    // Trimmed before checking: a space is not a legal name character, so a stray
+    // Trimmed before checking. A space is not a legal name character, so a stray
     // one off a paste would otherwise dead-end the Play button.
     var raw = (on ? on.querySelector('input').value : '').trim();
     var bad = raw.length && !/^[A-Za-z0-9_-]{1,12}$/.test(raw);
@@ -1775,7 +1766,7 @@
     $('outExport').value = session.export();
 
     var lbl = { offline: 'not connected', connecting: 'connecting\u2026', live: 'live',
-      failed: 'connection failed' }[v.status] || v.status;
+      failed: 'connection failed, export to rejoin' }[v.status] || v.status;
     $('netInfo').textContent = 'turns move: ' + lbl +
       (v.status === 'live' ? ' \u00b7 ' + v.peers.length + ' peer' + (v.peers.length === 1 ? '' : 's') : '') +
       (v.detail ? ' \u00b7 ' + v.detail : '');
@@ -1789,7 +1780,7 @@
     if (!v.over && committed(v)) {
       $('pending').textContent = v.waiting.length
         ? 'still waiting on: ' + v.waiting.map(function (x) { return nameOf(v, x); }).join(', ')
-        : 'everyone is in — opening...';
+        : 'everyone is in, opening';
       // Your action is out in the open the moment the last commitment lands, so
       // there is nothing left to take back and the button says so by leaving.
       $('btnUndo').classList.toggle('hide', !v.canChange);
@@ -1864,7 +1855,7 @@
   });
 
   // Arrows and WASD aim, Enter commits, Escape goes back to the default. Invert is
-  // deliberately keyless: it flips your direction, which should not sit one
+  // deliberately keyless. It flips your direction, which should not sit one
   // keystroke from a movement key.
   document.addEventListener('keydown', function (e) {
     if (!match || !me() || $('play').classList.contains('hide')) return;
@@ -1877,7 +1868,7 @@
       if (!btn.disabled && !btn.closest('.hide')) { btn.click(); e.preventDefault(); }
       return;
     }
-    // Escape means "undo the last step of this turn" in both phases: take the
+    // Escape means "undo the last step of this turn" in both phases. Take the
     // action back if it is committed, otherwise drop the aim.
     if (e.key === 'Escape') {
       if (committed(v)) { if (v.canChange) undo(); } else { pick = null; refresh(); }

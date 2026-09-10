@@ -8,10 +8,9 @@ lists what the UI must convey. This document is what it looks like and why.*
 
 ## 1. View model
 
-**Combined view, not split.** One board showing history and present together. A split view —
-where you only ever see one world turn — falls out of this for free by setting look-back to 0,
-so it doesn't need to be a separate mode. The default becomes a setting rather than a
-structural choice.
+**Combined view, not split.** One board showing history and present together. Set look-back
+to 0 and you get the split view for free, where you only ever see one world turn. It needs
+no separate mode. The default is a setting rather than something baked in.
 
 **Top-down orthographic, not isometric.** Multiple bodies can occupy one tile. A square
 subdivides and fans cleanly; an isometric rhombus produces genuine occlusion, where a body
@@ -34,9 +33,9 @@ the world-turn slider will not travel past them.
 
 ## 2. Visual encoding
 
-A channel is one visual variable carrying one piece of information. Use few. Five at once —
-player, personal index by colour depth, world distance by opacity, forward/inverted by outline,
-live by ring — is unreadable.
+A channel is one visual variable carrying one piece of information. Use few. Five at once is
+unreadable: player, personal index by colour depth, world distance by opacity, forward/inverted
+by outline, live by ring.
 
 | Channel | Carries |
 |---|---|
@@ -60,7 +59,7 @@ doc §4), a pill is always one colour. Full detail on hover.
 threat, which matters for §3.
 
 **Move legality** is shown by greying illegal tiles while a move is being made. No
-colour-coding by reason — the reason goes in the tooltip. Three reasons exist, but the player
+colour-coding by reason. The reason goes in the tooltip. Three reasons exist, but the player
 only needs to know the tile is unavailable.
 
 ---
@@ -71,7 +70,7 @@ only needs to know the tile is unavailable.
 doc ranks phase countdowns and front visualisation as its top two UI requirements, and neither
 is prototyped. Two known problems:
 
-- A front is currently only representable as absence, which reads as nothing rather than as
+- Right now a front shows up only as missing bodies, which reads as nothing rather than as
   threat.
 - The pastel palette has no headroom for urgency. Fronts likely need one reserved non-pastel
   accent, used for nothing else.
@@ -89,4 +88,4 @@ countdowns on strobing bodies, mines and deployed objects, and any shooting inte
 - **Stacks larger than two.** The pill handles two. Three or more, at default tile size, does
   not obviously fit.
 - **Does the colour ramp need to come back** for at-a-glance target valuation, and can pastel
-  carry it alongside a front accent.
+  carry it alongside a front accent?

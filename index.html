@@ -68,10 +68,10 @@
   function setTheme(t) {
     document.documentElement.setAttribute('data-theme', t);
     btn.textContent = t === 'light' ? 'Dark' : 'Light';
-    try { localStorage.setItem(THEME_KEY, t); } catch (e) { /* file:// with storage off */ }
+    try { localStorage.setItem(THEME_KEY, t); } catch (e) { /* storage off */ }
   }
   var saved = null;
-  try { saved = localStorage.getItem(THEME_KEY); } catch (e) { /* ignore */ }
+  try { saved = localStorage.getItem(THEME_KEY); } catch (e) { /* storage off */ }
   setTheme(saved === 'light' ? 'light' : 'dark');
   btn.onclick = function () {
     setTheme(document.documentElement.getAttribute('data-theme') === 'light' ? 'dark' : 'light');

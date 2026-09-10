@@ -2,15 +2,16 @@
 
 What is built and what is not, against
 [`../time-travel-tactics-design-doc.md`](../time-travel-tactics-design-doc.md). Section
-numbers are that document's. Detail about any one prototype lives in its own folder.
+numbers are that document's. Detail about any one prototype lives in its own folder. The
+hosting limits every prototype works within are in [`hosting.md`](hosting.md).
 
 ## Built
 
 - **The three clocks and inversion** (§3, §4). World time, meta time, personal index, and the
   playhead flip. Inversion is unlimited and spends no world turn, so it can never be blocked.
   *time_travel*
-- **The horizon** (§4). Enforced in the engine, drawn as dashed outlines on the strip.
-  Honour-system only, as §4 says it must be without a server. *both*
+- **The horizon** (§4). The engine hides beyond-horizon turns and the strip draws them as
+  dashed outlines. Nothing enforces it, which §4 says is unavoidable without a server. *both*
 - **Movement legality** (§4). The three occupancy rules, the t0 wall, and greyed illegal tiles
   with a reason on hover. *both*
 - **Collision resolution** (§4). Seed-derived public priority, holders beating movers, hold as
@@ -23,7 +24,7 @@ numbers are that document's. Detail about any one prototype lives in its own fol
 
 ### Beyond the design doc
 
-Nothing below was asked for by any design document.
+No design document asked for anything below.
 
 - **Serverless play.** A match code encodes the config, then each turn is one hashed action
   string, so a desync is refused rather than applied. *time_travel*
@@ -31,8 +32,7 @@ Nothing below was asked for by any design document.
   chat window, behind a `Channel` interface. Works across NAT on two machines, in Chrome and in
   Firefox. *turn_transport*
 - **Commit-reveal.** You publish a hash of your move, everyone opens together once the last hash
-  lands, and until then you can change your mind. This is what makes changing your action safe.
-  *turn_transport*
+  lands, and until then you can change your mind. *turn_transport*
 
 ## Not built
 

@@ -3,7 +3,7 @@
 <head>
 <meta charset="utf-8" />
 <meta name="viewport" content="width=device-width, initial-scale=1" />
-<title>Time travel tactics — prototype UI</title>
+<title>Time travel tactics: prototype UI</title>
 <style>
   :root{
     --surface-0:#F6F4F0; --surface-1:#EFECE6; --surface-2:#FFFFFF;
@@ -117,7 +117,7 @@
       if(isN&&br)bg='background:#888780;opacity:0.55;';
       cell.style.cssText='aspect-ratio:1;border-radius:3px;display:flex;align-items:center;justify-content:center;gap:2px;'+bg
         +(isN&&!br?'outline:1.5px solid var(--accent-br);outline-offset:-1.5px;':'');
-      if(isN)cell.title=br?('blocked \u2014 '+br):'legal move';
+      if(isN)cell.title=br?('blocked: '+br):'legal move';
       if(!w){
         var here=bodies.filter(function(b){return b.x===x&&b.y===y&&b.t<=T&&b.t>=lo&&b.t<=s.hz;});
         var foc=here.filter(function(b){return b.t===T;}).sort(function(a,b){return a.p-b.p;});

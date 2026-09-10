@@ -28,7 +28,6 @@ function runTests() {
       over || {}
     );
   }
-  // Submit every colour's action for the current turn, asserting each is accepted.
   function play(m, actions) {
     const turn = m.currentTurn();
     const hash = m.stateHash();
@@ -86,7 +85,7 @@ function runTests() {
     play(m, { C: 'I', P: 'A' });
     const after = m.view('C').me;
     eq(after.dir, -1, 'direction flipped');
-    eq(after.t, 3, 'world turn unchanged — the flip costs no world time');
+    eq(after.t, 3, 'world turn unchanged, the flip costs no world time');
     eq(after.x, 3, 'x unchanged'); eq(after.y, 0, 'y unchanged');
     eq(after.p, 4, 'personal index still incremented');
     const stack = bodyAt(m, 'C', 3).filter((b) => b.x === 3 && b.y === 0);
@@ -164,12 +163,12 @@ function runTests() {
     play(m, { C: 'D', P: 'A' });   // C (2,0)@t2
     play(m, { C: 'D', P: 'A' });   // C (3,0)@t3
     play(m, { C: 'I', P: 'A' });   // C stays (3,0)@t3, now heading backward
-    // Retracing your steps is the one thing you cannot do: (2,0) at t2 is where
+    // Retracing your steps is the one thing you cannot do. (2,0) at t2 is where
     // your own p2 already stands.
     const l = m.legalActions('C');
     eq(l.A, 'occupied', 'the tile you came from is blocked by your own instance');
     eq(l.S, null, 'down free'); eq(l.D, null, 'right free');
-    eq(l.H, null, 'holding is free — nobody recorded (3,0) at t2');
+    eq(l.H, null, 'holding is free, nobody recorded (3,0) at t2');
   });
 
   test('inverting can never be blocked', () => {
@@ -313,7 +312,7 @@ function runTests() {
     // player bounced and a second aimed at exactly the square they fall back to.
     const m = Match.fromConfig(cfg({ w: 3, h: 2, wallPct: 0, roster: ['C', 'P', 'T'] }));
     play(m, { C: 'H', P: 'W', T: 'A' });
-    // Coral (0,0), teal (1,0), purple (2,0) — three abreast at t1, all forward.
+    // Coral (0,0), teal (1,0), purple (2,0), three abreast at t1, all forward.
     for (const [c, xy] of [['C', [0, 0]], ['T', [1, 0]], ['P', [2, 0]]]) {
       const me = m.view(c).me;
       eq(me.x + ',' + me.y + '@' + me.t, xy[0] + ',' + xy[1] + '@1', c + ' lines up');
@@ -417,7 +416,6 @@ function runTests() {
       const wall = new Set(v.walls.map((p) => p[0] + ',' + p[1]));
       const spawns = ['C', 'P', 'T', 'A'].map((col) => { const me = a.view(col).me; return [me.x, me.y]; });
       for (const sp of spawns) assert(!wall.has(sp[0] + ',' + sp[1]), 'wall on a spawn, seed ' + s);
-      // flood fill from the first spawn
       const seen = new Set([spawns[0][0] + ',' + spawns[0][1]]);
       const q = [spawns[0]];
       while (q.length) {
@@ -760,7 +758,7 @@ function runTests() {
         const here = v.events.filter((e) => e.turn === turn);
         blockedSeen += here.filter((e) => e.kind === 'blocked').length;
 
-        // Only an inverted player can be stuck: a forward player's fallback square
+        // Only an inverted player can be stuck. A forward player's fallback square
         // is unwritten future, so nothing can already own it.
         for (const color of roster) {
           if (!m.view(color).events.some((e) => e.turn === turn && e.color === color && e.kind === 'stuck')) continue;

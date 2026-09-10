@@ -22,9 +22,10 @@ genuinely useful in a game like this.
 
 ## 2. Constraints
 
+On top of the hosting limits in [`../hosting.md`](../hosting.md):
+
 | Constraint | Status |
 |---|---|
-| Static hosting (GitHub Pages) | Fixed |
 | No infrastructure of our own to run | Decided |
 | **No accounts or sign-ups for third-party services** | Decided |
 | No links to click, no separate chat channel | Decided |
@@ -61,9 +62,9 @@ WebRTC peer-to-peer, with signalling over nostr, via
 nothing new for players to share.
 
 The risk was NAT. NAT traversal is a WebRTC-only problem, and under §2's constraints it is
-unfixable: the standard fix is a TURN server, every free TURN option wants an account
-(Cloudflare Realtime asks for a payment method, Metered Open Relay for an API key), and static
-hosting gives us nowhere to hide TURN credentials.
+unfixable. The standard fix is a TURN server, and every free TURN option wants an account:
+Cloudflare Realtime asks for a payment method, Metered Open Relay for an API key. Static
+hosting gives us nowhere to put the credentials anyway.
 
 Measured instead of designed around. Two machines on separate networks play a match in both
 Chrome and Firefox. Stock Firefox 153 runs the real transport; a peer appears in about 4s in both
@@ -76,10 +77,11 @@ browsers, as it does in Chromium.
 | Remote ES module from esm.sh | works |
 | A locally vendored `.js` module | blocked by CORS |
 | Classic `<script src>` from a CDN | works |
-| `crypto.subtle`, Chromium and Firefox | works — `isSecureContext` is true in both |
+| `crypto.subtle`, Chromium and Firefox | works, `isSecureContext` is true in both |
 
 So the `file://` dev loop survives, and no local http server is needed. **Do not vendor the
-library**, because the local copy is the one the browser refuses.
+library here**, because the local copy is the one the browser refuses. That is a property of
+`file://` rather than of the hosting; served over http, a local module loads fine.
 
 ### The relay draw
 
@@ -94,9 +96,9 @@ appIds, one browser context each so no relay sockets were shared:
 | `tbtt-ffff` | 3 |
 
 The appId is derived from the room id, which both peers already compute identically from the
-match code. That averages 3.75 of 5 against a fixed 3. It does not silence the console — roughly
-one dead relay per match remains — but it removes the structural problem of being locked to one
-below-average hand forever.
+match code. That averages 3.75 of 5 against a fixed 3. It does not silence the console. Roughly
+one dead relay per match remains. What it removes is being locked to the same below-average five
+forever.
 
 Filtering the pool would go further and is deliberately **not** done. The only dead list we could
 write is a single measurement from one network at one moment, and it contains `relay.damus.io`,
@@ -105,7 +107,7 @@ than actually gone.
 
 ### No fallback
 
-Per-turn paste is gone. A connection that dies mid-match has no fallback: recovery is export and
+Per-turn paste is gone. A connection that dies mid-match has no fallback. Recovery is export and
 re-import, and the status line has to be honest about that. Export and import themselves are
 untouched, because they live on the setup screen and are the rejoin path rather than per-turn
 work.
@@ -125,10 +127,10 @@ room.getPeers();                           // an object keyed by peer id
 room.leave();
 ```
 
-Pin the version, and keep that shape written down. Calling `room.onPeerJoin(fn)` throws, and
-because `makeAction` has already wired the data channel by then, the match keeps working while
-the status line insists the connection failed. A transport that lies about being up is worse than
-one that is down.
+Pin the version, and keep that shape written down. Calling `room.onPeerJoin(fn)` throws. By then
+`makeAction` has already wired the data channel, so the match keeps working while the status
+line insists the connection failed. A transport that lies about being up is worse than one that
+is down.
 
 For the same reason, reaching the relays is not the same as having someone to talk to. A room with
 nobody in it reports `connecting`, not `live`.
@@ -138,7 +140,7 @@ nobody in it reports `connecting`, not `live`.
 ## 5. Commit-reveal
 
 Without it, simultaneity is an honour system. The action letter travels in plaintext, so whoever
-commits second gets a free look — and automating the transport makes that worse, since messages
+commits second gets a free look. Automating the transport makes that worse, since messages
 arrive the instant the opponent commits.
 
 Two phases per turn. Three message kinds share the one `send` and are told apart by their first
@@ -155,7 +157,7 @@ that turn, every client publishes its reveal, with nobody asking and nobody acki
 verified against a commitment that colour published for that turn, and only then handed to
 `submit()`.
 
-The useful property is not secrecy. It is that **the reveal is the only message anyone acts on.**
+What matters is that **the reveal is the only message anyone acts on.** Secrecy is a side effect.
 A commitment discloses nothing, so publishing three of them for one turn costs nobody anything,
 and whichever one you open is the one that counts. That is what makes changing your action safe:
 withdraw drops your draft and your digest, and the replacement you publish next is the one you
@@ -191,8 +193,8 @@ Nothing about the channel orders messages, so a reveal can overtake the commitme
 a reveal is **held**, not dropped, and re-checked when a commitment for that turn and colour
 arrives. Held reveals and commitments alike are pruned once the playhead passes their turn.
 Anything ahead of the playhead stays, because a commitment for the next turn arriving during this
-one is ordinary rather than suspect. A reveal that never opens anything is simply never applied,
-and is not an error: on a public room, noise is not the match's problem.
+one is ordinary rather than suspect. A reveal that never opens anything is never applied,
+and is not an error. On a public room, noise is not the match's problem.
 
 Held reveals are capped as well as pruned. A distinct nonce makes a distinct reveal, so an
 unbounded store is something a stranger can fill. An honest client needs one slot per colour per
@@ -200,9 +202,9 @@ turn and never more.
 
 ### The blind-simultaneity buffer
 
-Incoming actions are still buffered and only fed to `submit` after you have committed. That is a
-second lock on a door commit-reveal already locks, and it stays: commit-reveal binds an honest
-client, and this binds a client that reveals early.
+Incoming actions are still buffered and only fed to `submit` after you have committed.
+Commit-reveal already covers this for an honest client. The buffer covers a client that reveals
+early. Both stay.
 
 ---
 
@@ -213,13 +215,13 @@ transport block is two modules sitting between the engine and the screen.
 
 **`Channel`** is the swap point. Five members: `id`, `send(text)`, `onMessage`, `onStatus`,
 `close()`. Status carries `{state, peers, detail}` where state is one of
-`offline | connecting | live | failed`. Two adapters satisfy it — `PeerChannel` over Trystero and
-`LoopbackChannel` for tests. Assigning `onStatus` fires immediately with where the channel already
-is, because a callback that only reports changes leaves a freshly opened `Session` blind.
+`offline | connecting | live | failed`. Two adapters satisfy it: `PeerChannel` over Trystero and
+`LoopbackChannel` for tests. Assigning `onStatus` fires it immediately with the channel's current
+state, because a callback that only reports changes leaves a freshly opened `Session` blind.
 
 **`Session`** owns both the `Match` and the `Channel`. The play screen talks only to `Session`.
 Its `view()` returns the engine's view object with `{status, peers, waiting, error}` merged in, so
-the four render functions were not touched at all.
+nothing in the four render functions changed.
 
 `Session` also handles claims and reconnection:
 
@@ -272,19 +274,18 @@ retained messages.
 
 Two things to know before building it. Brokers vary in reliability and retained-message policy, so
 it needs a shortlist and a failover list rather than one hardcoded URL. And a public broker is
-unauthenticated, so payloads want a key derived from the seed — though that protects against
-outsiders and not against your opponent, whose client receives your message the moment you send
-it. Commit-reveal stays necessary either way.
+unauthenticated, so payloads should be encrypted with a key derived from the seed. That protects
+against outsiders and not against your opponent, whose client receives your message the moment
+you send it. Commit-reveal stays necessary either way.
 
 This lost to WebRTC on one question: does a match have to survive both players being offline at
 once? No. Export/import already covers a player who leaves and comes back. That was the only
-argument holding the mailbox up, and the remaining risk, NAT, is something you can measure
-rather than design around.
+argument holding the mailbox up. The remaining risk was NAT, and NAT you can measure instead of
+designing around.
 
-There is an irony worth remembering if NAT ever does bite. Falling back to TURN means a third
-party relays your packets anyway, so you keep all of WebRTC's complexity and lose its only real
-advantage. For twelve bytes a turn that trade never made sense, and the mailbox is the better
-answer.
+If NAT ever does bite, the fix is TURN, and TURN means a third party relays your packets
+anyway. You keep all of WebRTC's complexity and lose its only advantage. For twelve bytes a
+turn that trade never made sense. The mailbox is the better answer.
 
 ---
 

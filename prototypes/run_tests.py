@@ -3,8 +3,8 @@
 # ///
 """Run a prototype's tests.js against the engine inside its HTML file.
 
-No node on this machine, so the engine is exercised in headless Chromium:
-load the page, inject tests.js, evaluate. Usage:
+No node on this machine, so headless Chromium runs it. Load the page,
+inject tests.js, evaluate. Usage:
     uv run --with playwright python prototypes/run_tests.py [prototype_dir]
 
 prototype_dir defaults to time_travel and is resolved against this script's
@@ -12,9 +12,9 @@ directory. The page is whichever single .html file the directory holds.
 
 If the prototype directory has a tests.include file, it lists other test
 files (one path per line, relative to the prototype directory, '#' comments
-allowed) to run against the same page before tests.js. Each is injected and
-evaluated on its own, since every test file defines a global runTests and
-injecting the next one overwrites it.
+allowed) to run against the same page before tests.js. Each one runs on its
+own, because every test file defines a global runTests and the next
+injection overwrites it.
 """
 import pathlib
 import sys

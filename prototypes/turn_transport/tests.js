@@ -5,10 +5,9 @@
    prototype's, tested by that prototype's tests.js, which tests.include pulls in
    ahead of this file.
 
-   Two-phase turns make receiving asynchronous — verifying a reveal means hashing,
-   and crypto.subtle.digest is a promise — so runTests and every test body are
-   async. run_tests.py evaluates runTests() and Playwright awaits what it returns,
-   so the harness needs nothing added. */
+   Two-phase turns make receiving asynchronous. Verifying a reveal means hashing,
+   and crypto.subtle.digest is a promise, so runTests and every test body are
+   async. run_tests.py evaluates runTests() and Playwright awaits what it returns. */
 
 async function runTests() {
   const results = [];
@@ -48,9 +47,8 @@ async function runTests() {
 
   // A channel still delivers synchronously, but the handler on the far end is
   // async and returns nothing a test can wait on, and one message sets off a
-  // chain of them: a commitment lands, that completes the set, the reveal goes
-  // out, the other side hashes it and submits. Every test that puts a string on
-  // a wire and then reads a view settles first. Rounds of setTimeout drain the
+  // chain of them. A commitment lands, that completes the set, the reveal goes
+  // out, the other side hashes it and submits. Rounds of setTimeout drain the
   // whole chain, not just the microtasks queued so far.
   async function settle(rounds) {
     for (let i = 0; i < (rounds || 8); i++) await new Promise((r) => setTimeout(r, 0));
@@ -205,9 +203,9 @@ async function runTests() {
   });
 
   await test('changing your mind before the other player commits reaches them', async () => {
-    // What two phases prevent. Under one phase the first action is already
-    // on the wire and already applied on the far side, so the withdrawal is
-    // invisible there and the two matches fork on the next hash without saying so.
+    // Two phases exist so this withdrawal is not too late. Under one phase the
+    // action would already be applied on the far side, and the fork would go
+    // unannounced until the next hash.
     const { sa, sb } = mkPair();
     seat(sa, 'C', 'Rook');
     seat(sb, 'P', 'Vale');
@@ -265,10 +263,7 @@ async function runTests() {
     await sb.commit('A');
     await settle();
 
-    // waiting is who you are still owed something by. Under two phases the thing
-    // you are owed is a commitment, and the moment it lands you have lost the
-    // right to change your action — so the strip has to say purple is in, even
-    // though purple's move is still sealed and the match has not seen it.
+    // A commitment counts as in, one phase before a submission does.
     assert(sa.view().waiting.indexOf('P') < 0, 'purple is in and should not still be waited on');
     assert(sa.view().waiting.indexOf('C') < 0, 'you are never waiting on yourself');
     eq(sa.view().waiting.length, 0, 'everyone else is in, coral is just deciding');
@@ -515,7 +510,7 @@ async function runTests() {
     const { Session, LoopbackChannel } = transport();
     const c = cfg();
     // pair() wires both ends up front, so nobody is ever new. Built one end at a
-    // time instead, and linked once the second is open: the status report that
+    // time instead, and linked once the second is open. The status report that
     // link() emits is the entire trigger.
     const a = LoopbackChannel.make('lateA');
     const sentA = record(a);
@@ -535,7 +530,7 @@ async function runTests() {
     assert(announced.some((s) => kindOf(s) === 'commitment'),
       "and given coral's commitment for the turn in progress: " + announced.join(' '));
     assert(announced.every((s) => kindOf(s) !== 'reveal'),
-      'but not a reveal — purple has not committed, so coral has nothing to open yet');
+      'but not a reveal, purple has not committed, so coral has nothing to open yet');
     eq(sb.claims().C.clientId, a.id);
     eq(sb.claims().C.name, 'Rook');
 
@@ -550,10 +545,8 @@ async function runTests() {
   });
 
   await test('a peer that appears after you have revealed is sent the reveal too', async () => {
-    // Coral has committed, purple's commitment is already in, so coral has opened
-    // and is only waiting for purple to do the same. A client arriving now needs
-    // all three strings: given only the commitment it would sit forever on a turn
-    // everyone else has finished with.
+    // Coral has already revealed, and purple's commitment is in. A peer arriving
+    // now needs the reveal too, or it sits forever on a turn already finished.
     const { Session, LoopbackChannel } = transport();
     const c = cfg();
     const a = LoopbackChannel.make('midA');
@@ -626,10 +619,9 @@ async function runTests() {
   // ---- wire discipline ----------------------------------------------------
 
   await test('nothing but claims, commitments and reveals ever reaches the wire', async () => {
-    // Match.export() serialises the current turn's partial submissions, so a
-    // session that broadcast one would hand the opponent this turn's move. A bare
-    // action string is now the same kind of leak: an action only travels inside a
-    // reveal, and a reveal only goes once every commitment for the turn is in.
+    // Match.export() would leak this turn's move if broadcast, and so would a
+    // bare action string. An action travels only inside a reveal, sent once
+    // every commitment for the turn is in.
     const { sa, sb, sentA, sentB } = mkPair({ w: 8, h: 2, cap: 8, seed: 'wire' });
     seat(sa, 'C', 'Rook');
     seat(sb, 'P', 'Vale');
