@@ -45,8 +45,11 @@ def export(ref: str, dest: pathlib.Path) -> None:
 
 
 def read_tags() -> list[dict]:
+    # objecttype is 'tag' only when annotated. A lightweight tag has no message
+    # of its own and git hands back the commit's, so the subject is never empty.
     fmt = UNIT.join(
-        ["%(refname:short)", "%(creatordate:short)", "%(contents:subject)", "%(contents:body)"]
+        ["%(refname:short)", "%(objecttype)", "%(creatordate:short)",
+         "%(contents:subject)", "%(contents:body)"]
     ) + RECORD
     out = git("for-each-ref", f"refs/tags/{TAG_GLOB}", "--sort=-v:refname", f"--format={fmt}")
 
@@ -55,7 +58,7 @@ def read_tags() -> list[dict]:
         record = record.strip("\n")
         if not record:
             continue
-        tag, date, subject, body = record.split(UNIT)
+        tag, objecttype, date, subject, body = record.split(UNIT)
 
         entry = DEFAULT_ENTRY
         kept = []
@@ -68,6 +71,7 @@ def read_tags() -> list[dict]:
 
         tags.append({
             "tag": tag,
+            "annotated": objecttype == "tag",
             "title": subject.strip(),
             "blurb": " ".join(" ".join(kept).split()),
             "entry": entry,
@@ -91,8 +95,8 @@ def main() -> int:
     releases = read_tags()
     for release in releases:
         tag, entry = release["tag"], release["entry"]
-        if not release["title"]:
-            print(f"tag {tag} has no message. Annotate it: git tag -a -f {tag}")
+        if not release.pop("annotated") or not release["title"]:
+            print(f"tag {tag} carries no message of its own. Annotate it: git tag -a -f {tag}")
             return 1
         dest = out / "v" / tag
         export(tag, dest)
