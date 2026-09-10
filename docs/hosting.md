@@ -63,7 +63,7 @@ needs a rule they both run to the same answer:
 The horizon (design doc §4) is honour-system for the same reason. The client hides turns past
 it; nothing enforces it. Fine for a prototype.
 
-## Three things that bite
+## Four things that bite
 
 - Paths are case-sensitive on the server and usually aren't on your machine. A link that works
   locally can 404 once published.
@@ -72,6 +72,9 @@ it; nothing enforces it. Fine for a prototype.
   points outside the site, and `../` walks out of the version.
 - A tag is frozen. Fixing a released version means moving the tag, which rewrites what that URL
   serves. Cut a new tag instead unless the old one was outright broken.
+- `.gitattributes` marks everything that isn't the site `export-ignore`, so the published root
+  is `index.html` and `play/` and nothing else. Split the prototype across files and the new
+  ones publish fine, but a new top-level directory does not until you check that list.
 
 ## Two rules that no longer apply
 
