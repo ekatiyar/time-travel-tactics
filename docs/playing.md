@@ -1,65 +1,85 @@
 # Playing
 
-How to run and use the prototype in `play/index.html`. Open it in any browser straight off
-the filesystem. One static file, no build step, no server.
+How to run and use `play/index.html`. Open it in any browser, straight off the filesystem or
+from the published site. One static file, no build step, no server.
 
-The rules it implements are §3 and §4 of
-[`time-travel-tactics-design-doc.md`](time-travel-tactics-design-doc.md).
+The rules come from §3 and §4 of
+[`time-travel-tactics-design-doc.md`](time-travel-tactics-design-doc.md). How turns cross the
+network is [`turn-transport.md`](turn-transport.md).
 
-## Running a match
+## Starting a match
 
-There is no server, so players pass strings.
+One player creates, everyone else joins with a code.
 
-1. One player sets up the board and copies the **match code**, which encodes the whole
-   config: `M1:16x9:11:19f4:43:CPTA` is version, size, wall density, seed, meta-turn cap,
-   roster.
-2. Everyone else pastes that code and gets a byte-identical board.
-3. On the setup screen each player claims a colour and types a **name** beside it, then
-   presses Play.
-4. Each turn, the acting player copies one **action string** and sends it on:
-   `12C:D#a3f1` is turn, colour, action, hash. Actions are `W` `A` `S` `D` to step up,
-   left, down and right on screen, `H` to hold, and `I` to invert. A turn-0 string carries
-   the sender's name as well, `0C:D#a3f2~Rook`; turns after that do not, because by then
-   everyone has it.
+1. The host picks board size, wall density, seed, turn cap and player count, then presses
+   **Create match**.
+2. The host copies the **match code** and sends it out. `M1:16x9:11:19f4:43:CPTA` is version,
+   size, wall density, seed, meta-turn cap, roster. Anyone who pastes it under **Join a match**
+   builds a byte-identical board.
+3. Each player claims a colour and types a name. Claims cross as they happen, so a colour
+   someone else took greys out under your cursor. When two players claim the same colour at
+   once, the lower client id keeps it and both clients work that out on their own.
+4. **Play** unlocks once every seat in the roster is filled, and until then it says how many
+   players are missing. Nothing can open a turn until everyone is in, so starting early would
+   only hang.
 
-A name is 1 to 12 characters of letters, digits, `-` and `_`. The paste box splits on
-whitespace and an action string carries the name after a `~`, so a name with a space in it
-would tear in half. Anything outside the set is refused at the input rather than quietly
-stripped, so nobody types a tilde and ends up called something else. Duplicates are allowed.
-Uniqueness needs a server.
+**Import a match** takes a full export instead of a match code. Use it after a reload, or to
+pull someone back in step who dropped.
 
-The hash is of the pre-turn state. A string whose hash does not match is refused rather
-than applied, so a desync is caught the moment it happens instead of drifting. Names sit
-outside all of that. They are display-only. The wire, the state hash and every internal
-identifier stay on colour codes. Until a player's turn-0 string reaches you, their colour
-name stands in.
+Nothing is saved and there is no reconnect, so copy the export box on the left if you might
+reload. `X1:<match code>|<actions>|C~Rook,P~Vale` carries the config, every action so far, and
+the names. Two-section exports with no name section still load.
 
-`X1:` codes export a whole match in progress. They carry every name they know in a third
-`|`-delimited section, as in `X1:<match code>|<actions>|C~Rook,P~Vale`. Two-section exports
-with no name section still load.
+## Taking a turn
+
+Everyone moves at once, and nobody gets to see a move before making theirs.
+
+1. Aim with the D-pad, the arrow keys or `W` `A` `S` `D`. Press **Commit**, or Enter.
+2. Your client publishes a hash of your action rather than the action. The panel names whoever
+   it is still waiting on.
+3. When the last hash lands, every client opens together and the turn resolves.
+
+Until that last hash lands you can change your mind. **Change my action** and Escape both put
+you back in the picking phase with nothing committed, and neither the turn number nor the state
+hash moves. Once your action is out in the open the button leaves, because there is nothing
+left to take back.
+
+No copying, no pasting, no chat window on the side. What the handshake does and does not
+protect against is [`turn-transport.md`](turn-transport.md) §5.
+
+Every action carries a hash of the state before it. A client that has drifted is refused rather
+than applied, so you find out the moment it happens instead of quietly playing a different game.
+
+### Names
+
+A name is 1 to 12 characters of letters, digits, `-` and `_`. Anything outside the set is
+refused at the input rather than quietly stripped, so nobody types a tilde and ends up called
+something else. Duplicates are allowed. Uniqueness needs a server.
+
+Names are display-only. The wire, the state hash and every internal identifier stay on colour
+codes, so two players who disagree about a name still agree about the game.
 
 ## Holding and inverting
 
 Neither action changes your (x, y). They differ in what they spend.
 
-**Hold** spends the world turn without the step. Your playhead advances by your direction,
-your personal index goes up by one, and you stay where you are. It is a holder under §4's
-collision rules, so it keeps the square against any mover arriving on it, whatever the
-public priority order says. A hold can still be refused. The tile you are holding into may
-already be recorded to another colour, and an inverted player at t0 is holding into a turn
-that does not exist.
+**Hold** spends the world turn without the step. Your playhead advances by your direction, your
+personal index goes up by one, and you stay where you are. It is a holder under §4's collision
+rules, so it keeps the square against any mover arriving on it, whatever the public priority
+order says. A hold can still be refused. The tile you are holding into may already be recorded
+to another colour, and an inverted player at t0 is holding into a turn that does not exist.
 
-**Invert** spends no world turn at all. Your direction flips and your personal index goes
-up by one, but `t` does not move, so you finish stacked on your own forward body at a single
-`(t, x, y)`. That is the turnstile, and the board draws it as both indices joined, `1·2`.
-Its target is a tile you already occupy, so bounds, walls and the same-colour occupancy
-exemption all pass and inverting can never be blocked. That is why the prototype has no
-pass action. There is no state in which a player has nothing legal to do.
+**Invert** spends no world turn at all. Your direction flips and your personal index goes up by
+one, but `t` does not move, so you finish stacked on your own forward body at a single
+`(t, x, y)`. That is the turnstile, and the board draws it as both indices joined, `1·2`. Its
+target is a tile you already occupy, so bounds, walls and the same-colour occupancy exemption
+all pass, and inverting can never be blocked. That is why the prototype has no pass action.
+There is no state in which a player has nothing legal to do.
 
-Inverting twice running is therefore a legal stall. You sit at the same world turn
-with three bodies stacked and your personal index up by two. This is deliberate. Stalling
-freezes your own horizon while everyone else pushes the frontier forward. Personal
-index is what erasure fronts eat in later versions, so the stall buys time at a price.
+Inverting twice running is therefore a legal stall. You sit at the same world turn with three
+bodies stacked and your personal index up by two. This is deliberate. Stalling freezes your own
+horizon while everyone else pushes the frontier forward. Personal index is what erasure fronts
+eat in later versions, so the stall buys time at a price.
 
 ## Defaults
 
@@ -74,61 +94,50 @@ index is what erasure fronts eat in later versions, so the stall buys time at a 
 | Look back | `ceil(cap / 4)`, so 11 turns on the default board, and it starts at its cap |
 | Names | 1 to 12 characters, letters, digits, `-` and `_` |
 
-The defaults for board size and wall density were picked by eye and are untested. The match
-config refuses anything outside the ranges above, checked in the engine and not just on the
-setup form. Without the bound, a typed 999 builds a 998001-cell board and freezes the tab.
-The seed is bounded for a different reason. It travels inside the match code between
-colons, so a seed carrying a colon would make the code ambiguous to split.
+Board size and wall density were picked by eye and are untested. The engine refuses a config
+outside the ranges above, checked there and not just on the setup form. Without the bound, a
+typed 999 builds a 998001-cell board and freezes the tab. The seed is bounded for a different
+reason. It travels inside the match code between colons, so a seed carrying a colon would make
+the code ambiguous to split.
 
 ## The interface
 
-Three columns. The running log and the export box on the left, the board in the centre, the
-turn panel on the right.
+Three columns. Log and export on the left, board in the centre, turn panel on the right.
 
 Actions are a D-pad: four arrows around a centre hold button, with invert on its own below.
-Arrows or `W` `A` `S` `D` aim, Enter commits, and Escape drops the aim and returns to the
-default. The default is hold when hold is legal and invert when it is not. Invert is the
-fallback because a player walking backwards who has reached turn 0 can neither move nor
-hold, so Commit would otherwise sit dead with nothing pointing at it. Inverting has no key
-on purpose. It flips your direction, and that should not sit one keystroke from a movement
-key. Once you have committed, Enter applies whatever is in the paste box. The exception is
-when the cursor sits inside the box, where Enter stays a newline, since several strings can
-go in at once.
+Arrows or `W` `A` `S` `D` aim, Enter commits, Escape drops the aim and returns to the default.
+The default is hold when hold is legal and invert when it is not. Invert is the fallback
+because a player walking backwards who has reached turn 0 can neither move nor hold, so Commit
+would otherwise sit dead with nothing pointing at it. Inverting has no key on purpose. It flips
+your direction, and that should not sit one keystroke from a movement key.
 
-You can take an action back before you send it. The share panel has a **Change my action**
-button, and Escape does the same, because Escape means undo the last step of this turn in
-both phases. You land back in the picking phase with nothing committed, and neither the turn
-number nor the state hash moves. It only works while the turn is still open, which in
-practice is always. The paste box is hidden until you commit, so you can never be the last
-player in. Like the horizon, it is honour-system. If you have already sent the string and
-somebody pasted it, they keep the action you took back. Your replacement is refused as a
-repeat, and neither of you finds out until your next string carries a hash they disagree
-with.
+The line at the top of the turn panel is the transport: connected or not, how many peers you
+can see, and how many players are still missing. Watch it when a turn stops resolving.
 
 The log accumulates across the whole match rather than showing only the last turn.
 
-Look back sets how many world turns of history the board and the strip draw behind your
-focus turn. At the full turn cap every dot ever recorded lands in one cell, so look-back
-maxes out at a quarter of the turn cap, and starts there.
+Look back sets how many world turns of history the board and the strip draw behind your focus
+turn. At the full turn cap every dot ever recorded lands in one cell, so look-back maxes out at
+a quarter of the turn cap, and starts there.
 
 ## What it does not do
 
 No weapons and no win condition. It is a sandbox with no objective that runs until the
 meta-turn cap. See [`prototypes.md`](prototypes.md) for the full split.
 
-**The horizon is honour-system.** The UI hides beyond-horizon information, but a
-beyond-horizon move is present in the action string regardless, so a modified client can read
-it. Play with people you trust.
+**The horizon is honour-system.** The UI hides beyond-horizon information, but a beyond-horizon
+move is present in the action string regardless, so a modified client can read it. Play with
+people you trust.
 
 ## Tests
 
-`play/tests.engine.js` holds the engine assertions and `play/tests.js` the transport ones.
-The harness runs both, from the repo root:
+`play/tests.engine.js` holds the engine assertions and `play/tests.js` the transport ones. The
+harness runs both, from the repo root:
 
 ```
 uv run --with playwright python run_tests.py
 ```
 
-It loads the page in headless Chromium, injects each test file, and calls `runTests()`,
-because there is no node on this machine. Run it from anywhere with the path adjusted; the
-harness resolves its argument against its own directory and defaults to `play`.
+It loads the page in headless Chromium, injects each test file, and calls `runTests()`, because
+there is no node on this machine. Run it from anywhere with the path adjusted; the harness
+resolves its argument against its own directory and defaults to `play`.
