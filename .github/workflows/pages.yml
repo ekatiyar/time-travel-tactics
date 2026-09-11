@@ -31,6 +31,11 @@ jobs:
       # Node first: it is a second and covers the most.
       - run: npm run test:node
       - run: npm run test:ui
+      # The suite runs against the repo; this runs against the exported tree, so
+      # it catches a runtime dep filed under devDependencies or a build input
+      # missing its .gitattributes line. Shallow checkout has no tags, so only
+      # the root is built.
+      - run: python tools/build_site.py --root-ref HEAD
 
   build:
     needs: test
