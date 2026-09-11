@@ -8,7 +8,8 @@ import { describe, it } from 'node:test';
 import assert from 'node:assert/strict';
 
 import { Session, Code, trimUnresolved, LoopbackChannel } from '../play/src/transport.js';
-import { Match, Wire } from '../play/src/engine.js';
+import { Match, Wire, metaTurn } from '../play/src/engine.js';
+import type { Action, Color, Config } from '../play/src/engine.js';
 
 // ---- the seam -------------------------------------------------------------
 
@@ -78,8 +79,8 @@ interface Sealed {
 // reveal is the engine's own action string with the nonce hung off the end.
 async function twoPhase(o: {
   turn: number;
-  color: string;
-  action: string;
+  color: Color;
+  action: Action;
   hash: string;
   nonce?: string;
   name?: string;
@@ -91,14 +92,14 @@ async function twoPhase(o: {
     digest,
     commitment: '#' + o.turn + o.color + ':' + digest,
     reveal: Wire.encodeAction({
-      turn: o.turn, color: o.color, action: o.action, hash: o.hash, name: o.name
+      turn: metaTurn(o.turn), color: o.color, action: o.action, hash: o.hash, name: o.name
     }) + '|' + nonce
   };
 }
 
 // ---- fixtures -------------------------------------------------------------
 
-const CONFIG = { w: 16, h: 9, wallPct: 0, seed: 'test', cap: 40, roster: ['C', 'P'] };
+const CONFIG: Config = { w: 16, h: 9, wallPct: 0, seed: 'test', cap: 40, roster: ['C', 'P'] };
 
 function cfg(over?: Partial<typeof CONFIG>) {
   return { ...CONFIG, ...over };
@@ -233,7 +234,7 @@ describe('a turn over a loopback pair', () => {
     await sa.commit('D');
 
     assert.equal(sa.view().myAction,
-      Wire.encodeAction({ turn: 0, color: 'C', action: 'D', hash: sa.view().hash, name: 'Rook' }),
+      Wire.encodeAction({ turn: metaTurn(0), color: 'C', action: 'D', hash: sa.view().hash, name: 'Rook' }),
       'the view carries your own action string, so the screen has something to draw');
     const again = await sa.commit('D');
     assert.equal(again.ok, false, 'a second commit for the same turn is refused');

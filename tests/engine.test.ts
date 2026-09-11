@@ -1,52 +1,17 @@
 import { describe, it } from 'node:test';
 import assert from 'node:assert/strict';
 
-import { ACTIONS, Match, Wire, spawnFor } from '../play/src/engine.js';
+import { ACTIONS, Match, Wire, metaTurn, spawnFor } from '../play/src/engine.js';
+import type { Config, ConfigInput, TurnEvent, View, ViewBody } from '../play/src/engine.js';
 
-type Config = {
-  w: number;
-  h: number;
-  wallPct: number;
-  seed: string;
-  cap: number;
-  roster: string[];
-};
-
-type Body = { color: string; p: number; t: number; x: number; y: number; live: boolean };
-type TurnEvent = {
-  turn: number; color: string; kind: string;
-  t: number; x: number; y: number; by: string | null; dir: number;
-};
-type ActionOffer = {
-  action: string; reason: string | null;
-  t: number; x: number; y: number; move: boolean;
-};
-
-type View = {
-  w: number; h: number; cap: number; seed: string;
-  turn: number; over: boolean; hash: string;
-  roster: string[]; priority: string[]; pending: string[];
-  walls: number[][];
-  me: {
-    color: string; p: number; t: number; x: number; y: number;
-    dir: number; horizon: number; stuck: boolean;
-  };
-  bodies: Body[];
-  events: TurnEvent[];
-  names: Record<string, string | undefined>;
-  myAction: string | null;
-  actions: ActionOffer[];
-};
-
-// The engine is still JavaScript, so instances land as `any` here. Naming the
-// type anyway makes these tests check themselves once engine.ts arrives.
 type MatchInstance = ReturnType<typeof Match.fromConfig>;
 
-function cfg(over: Partial<Config> = {}): Config {
+// ConfigInput, not Config: normalizeConfig rejecting a bad roster is under test.
+function cfg(over: Partial<ConfigInput> = {}): ConfigInput {
   return { w: 16, h: 9, wallPct: 0, seed: 'test', cap: 40, roster: ['C', 'P'], ...over };
 }
 
-function match(over: Partial<Config> = {}): MatchInstance {
+function match(over: Partial<ConfigInput> = {}): MatchInstance {
   return Match.fromConfig(cfg(over));
 }
 
@@ -71,7 +36,7 @@ function at(m: MatchInstance, color: string): [number, number] {
 }
 
 /** Every body a colour ever recorded at world turn `t`, read off its own tape. */
-function bodiesAt(m: MatchInstance, color: string, t: number): Body[] {
+function bodiesAt(m: MatchInstance, color: string, t: number): ViewBody[] {
   return view(m, color).bodies.filter((b) => b.color === color && b.t === t);
 }
 
@@ -146,7 +111,7 @@ describe('clocks', () => {
   });
 
   it('gives every colour its own corner on the smallest legal board', () => {
-    const corners = ['C', 'P', 'T', 'A'].map((c) => spawnFor(c, 2, 2).join(','));
+    const corners = (['C', 'P', 'T', 'A'] as const).map((c) => spawnFor(c, 2, 2).join(','));
     assert.equal(new Set(corners).size, 4);
   });
 });
@@ -301,7 +266,9 @@ describe('movement and blocking', () => {
 
   it('has no pass action: X is gone from the alphabet', () => {
     const m = match({ w: 8, h: 2, seed: 'nox' });
-    assert.ok(!ACTIONS.includes('X'), 'X is still in the alphabet');
+    // Widened on purpose: the point of the test is that X is outside the type.
+    const alphabet: readonly string[] = ACTIONS;
+    assert.ok(!alphabet.includes('X'), 'X is still in the alphabet');
     assert.equal(legalNow(m, 'C').X, undefined, 'X is still offered');
     assert.ok(!Wire.decodeAction('0C:X#a3f2').ok, 'X still decodes');
     assert.ok(!Match.fromExport('X1:M1:8x2:0:nox:9:CP|CXPA').ok, 'X still imports');
@@ -365,7 +332,7 @@ describe('priority and contests', () => {
 
   it('lets a holder keep its square against a higher-priority mover', () => {
     // Priority is seed-derived, so find a seed where purple outranks coral.
-    let m: MatchInstance = null;
+    let m: MatchInstance | null = null;
     for (let s = 0; s < 200 && !m; s++) {
       const c = match({ w: 3, h: 2, seed: `hold${s}` });
       play(c, { C: 'D', P: 'W' }); // C (1,0)@t1 ; P (2,0)@t1
@@ -689,7 +656,7 @@ describe('config validation', () => {
 
 describe('the Wire codec', () => {
   it('round-trips an action string', () => {
-    const s = Wire.encodeAction({ turn: 7, color: 'C', action: 'W', hash: 'a3f2' });
+    const s = Wire.encodeAction({ turn: metaTurn(7), color: 'C', action: 'W', hash: 'a3f2' });
     assert.equal(s, '7C:W#a3f2');
 
     const r = Wire.decodeAction(s);
@@ -698,7 +665,7 @@ describe('the Wire codec', () => {
   });
 
   it('round-trips a match code', () => {
-    const c = cfg({ wallPct: 11, seed: '19f4', cap: 43, roster: ['C', 'P', 'T', 'A'] });
+    const c: Config = { w: 16, h: 9, wallPct: 11, seed: '19f4', cap: 43, roster: ['C', 'P', 'T', 'A'] };
     const r = Wire.decodeMatchCode(Wire.encodeMatchCode(c));
     assert.ok(r.value, r.error);
     assert.deepEqual(r.value, c);
@@ -712,11 +679,11 @@ describe('the Wire codec', () => {
 
   it('carries a name on a turn-0 action string and nowhere else', () => {
     assert.equal(
-      Wire.encodeAction({ turn: 0, color: 'C', action: 'D', hash: 'a3f2', name: 'Rook' }),
+      Wire.encodeAction({ turn: metaTurn(0), color: 'C', action: 'D', hash: 'a3f2', name: 'Rook' }),
       '0C:D#a3f2~Rook',
     );
     assert.equal(
-      Wire.encodeAction({ turn: 4, color: 'C', action: 'D', hash: 'a3f2', name: 'Rook' }),
+      Wire.encodeAction({ turn: metaTurn(4), color: 'C', action: 'D', hash: 'a3f2', name: 'Rook' }),
       '4C:D#a3f2',
       'the name only rides the opening string',
     );
