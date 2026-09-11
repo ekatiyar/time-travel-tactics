@@ -1,3 +1,5 @@
 _site/
 node_modules/
 play/dist/
+test-results/
+playwright-report/

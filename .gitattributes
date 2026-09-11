@@ -13,9 +13,5 @@
 /package-lock.json    -export-ignore
 /tsconfig.json        -export-ignore
 
-# Test files under play/, re-included by /play/** above. Delete these lines
-# when the test migration removes the files.
-play/tests.js         export-ignore
-play/tests.engine.js  export-ignore
-play/tests.include    export-ignore
+# Re-included by /play/** above. Goes away with the live check rewrite.
 play/live_check.py    export-ignore
