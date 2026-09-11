@@ -150,7 +150,12 @@ function PeerChannel(roomId: string, loadRoom: RoomLoader = joinTrystero): Chann
 
   // A room with nobody in it is not live, it is still connecting. Joining
   // resolving only means the relays were reached.
+  //
+  // close() cannot unhook the room's peer callbacks, so they outlive it holding
+  // this closure. Checking closed here keeps a late peer event from reporting
+  // live over the top of offline.
   function report(): void {
+    if (closed) return;
     emit({ state: peers.length ? 'live' : 'connecting', peers: peers.slice(), detail: null });
   }
 

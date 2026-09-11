@@ -287,6 +287,18 @@ describe('closing', () => {
     assert.deepEqual(fake.sent, [], 'the send path goes with it');
   });
 
+  it('ignores a peer event that lands after close', async () => {
+    // close() leaves Trystero's callbacks assigned, and they still hold the peer
+    // list. Reporting live over the top of offline makes a dead channel look
+    // playable, and the Play button is gated on exactly that.
+    const { fake, ch, seen } = await joined({ peers: ['a'] });
+    ch.close();
+
+    fake.join('b');
+    fake.part('a');
+    assert.deepEqual(last(seen), { state: 'offline', peers: [], detail: null });
+  });
+
   it('reports offline even when leaving throws', async () => {
     // A room torn down under us must not cost the UI its offline report.
     const { fake, ch, seen } = await joined({ peers: ['a'], leaveThrows: new Error('already gone') });
