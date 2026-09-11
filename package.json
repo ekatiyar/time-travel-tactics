@@ -1,0 +1,24 @@
+{
+  "name": "tbtt",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "build": "esbuild play/src/main.ts --bundle --splitting --format=esm --outdir=play/dist --sourcemap",
+    "dev": "esbuild play/src/main.ts --bundle --splitting --format=esm --outdir=play/dist --sourcemap --servedir=play --watch",
+    "typecheck": "tsc --noEmit",
+    "test:node": "node --import tsx --test tests/*.test.ts",
+    "test:ui": "playwright test --project=ui",
+    "test:live": "playwright test --project=live",
+    "test": "npm run test:node && npm run test:ui"
+  },
+  "dependencies": {
+    "@trystero-p2p/nostr": "0.25.2",
+    "esbuild": "^0.28.2",
+    "preact": "^10.29.8"
+  },
+  "devDependencies": {
+    "@playwright/test": "^1.63.0",
+    "tsx": "^4.23.13",
+    "typescript": "^7.0.2"
+  }
+}
