@@ -714,4 +714,4 @@ const Wire = {
   }
 };
 
-export { Match, Wire, COLORS, ORDER, DIRS, MOVES, ACTIONS, spawnFor };
+export { Match, Wire, COLORS, ORDER, DIRS, MOVES, ACTIONS, spawnFor, fnv1a, isColor, isAction };

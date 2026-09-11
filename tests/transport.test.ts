@@ -10,32 +10,24 @@ import assert from 'node:assert/strict';
 import { Session, Code, trimUnresolved, LoopbackChannel } from '../play/src/transport.js';
 import { Match, Wire, metaTurn } from '../play/src/engine.js';
 import type { Action, Color, Config } from '../play/src/engine.js';
+import type { Channel, LoopbackEnd } from '../play/src/transport.js';
 
 // ---- the seam -------------------------------------------------------------
 
-interface Channel {
-  id: string;
-  send(text: string): void;
-  onMessage: ((text: string) => void) | null;
-  close(): void;
+function makeEnd(id?: string): LoopbackEnd {
+  return LoopbackChannel.make(id);
 }
-
-// LoopbackChannel hangs send() and close() on its object by assignment, and
-// TypeScript does not read those out of an unchecked .js module, so the seam is
-// declared above and the two factories are pinned to it here.
-function makeEnd(id?: string): Channel {
-  return LoopbackChannel.make(id) as unknown as Channel;
-}
-function makePair(): [Channel, Channel] {
-  return LoopbackChannel.pair() as unknown as [Channel, Channel];
+function makePair(): [LoopbackEnd, LoopbackEnd] {
+  return LoopbackChannel.pair();
 }
 
 type Sess = ReturnType<typeof Session.open>;
 
-// view() reaches these tests as any, since the module it comes from is not
-// type-checked. These are the two entry shapes the tests read out of it.
-interface Body { color: string; p: number; t: number; x: number; y: number; live: boolean }
-interface Option { action: string; reason: string | null; t: number; x: number; y: number }
+/** assert.match, where the value is allowed to be null and null is a failure. */
+function matches(actual: string | null, re: RegExp, message?: string): void {
+  assert.ok(actual !== null, message ?? 'expected text matching ' + re + ', got null');
+  assert.match(actual, re, message);
+}
 
 // ---- the wire format, rebuilt here ----------------------------------------
 //
@@ -115,7 +107,7 @@ async function settle(rounds = 8): Promise<void> {
 }
 
 // Records every string handed to the channel. Wrap before Session.open.
-function record(ch: Channel): string[] {
+function record(ch: LoopbackEnd): string[] {
   const sent: string[] = [];
   const raw = ch.send.bind(ch);
   ch.send = (text) => { sent.push(text); raw(text); };
@@ -166,7 +158,7 @@ function peerClaim(peer: Channel, color: string, name: string): void {
 
 async function commitLegal(s: Sess): Promise<void> {
   const v = s.view();
-  const opt = v.actions.filter((a: Option) => a.reason === null)[0];
+  const opt = v.actions.filter((a) => a.reason === null)[0];
   assert.ok(opt, 'no legal action for ' + v.me.color);
   const r = await s.commit(opt.action);
   assert.ok(r.ok, 'commit ' + opt.action + ': ' + r.error);
@@ -205,7 +197,7 @@ describe('a turn over a loopback pair', () => {
     assert.equal(sa.view().hash, sb.view().hash, 'and they agree on the state');
     assert.equal(sa.view().me.x, 1, 'coral stepped right');
     assert.equal(sb.view().me.x, 14, 'purple stepped left');
-    assert.ok(sa.view().bodies.some((b: Body) => b.color === 'P' && b.t === 1),
+    assert.ok(sa.view().bodies.some((b) => b.color === 'P' && b.t === 1),
       "coral can see purple's t1 body");
     assert.equal(sa.view().status, 'live', 'a wired pair reports live');
     assert.equal(sa.view().error, null);
@@ -270,7 +262,7 @@ describe('a turn over a loopback pair', () => {
     assert.equal(sa.view().hash, sb.view().hash, 'on one state, not two');
     assert.equal(sa.view().me.x, 0, 'coral held, which was the second action');
     assert.equal(sa.view().me.t, 1);
-    assert.ok(sb.view().bodies.some((b: Body) => b.color === 'C' && b.t === 1 && b.x === 0),
+    assert.ok(sb.view().bodies.some((b) => b.color === 'C' && b.t === 1 && b.x === 0),
       'and purple saw the second action, not the first');
     assert.equal(sa.view().error, null);
     assert.equal(sb.view().error, null);
@@ -436,7 +428,7 @@ describe('commitments', () => {
     await settle();
 
     assert.equal(sa.view().turn, 1, 'the turn resolves on whichever one purple opened');
-    assert.ok(sa.view().bodies.some((b: Body) => b.color === 'P' && b.t === 1 && b.x === 15),
+    assert.ok(sa.view().bodies.some((b) => b.color === 'P' && b.t === 1 && b.x === 15),
       'purple held, which is the commitment it opened, not the first one it sent');
     assert.equal(sa.view().error, null);
   });
@@ -468,7 +460,7 @@ describe('reveals', () => {
     peer.send(sealed.reveal);
     await settle();
     assert.equal(sa.view().turn, 1, 'the reveal that does open it is still accepted');
-    assert.ok(sa.view().bodies.some((b: Body) => b.color === 'P' && b.t === 1 && b.x === 14),
+    assert.ok(sa.view().bodies.some((b) => b.color === 'P' && b.t === 1 && b.x === 14),
       'and the action that ran is the sealed one, not the forged one');
   });
 
@@ -483,23 +475,24 @@ describe('reveals', () => {
 
     peer.send(first.reveal); // nothing opens it yet, so it is kept
     await settle();
-    const held = sa._reveals['0P'];
-    assert.ok(held && !Array.isArray(held),
-      'a colour reveals once per turn, so one record is the whole store, not a list');
-    assert.equal(held.nonce, NONCE_A, 'and it is the reveal that arrived');
 
     // Purple thought better of it before opening anything. The reveal it will
     // actually open is the last one it sent, so that is the one worth keeping.
     peer.send(second.reveal);
     await settle();
-    assert.equal(sa._reveals['0P'].nonce, NONCE_B, 'the later reveal replaces the earlier one');
 
     await sa.commit('D');
+    peer.send(first.commitment);
+    await settle();
+    assert.equal(sa.view().turn, 0,
+      'one record per colour per turn, so the superseded reveal is gone and its own '
+      + 'commitment opens nothing');
+
     peer.send(second.commitment);
     await settle();
 
     assert.equal(sa.view().turn, 1, 'the commitment arriving last still opens what was held');
-    assert.ok(sa.view().bodies.some((b: Body) => b.color === 'P' && b.t === 1 && b.x === 15),
+    assert.ok(sa.view().bodies.some((b) => b.color === 'P' && b.t === 1 && b.x === 15),
       'purple held, which is the reveal that was kept');
     assert.equal(sa.view().error, null);
   });
@@ -524,7 +517,7 @@ describe('arrival order', () => {
     await settle();
 
     assert.equal(sa.view().turn, 1, 'the commitment arriving late completes the pair');
-    assert.ok(sa.view().bodies.some((b: Body) => b.color === 'P' && b.t === 1 && b.x === 14),
+    assert.ok(sa.view().bodies.some((b) => b.color === 'P' && b.t === 1 && b.x === 14),
       'and the move that ran is the one that was sealed');
   });
 
@@ -642,7 +635,7 @@ describe('colour claims', () => {
     assert.deepEqual(first, { ok: true, error: null }, 'the lower id claimed first and keeps it');
     const second = high.claim('C', 'Vale');
     assert.equal(second.ok, false, 'the higher id must lose the contest');
-    assert.match(second.error, /taken by Rook/, 'and be told why');
+    matches(second.error, /taken by Rook/, 'and be told why');
 
     assert.deepEqual(sa.claims().C, { name: 'Rook', clientId: lowId }, 'one side names the winner');
     assert.deepEqual(sb.claims().C, { name: 'Rook', clientId: lowId }, 'and so does the other');
@@ -696,7 +689,7 @@ describe('colour claims', () => {
     peerClaim(peer, 'C', 'Vale');
     await settle();
     assert.equal(sa.color(), null, 'the lower id keeps coral');
-    assert.match(sa.view().notice, /Pick another colour/, 'and we are told to pick another');
+    matches(sa.view().notice, /Pick another colour/, 'and we are told to pick another');
 
     const r = sa.claim('P', 'Rook');
     assert.ok(r.ok, 'purple is free: ' + r.error);
@@ -807,7 +800,7 @@ describe('a peer arriving late', () => {
     assert.equal(sb.view().turn, 1, 'the joiner resolved the turn');
     assert.equal(sa.view().turn, 1, 'and so did the peer that had been waiting on it');
     assert.equal(sa.view().hash, sb.view().hash, 'on one state, not two');
-    assert.ok(sa.view().bodies.some((b: Body) => b.color === 'P' && b.t === 1 && b.x === 14),
+    assert.ok(sa.view().bodies.some((b) => b.color === 'P' && b.t === 1 && b.x === 14),
       "coral saw the joiner's move");
     assert.equal(sa.view().error, null);
     assert.equal(sb.view().error, null);
@@ -919,9 +912,9 @@ describe('the divergence check', () => {
     await settle();
     await diverge(sa, peer);
 
-    assert.match(sa.view().error, /^turn 0 arrived on state dead\b/);
-    assert.match(sa.view().error, new RegExp('this match is on ' + hash));
-    assert.match(sa.view().error, /Export and re-import/, 'and says what the player can do');
+    matches(sa.view().error, /^turn 0 arrived on state dead\b/);
+    matches(sa.view().error, new RegExp('this match is on ' + hash));
+    matches(sa.view().error, /Export and re-import/, 'and says what the player can do');
   });
 
   it('does not apply the action that failed the check', async () => {
@@ -969,7 +962,7 @@ describe('the divergence check', () => {
 
     await sa.commit('D');
     await settle();
-    assert.match(sa.view().error, /timelines have diverged/, 'committing flushes it, and it fails there');
+    matches(sa.view().error, /timelines have diverged/, 'committing flushes it, and it fails there');
     assert.equal(sa.view().turn, 0);
   });
 

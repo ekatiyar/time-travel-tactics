@@ -11,10 +11,10 @@ declare global {
   }
 }
 
-// PeerChannel reaches the network exactly once, by dynamic import of Trystero
-// from esm.sh. Serving that import from here is what keeps the suite off the
-// network: the room it returns never opens a socket, and the test drives its
-// peer list and its inbox directly.
+// PeerChannel reaches the network exactly once, by dynamically importing
+// Trystero. esbuild gives that import a chunk of its own, so serving the chunk
+// is what keeps the suite off the network: the room it returns never opens a
+// socket, and the test drives its peer list and its inbox directly.
 const ROOM_STUB = `
 export function joinRoom(config, roomId) {
   const hub = globalThis.__tbtt;
@@ -58,10 +58,10 @@ async function open(page: Page, opts: Options = {}) {
     window.__tbtt = { peers: ids, sent: [], action: null };
   }, peers);
 
-  // Registered first, so it only ever sees what the esm.sh handler below does
-  // not. The stub is matched by one URL, and a URL is easy to outgrow: drop the
-  // dependency into the bundle and that pattern matches nothing. These two name
-  // whatever went out instead, so the suite fails rather than dials a relay.
+  // Registered first, so it only ever sees what the chunk handler below does
+  // not. That handler is matched by a path, and a path is easy to outgrow. These
+  // two name whatever went out instead, so the suite fails rather than dials a
+  // relay.
   await page.route(/.*/, (route) => {
     const url = route.request().url();
     if (url.startsWith(server)) return route.continue();
@@ -73,10 +73,15 @@ async function open(page: Page, opts: Options = {}) {
     ws.close();
   });
 
-  await page.route(/esm\.sh/, (route) =>
-    opts.offline
+  // Everything under dist/ except the entry is a lazily loaded chunk, and
+  // Trystero's is the only one. Matched by position rather than by esbuild's
+  // content hash, which moves on every change to the library.
+  await page.route('**/dist/*.js', (route) => {
+    if (route.request().url().endsWith('/main.js')) return route.continue();
+    return opts.offline
       ? route.abort()
-      : route.fulfill({ contentType: 'text/javascript', body: ROOM_STUB }));
+      : route.fulfill({ contentType: 'text/javascript', body: ROOM_STUB });
+  });
   await page.goto('/index.html');
 }
 
