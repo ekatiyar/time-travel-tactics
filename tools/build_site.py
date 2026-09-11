@@ -9,6 +9,14 @@ that tag's tree. Usage:
 --root-ref defaults to origin/master, which is what CI wants: a tag push checks
 out the tag, but the root of the site must still be the tip. Pass HEAD to
 preview locally, which builds your last commit, not your working tree.
+
+If an exported tree has a package.json, it gets an npm build before publishing,
+then loses its build inputs: node_modules, package.json, package-lock.json, and
+tsconfig.json are not served and do not get published. Trees without a
+package.json (v0.1 to v0.3) publish as exported, unbuilt. Every exported entry
+point is then checked: its file must exist, and every local file it
+references, transitively, must resolve inside the tree. A failed root build or
+entry check is fatal. A failed tag build or entry check drops that tag.
 """
 import argparse
 import io
@@ -42,6 +50,76 @@ def export(ref: str, dest: pathlib.Path) -> None:
     dest.mkdir(parents=True, exist_ok=True)
     with tarfile.open(fileobj=io.BytesIO(tar)) as t:
         t.extractall(dest, filter="data")
+
+
+def build(tree: pathlib.Path) -> str | None:
+    """Run tree's npm build in place, if it declares one. Returns an error message, or None on success."""
+    if not (tree / "package.json").is_file():
+        return None
+    for cmd in (["npm", "ci", "--omit=dev"], ["npm", "run", "build"]):
+        result = subprocess.run(cmd, cwd=tree, capture_output=True, text=True)
+        if result.returncode != 0:
+            return f"{' '.join(cmd)} exited {result.returncode}\n{result.stdout}{result.stderr}"
+    return None
+
+
+BUILD_INPUTS = ("node_modules", "package.json", "package-lock.json", "tsconfig.json")
+
+
+def clean_build_inputs(tree: pathlib.Path) -> None:
+    """Remove npm's build inputs from tree. Nothing serves them; only the build output is published."""
+    for name in BUILD_INPUTS:
+        path = tree / name
+        if path.is_dir():
+            shutil.rmtree(path)
+        elif path.exists():
+            path.unlink()
+
+
+ATTR_REF = re.compile(r'''\b(?:src|href)=["']([^"']+)["']''')
+JS_REF = re.compile(r'''\b(?:from|import)\s*\(?\s*["'](\.\.?/[^"']+)["']''')
+SCHEME = re.compile(r"^[a-zA-Z][a-zA-Z0-9+.-]*:")
+
+
+def local_ref(value: str) -> str | None:
+    """Strip a query or fragment and return the referenced path, or None if it isn't local."""
+    if not value or value.startswith(("#", "//", "/")) or SCHEME.match(value):
+        return None
+    return value.split("#", 1)[0].split("?", 1)[0] or None
+
+
+def missing_refs(tree: pathlib.Path, entry: str) -> list[str]:
+    """Follow every local src/href/import reachable from entry. Return each one that doesn't resolve in tree."""
+    start = tree / entry
+    if not start.is_file():
+        return [entry]
+
+    tree = tree.resolve()
+    seen = {start.resolve()}
+    worklist = [start]
+    missing = []
+    while worklist:
+        current = worklist.pop()
+        text = current.read_text(errors="replace")
+        refs = ATTR_REF.findall(text)
+        if current.suffix in (".js", ".mjs"):
+            refs += JS_REF.findall(text)
+        for raw in refs:
+            rel = local_ref(raw)
+            if rel is None:
+                continue
+            target = (current.parent / rel).resolve()
+            try:
+                target.relative_to(tree)
+            except ValueError:
+                missing.append(raw)
+                continue
+            if not target.is_file():
+                missing.append(raw)
+            elif target not in seen:
+                seen.add(target)
+                worklist.append(target)
+    return missing
 
 
 def read_tags() -> list[dict]:
@@ -92,21 +170,42 @@ def main() -> int:
     export(args.root_ref, out)
     print(f"root  {args.root_ref}")
 
-    releases = read_tags()
-    for release in releases:
+    error = build(out)
+    if error:
+        print(f"root build failed:\n{error}")
+        return 1
+    clean_build_inputs(out)
+    unresolved = missing_refs(out, DEFAULT_ENTRY)
+    if unresolved:
+        print(f"root entry {DEFAULT_ENTRY} is missing: {', '.join(unresolved)}")
+        return 1
+
+    kept = []
+    for release in read_tags():
         tag, entry = release["tag"], release["entry"]
         if not release.pop("annotated") or not release["title"]:
             print(f"tag {tag} carries no message of its own. Annotate it: git tag -a -f {tag}")
             return 1
         dest = out / "v" / tag
         export(tag, dest)
-        if not (dest / entry).is_file():
-            print(f"tag {tag} names entry {entry}, which is not in its tree")
-            return 1
+
+        error = build(dest)
+        if error:
+            print(f"tag {tag} build failed, dropping it:\n{error}")
+            shutil.rmtree(dest)
+            continue
+        clean_build_inputs(dest)
+        unresolved = missing_refs(dest, entry)
+        if unresolved:
+            print(f"tag {tag} entry {entry} is missing: {', '.join(unresolved)}. dropping it")
+            shutil.rmtree(dest)
+            continue
+
+        kept.append(release)
         print(f"  v/{tag}  {entry}")
 
-    (out / "releases.json").write_text(json.dumps(releases, indent=2) + "\n")
-    print(f"\n{len(releases)} releases -> {out}")
+    (out / "releases.json").write_text(json.dumps(kept, indent=2) + "\n")
+    print(f"\n{len(kept)} releases -> {out}")
     return 0
 
 
