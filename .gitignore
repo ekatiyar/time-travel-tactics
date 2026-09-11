@@ -3,3 +3,4 @@ node_modules/
 play/dist/
 test-results/
 playwright-report/
+__pycache__/
