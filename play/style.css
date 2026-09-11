@@ -1,0 +1,114 @@
+  /* Dark is the default; the light theme is the original mockup palette. */
+  :root{
+    color-scheme:dark;
+    --surface-0:#17161A; --surface-1:#212024; --surface-2:#2B2A2F;
+    --text-primary:#EDEAE4; --text-secondary:#A8A49C; --text-muted:#787469;
+    --border:#37353B; --btn-border:#4E4B53;
+    --accent-bg:#1B2B3B; --accent-br:#5A8FC4;
+    --bad-br:#EE8A63; --good:#5FBF92;
+    --wall:#6E6B73; --dot-floor:0.22;
+    --mono:ui-monospace,SFMono-Regular,Menlo,monospace;
+  }
+  :root[data-theme="light"]{
+    color-scheme:light;
+    --surface-0:#F6F4F0; --surface-1:#EFECE6; --surface-2:#FFFFFF;
+    --text-primary:#2C2C2A; --text-secondary:#5F5E5A; --text-muted:#888780;
+    --border:#DDD9D2; --btn-border:#B4B2A9;
+    --accent-bg:#E6F1FB; --accent-br:#85B7EB;
+    --bad-br:#D85A30; --good:#2E7D5B;
+    --wall:#888780; --dot-floor:0.14;
+  }
+  *{box-sizing:border-box;}
+  body{margin:0;padding:14px 18px 40px;background:var(--surface-0);color:var(--text-primary);
+    font:400 15px/1.6 system-ui,-apple-system,"Segoe UI",sans-serif;}
+  .wrap{max-width:1600px;margin:0 auto;}
+  .narrow{max-width:640px;margin:0 auto;}
+  h1{font-size:19px;font-weight:500;margin:0 0 2px;}
+  h2{font-size:14px;font-weight:500;margin:0 0 8px;color:var(--text-secondary);}
+  .sub{font-size:13px;color:var(--text-secondary);margin:0 0 18px;}
+  .card{background:var(--surface-1);border-radius:12px;padding:16px;margin-bottom:14px;}
+  button{font:inherit;font-size:14px;padding:7px 12px;border-radius:8px;border:1px solid var(--btn-border);
+    background:transparent;color:inherit;cursor:pointer;}
+  button:hover:not(:disabled){background:var(--surface-2);}
+  button:disabled{opacity:.4;cursor:not-allowed;}
+  button.on{background:var(--surface-2);border-color:var(--text-secondary);}
+  input,select,textarea{font:inherit;font-size:14px;padding:6px 9px;border-radius:8px;
+    border:1px solid var(--border);background:var(--surface-2);color:inherit;}
+  textarea{width:100%;font-family:var(--mono);font-size:12.5px;resize:vertical;}
+  input[type=range]{accent-color:var(--text-secondary);padding:0;border:0;background:none;}
+  label.f{display:flex;align-items:center;gap:8px;font-size:13px;color:var(--text-secondary);margin-bottom:8px;}
+  label.f input,label.f select{margin-left:auto;width:150px;}
+  .row{display:flex;align-items:center;gap:10px;margin:10px 0 4px;}
+  .row>label{font-size:13px;color:var(--text-secondary);width:78px;flex:none;}
+  .row .out{font-size:13px;font-family:var(--mono);width:26px;text-align:right;}
+  .mono{font-family:var(--mono);font-size:12.5px;}
+  .muted{color:var(--text-muted);}
+  .sec{color:var(--text-secondary);}
+  /* ---- three columns; the board column never drops below half the window ---- */
+  .cols{display:grid;gap:14px;align-items:start;
+    grid-template-columns:minmax(240px,1fr) minmax(50vw,2.4fr) minmax(270px,1fr);}
+  /* Stacked, the board comes first. The log and export can scroll below it. */
+  @media(max-width:1120px){
+    .cols{grid-template-columns:1fr;}
+    .cols>:nth-child(2){order:-1;}
+    .dpad{max-width:320px;}
+  }
+
+  /* ---- board: square cells at any w x h, CSS only, no resize listener ---- */
+  .boardframe{background:var(--surface-2);border:1px solid var(--border);border-radius:8px;
+    padding:6px;display:flex;justify-content:center;}
+  #board{
+    --maxh:min(70vh,720px);
+    display:grid;
+    width:min(100%, calc(var(--maxh) * var(--bw) / var(--bh)));
+    aspect-ratio:var(--bw) / var(--bh);
+    grid-template-columns:repeat(var(--bw),1fr);
+    grid-template-rows:repeat(var(--bh),1fr);
+  }
+  /* Border rather than gap keeps the grid's aspect ratio exact, so cells stay
+     square at any board shape. Each cell is a size container so tokens scale
+     with the cell, not the board. */
+  .cell{border:1px solid var(--surface-2);border-radius:3px;min-width:0;min-height:0;
+    container-type:size;display:flex;align-items:center;justify-content:center;
+    gap:4cqmin;overflow:hidden;}
+  .tok{display:flex;align-items:center;justify-content:center;font-family:var(--mono);
+    white-space:nowrap;font-weight:500;height:70cqmin;flex:none;font-size:26cqmin;}
+  .trail{border-radius:50%;flex:none;width:11cqmin;height:11cqmin;min-width:3px;min-height:3px;}
+  .legend{display:flex;flex-wrap:wrap;gap:6px 14px;margin-top:12px;font-size:12px;color:var(--text-secondary);}
+  .legend span{display:inline-flex;align-items:center;gap:5px;}
+  .sw{width:11px;height:11px;border-radius:50%;flex:none;}
+  .err{color:var(--bad-br);font-size:13px;margin-top:8px;}
+  .ok{color:var(--good);font-size:13px;margin-top:8px;}
+  #btnTheme{padding:4px 10px;font-size:12.5px;}
+  .grid2{display:grid;grid-template-columns:1fr 1fr;gap:14px;}
+  @media(max-width:720px){.grid2{grid-template-columns:1fr;}}
+  .pill{display:inline-block;padding:1px 7px;border-radius:20px;font-size:11.5px;
+    font-family:var(--mono);margin-right:4px;}
+  .tabs{display:flex;gap:6px;margin-bottom:14px;}
+  .tabs button{flex:1;}
+  .hide{display:none;}
+
+  /* ---- d-pad: four arrows around hold, invert kept apart below ---- */
+  .dpad{display:grid;grid-template-columns:repeat(3,1fr);gap:6px;margin-bottom:10px;}
+  .dpad button{padding:0;height:52px;font-size:17px;display:flex;flex-direction:column;
+    align-items:center;justify-content:center;line-height:1.15;}
+  .dpad button small{font-size:10px;font-family:var(--mono);color:var(--text-muted);}
+  .dpad .blank{visibility:hidden;}
+  button.sel{background:var(--accent-bg);border-color:var(--accent-br);}
+  .keyhint{font-size:12px;color:var(--text-muted);margin-top:8px;}
+
+  /* ---- log: every turn so far, newest first ---- */
+  .log{max-height:46vh;overflow:auto;margin:0;padding:0;list-style:none;}
+  .log li{font-size:13px;color:var(--text-secondary);padding:3px 0;display:flex;gap:7px;align-items:baseline;}
+  .log .m{font-family:var(--mono);font-size:11px;color:var(--text-muted);flex:none;width:26px;text-align:right;}
+  .log .sw{width:8px;height:8px;position:relative;top:1px;}
+  .turnsep{border-top:1px solid var(--border);margin:6px 0 2px;}
+
+  /* ---- colour + name picker ---- */
+  .pickrow{display:flex;align-items:center;gap:10px;padding:7px 8px;border-radius:9px;
+    border:1px solid transparent;cursor:pointer;}
+  .pickrow:hover{background:var(--surface-2);}
+  .pickrow.on{border-color:var(--text-secondary);background:var(--surface-2);}
+  .pickrow .sw{width:14px;height:14px;}
+  .pickrow input{flex:1;min-width:0;}
+  .pickrow.taken{opacity:.45;pointer-events:none;}
