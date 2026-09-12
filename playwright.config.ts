@@ -17,7 +17,7 @@ export default defineConfig({
       use: { ...devices['Desktop Chrome'] },
     },
     {
-      // Real relays, real peers. Slow and networked, so it never runs in CI.
+      // Networked test; excluded from CI.
       name: 'live',
       testMatch: /live\.spec\.ts/,
       use: { ...devices['Desktop Chrome'] },

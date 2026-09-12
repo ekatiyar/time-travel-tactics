@@ -1,5 +1,4 @@
-// Static file server for the Playwright tests. esbuild's --servedir stops when
-// stdin closes, which Playwright's webServer does not keep open.
+// Keep the Playwright server alive after stdin closes.
 import { createServer } from 'node:http';
 import { createReadStream } from 'node:fs';
 import { stat } from 'node:fs/promises';

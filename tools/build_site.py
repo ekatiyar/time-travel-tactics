@@ -1,23 +1,4 @@
-"""Build the published site: master's tip at the root, every release tag under v/.
-
-Each annotated tag matching v* becomes a playable version at v/<tag>/, and its
-message becomes a card on the front page. Subject line is the title, the body is
-the blurb, and a trailing 'entry: <path>' line names the playable file inside
-that tag's tree. Usage:
-    python tools/build_site.py [--root-ref REF] [--out DIR]
-
---root-ref defaults to origin/master, which is what CI wants: a tag push checks
-out the tag, but the root of the site must still be the tip. Pass HEAD to
-preview locally, which builds your last commit, not your working tree.
-
-If an exported tree has a package.json, it gets an npm build before publishing,
-then loses its build inputs: node_modules, package.json, package-lock.json, and
-tsconfig.json are not served and do not get published. Trees without a
-package.json (v0.1 to v0.3) publish as exported, unbuilt. Every exported entry
-point is then checked: its file must exist, and every local file it
-references, transitively, must resolve inside the tree. A failed root build or
-entry check is fatal. A failed tag build or entry check drops that tag.
-"""
+"""Build the current site and tagged releases."""
 import argparse
 import io
 import json
@@ -53,7 +34,7 @@ def export(ref: str, dest: pathlib.Path) -> None:
 
 
 def build(tree: pathlib.Path) -> str | None:
-    """Run tree's npm build in place, if it declares one. Returns an error message, or None on success."""
+    """Build a tree with package.json, returning an error on failure."""
     if not (tree / "package.json").is_file():
         return None
     for cmd in (["npm", "ci", "--omit=dev"], ["npm", "run", "build"]):
@@ -67,7 +48,7 @@ BUILD_INPUTS = ("node_modules", "package.json", "package-lock.json", "tsconfig.j
 
 
 def clean_build_inputs(tree: pathlib.Path) -> None:
-    """Remove npm's build inputs from tree. Nothing serves them; only the build output is published."""
+    """Remove build inputs from the published tree."""
     for name in BUILD_INPUTS:
         path = tree / name
         if path.is_dir():
@@ -82,14 +63,14 @@ SCHEME = re.compile(r"^[a-zA-Z][a-zA-Z0-9+.-]*:")
 
 
 def local_ref(value: str) -> str | None:
-    """Strip a query or fragment and return the referenced path, or None if it isn't local."""
+    """Return a local reference without its query or fragment."""
     if not value or value.startswith(("#", "//", "/")) or SCHEME.match(value):
         return None
     return value.split("#", 1)[0].split("?", 1)[0] or None
 
 
 def missing_refs(tree: pathlib.Path, entry: str) -> list[str]:
-    """Follow every local src/href/import reachable from entry. Return each one that doesn't resolve in tree."""
+    """Return unresolved local references reachable from entry."""
     start = tree / entry
     if not start.is_file():
         return [entry]
@@ -123,8 +104,7 @@ def missing_refs(tree: pathlib.Path, entry: str) -> list[str]:
 
 
 def read_tags() -> list[dict]:
-    # objecttype is 'tag' only when annotated. A lightweight tag has no message
-    # of its own and git hands back the commit's, so the subject is never empty.
+    # Only annotated tags have release metadata.
     fmt = UNIT.join(
         ["%(refname:short)", "%(objecttype)", "%(creatordate:short)",
          "%(contents:subject)", "%(contents:body)"]

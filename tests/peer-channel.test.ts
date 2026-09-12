@@ -1,19 +1,10 @@
-/* PeerChannel tests: the room seam, with a fake room standing in for Trystero.
-
-   PeerChannel takes its loader as the second argument, and every test here
-   supplies one. Nothing in this file touches a relay. */
-
 import { describe, it } from 'node:test';
 import assert from 'node:assert/strict';
 
 import { PeerChannel } from '../play/src/transport.js';
 import type { Channel, ChannelStatus, Room, RoomLoader } from '../play/src/transport.js';
 
-// ---- a fake room ----------------------------------------------------------
-
-// Room types the second argument of a message handler as never, so a handler
-// read back through Room cannot be called. A string there is still assignable
-// to Room and leaves the handler callable from a test.
+// Keep the test callback callable despite Room's invariant `never` argument.
 type FakeAction = {
   send: (data: string) => unknown;
   onMessage: ((data: string, peerId: string) => void) | null;
@@ -67,8 +58,6 @@ function fakeRoom(o: { peers?: string[]; leaveThrows?: Error } = {}): Fake {
   };
 }
 
-// ---- driving the join -----------------------------------------------------
-
 type Deferred = {
   load: RoomLoader;
   ids: string[];
@@ -76,8 +65,6 @@ type Deferred = {
   reject: (reason: unknown) => void;
 };
 
-// A loader the test settles by hand, which is the only way to get inside the
-// window between opening a channel and the room turning up.
 function deferredLoader(): Deferred {
   const ids: string[] = [];
   let resolve: (room: Room) => void = () => {};
@@ -110,8 +97,6 @@ function last(seen: ChannelStatus[]): ChannelStatus {
   return s;
 }
 
-// ---- joining --------------------------------------------------------------
-
 describe('joining a room', () => {
   it('stays connecting in an empty room, because reaching the relays is not a game', async () => {
     const d = deferredLoader();
@@ -131,22 +116,17 @@ describe('joining a room', () => {
   });
 
   it('seeds its peer list from getPeers, not only from onPeerJoin', async () => {
-    // Peers already in the room when you arrive never fire onPeerJoin for you.
     const { seen } = await joined({ peers: ['a', 'b'] });
     assert.deepEqual(last(seen), { state: 'live', peers: ['a', 'b'], detail: null });
   });
 
   it('lists a peer once when the room announces it twice', async () => {
-    // A doubled peer makes the room look one player fuller than it is, and
-    // Session counts seats off this list before it calls a match playable.
     const { fake, seen } = await joined();
     fake.join('p1');
     fake.join('p1');
     assert.deepEqual(last(seen).peers, ['p1']);
   });
 });
-
-// ---- peers leaving --------------------------------------------------------
 
 describe('a peer leaving', () => {
   it('is dropped from the list, and nobody else with it', async () => {
@@ -165,8 +145,6 @@ describe('a peer leaving', () => {
       'an empty room is one no turn can resolve in');
   });
 });
-
-// ---- messages -------------------------------------------------------------
 
 describe('messages', () => {
   it('reach onMessage, and a message before anyone is listening is dropped', async () => {
@@ -203,8 +181,6 @@ describe('messages', () => {
   });
 });
 
-// ---- a loader that fails --------------------------------------------------
-
 describe('a loader that rejects', () => {
   it('reports failed with the error message as detail', async () => {
     const d = deferredLoader();
@@ -215,7 +191,6 @@ describe('a loader that rejects', () => {
   });
 
   it('reports failed when the rejection is not an Error', async () => {
-    // Nothing promises a rejection is an Error, and detail is printed as is.
     const d = deferredLoader();
     const { seen } = open(d.load);
     d.reject('relays unreachable');
@@ -224,12 +199,8 @@ describe('a loader that rejects', () => {
   });
 });
 
-// ---- the status port ------------------------------------------------------
-
 describe('the status port', () => {
   it('reports where the channel already is the moment onStatus is assigned', async () => {
-    // A Session opened after the room came up would otherwise draw nothing until
-    // the next peer event, which in a full two-player room never comes.
     const fake = fakeRoom({ peers: ['a'] });
     const ch = PeerChannel('tbtt-0000000000000000', () => Promise.resolve(fake.room));
     await settle();
@@ -251,8 +222,6 @@ describe('the status port', () => {
     assert.deepEqual(last(later).peers, ['a', 'b']);
   });
 });
-
-// ---- closing --------------------------------------------------------------
 
 describe('closing', () => {
   it('wires nothing to a room that turns up after close', async () => {
@@ -288,9 +257,6 @@ describe('closing', () => {
   });
 
   it('ignores a peer event that lands after close', async () => {
-    // close() leaves Trystero's callbacks assigned, and they still hold the peer
-    // list. Reporting live over the top of offline makes a dead channel look
-    // playable, and the Play button is gated on exactly that.
     const { fake, ch, seen } = await joined({ peers: ['a'] });
     ch.close();
 
@@ -300,7 +266,6 @@ describe('closing', () => {
   });
 
   it('reports offline even when leaving throws', async () => {
-    // A room torn down under us must not cost the UI its offline report.
     const { fake, ch, seen } = await joined({ peers: ['a'], leaveThrows: new Error('already gone') });
     ch.close();
 
@@ -309,12 +274,8 @@ describe('closing', () => {
   });
 });
 
-// ---- client ids -----------------------------------------------------------
-
 describe('client ids', () => {
   it('are distinct, and shaped for the claim grammar', () => {
-    // The id is the tiebreak for a contested colour, so it travels inside a
-    // claim string and has to survive that grammar.
     const load: RoomLoader = () => new Promise<Room>(() => {});
     const a = PeerChannel('tbtt-0000000000000000', load).id;
     const b = PeerChannel('tbtt-0000000000000000', load).id;

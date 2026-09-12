@@ -28,13 +28,9 @@ jobs:
       - run: npm ci
       - run: npx playwright install --with-deps chromium
       - run: npm run typecheck
-      # Node first: it is a second and covers the most.
       - run: npm run test:node
       - run: npm run test:ui
-      # The suite runs against the repo; this runs against the exported tree, so
-      # it catches a runtime dep filed under devDependencies or a build input
-      # missing its .gitattributes line. Shallow checkout has no tags, so only
-      # the root is built.
+      # Validate the exported root too.
       - run: python tools/build_site.py --root-ref HEAD
 
   build:
@@ -42,7 +38,6 @@ jobs:
     if: github.event_name != 'pull_request'
     runs-on: ubuntu-latest
     steps:
-      # fetch-depth 0 for origin/master and every tag; the build needs both.
       - uses: actions/checkout@v4
         with:
           fetch-depth: 0
