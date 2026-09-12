@@ -7,6 +7,8 @@ import type { Action, ActionOffer, Color, ConfigInput, TurnEvent, ViewBody } fro
 import { Code, PeerChannel, Session, trimUnresolved } from './transport.js';
 import type { Channel, RoomLoader, SessionView } from './transport.js';
 
+type Names = Partial<Record<Color, string>>;
+
 function plural(n: number, word: string): string {
   return n + ' ' + word + (n === 1 ? '' : 's');
 }
@@ -348,7 +350,7 @@ function initialForm(): Form {
   };
 }
 
-function SetupCard({ onMatch }: { onMatch: (m: Match) => void }) {
+function SetupCard({ onMatch }: { onMatch: (m: Match, names?: Names) => void }) {
   const [tab, setTab] = useState<Tab>('new');
   const [form, setForm] = useState<Form>(initialForm);
   const [joinCode, setJoinCode] = useState('');
@@ -397,7 +399,7 @@ function SetupCard({ onMatch }: { onMatch: (m: Match) => void }) {
   function load() {
     const r = Match.fromExport(trimUnresolved(exported));
     if (!r.ok) { setError(r.error); return; }
-    onMatch(r.value);
+    onMatch(r.value.match, r.value.names);
     setError('');
   }
 
@@ -489,8 +491,8 @@ type PickerProps = {
   channel: Channel;
   code: string;
   view: SessionView;
-  names: Partial<Record<Color, string>>;
-  setNames: (f: (n: Partial<Record<Color, string>>) => Partial<Record<Color, string>>) => void;
+  names: Names;
+  setNames: (f: (n: Names) => Names) => void;
   chosen: Color | null;
   setChosen: (c: Color) => void;
   onSit: () => void;
@@ -556,7 +558,7 @@ function PickCard(p: PickerProps) {
                   }}
                   onKeyDown={(e) => { if (e.key === 'Enter') sit(); }}
                 />
-                <span class="sec who" style="flex:none;">{theirs ? theirs.name : ''}</span>
+                <span class="sec who" style="flex:none;">{theirs ? p.view.names[c] ?? '' : ''}</span>
               </div>
             );
           })}
@@ -854,7 +856,7 @@ type Live = { match: Match; session: Session; channel: Channel; code: string };
 export function App({ loadRoom }: { loadRoom: RoomLoader }) {
   const [theme, setTheme] = useState<Theme>(readTheme);
   const [live, setLive] = useState<Live | null>(null);
-  const [names, setNames] = useState<Partial<Record<Color, string>>>({});
+  const [names, setNames] = useState<Names>({});
   const [chosen, setChosen] = useState<Color | null>(null);
   const [playing, setPlaying] = useState(false);
   // Session mutates in place, so onChange has nothing to hand back. Bumping this
@@ -862,13 +864,13 @@ export function App({ loadRoom }: { loadRoom: RoomLoader }) {
   const [, setTick] = useState(0);
   const redraw = useCallback(() => { setTick((n) => n + 1); }, []);
 
-  const openMatch = useCallback((m: Match) => {
+  const openMatch = useCallback((m: Match, imported?: Names) => {
     const code = Wire.encodeMatchCode(m.config());
     if (live) live.session.close();
     const channel = PeerChannel(Code.roomId(code), loadRoom);
-    setLive({ match: m, channel, code, session: Session.open({ match: m, channel, onChange: redraw }) });
-    const seat = m.config().roster[0];
-    setNames(seat ? m.view(seat).names : {});
+    const session = Session.open({ match: m, channel, names: imported, onChange: redraw });
+    setLive({ match: m, channel, code, session });
+    setNames(imported ?? {});
     setChosen(null);
     setPlaying(false);
   }, [live, loadRoom, redraw]);

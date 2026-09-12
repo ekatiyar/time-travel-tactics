@@ -225,6 +225,12 @@ nothing in the four render functions changed.
   `roster.length - 1` peers; `peersNeeded` says how many are missing. Play stays disabled.
 - **Colour claims settle without an authority.** The lower client id keeps a contested colour,
   every client computes the same answer, and exactly one player is bounced on every screen.
+- **Names live in the session, not the match.** A `Match` is its config and its log. `Session`
+  keeps two name tables, because a claim and a reveal answer different questions. A claim says who
+  holds the seat now and changes hands when a lower client id takes it, so `view().names` reads
+  that one. The turn-0 reveal says who played the log, so `export()` writes that one and it keeps
+  the first name it is told. Between a claim landing and turn 0 resolving, the screen knows a name
+  the export does not.
 - **Reconnect is the claim mechanism.** When a peer appears, you send it your claim and your
   current-turn action. That is the whole protocol. No timers, no heartbeats.
 - **An export is never broadcast.** `Match.export()` serialises partial turns, so broadcasting one

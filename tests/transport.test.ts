@@ -116,10 +116,12 @@ function record(ch: LoopbackEnd): string[] {
 
 // One session on one end of an unwired channel. Linking it to anything is the
 // test's own business, which is what lets a test bring a peer in late.
-function mkLone(id?: string, over?: Partial<typeof CONFIG>) {
+function mkLone(id?: string, over?: Partial<typeof CONFIG>, names?: Partial<Record<Color, string>>) {
   const ch = makeEnd(id);
   const sent = record(ch);
-  const s = Session.open({ match: Match.fromConfig(cfg(over)), channel: ch, onChange: () => {} });
+  const s = Session.open({
+    match: Match.fromConfig(cfg(over)), channel: ch, names: names, onChange: () => {}
+  });
   return { ch, s, sent };
 }
 
@@ -138,8 +140,8 @@ function mkPair(over?: Partial<typeof CONFIG>) {
 // One session and a bare channel wired to it. The bare end is the opponent a
 // test writes by hand, so it can send strings in an order or a shape no honest
 // client would produce. heard is everything the session broadcast.
-function mkSolo(over?: Partial<typeof CONFIG>) {
-  const { ch: a, s: sa, sent } = mkLone(undefined, over);
+function mkSolo(over?: Partial<typeof CONFIG>, names?: Partial<Record<Color, string>>) {
+  const { ch: a, s: sa, sent } = mkLone(undefined, over, names);
   const peer = makeEnd();
   const heard: string[] = [];
   peer.onMessage = (text) => { heard.push(text); };
@@ -171,6 +173,8 @@ function decoded(str: string) {
   return d.value;
 }
 
+// The match and the names it was carrying, which is how fromExport hands them
+// back now that a match keeps no names of its own.
 function imported(str: string) {
   const r = Match.fromExport(str);
   assert.ok(r.ok, 'export should load: ' + str);
@@ -225,9 +229,8 @@ describe('a turn over a loopback pair', () => {
     seat(sa, 'C', 'Rook');
     await sa.commit('D');
 
-    assert.equal(sa.view().myAction,
-      Wire.encodeAction({ turn: metaTurn(0), color: 'C', action: 'D', hash: sa.view().hash, name: 'Rook' }),
-      'the view carries your own action string, so the screen has something to draw');
+    assert.ok(!sa.view().pending.includes('C'),
+      'the action is in the log locally, so the screen has something to draw');
     const again = await sa.commit('D');
     assert.equal(again.ok, false, 'a second commit for the same turn is refused');
   });
@@ -251,7 +254,7 @@ describe('a turn over a loopback pair', () => {
     const w = sa.withdraw();
     assert.ok(!(w instanceof Promise), 'withdraw hashes nothing, so it stays synchronous');
     assert.ok(w.ok, 'purple has not committed, so the action is still yours to take back: ' + w.error);
-    assert.equal(sa.view().myAction, null, 'and it is gone locally');
+    assert.ok(sa.view().pending.includes('C'), 'and it is gone locally');
     await sa.commit('H');
 
     await sb.commit('A');
@@ -664,8 +667,8 @@ describe('colour claims', () => {
   });
 
   it('name the winner of a contested colour, whichever claim arrived first', () => {
-    // Match.setName is first-write-wins on purpose, so the losing claim must not
-    // be the one that reaches it. A third client watching two players fight over
+    // The seat is display state and the log's name is not, so the losing claim must
+    // not be the one the screen reads. A third client watching two players fight over
     // a colour sees both claims, in whatever order the relays deliver them.
     const { sa, peer } = mkSolo();
     peer.send('!P~Vale@zzzz');
@@ -741,6 +744,84 @@ describe('colour claims', () => {
 
 // ---- a peer arriving late -------------------------------------------------
 
+describe('names', () => {
+  // Two questions, two answers. view().names is who is sitting there now, and an
+  // export is who played the log. They are the same string until a seat changes
+  // hands, and every test here is about the cases where they are not.
+
+  it('carries the name on the turn-0 reveal and nowhere later', async () => {
+    const { sa, sb, sentA } = mkPair();
+    seat(sa, 'C', 'Rook');
+    seat(sb, 'P', 'Vale');
+    const h0 = sa.view().hash;
+
+    await sa.commit('D');
+    await sb.commit('A');
+    await settle();
+    const opening = sentA.filter((t) => t.startsWith('0C:'));
+    assert.deepEqual(opening.map((t) => t.split('|')[0]), ['0C:D#' + h0 + '~Rook'],
+      'the opening reveal names the player');
+
+    const h1 = sa.view().hash;
+    await sa.commit('D');
+    await sb.commit('A');
+    await settle();
+    const late = sentA.filter((t) => t.startsWith('1C:'));
+    assert.deepEqual(late.map((t) => t.split('|')[0]), ['1C:D#' + h1],
+      'later reveals drop it, because the name is already everywhere');
+  });
+
+  it('puts a played name in the export and a bare claim nowhere near it', () => {
+    const { sa, peer } = mkSolo();
+    peerClaim(peer, 'P', 'Vale');
+
+    assert.equal(sa.view().names.P, 'Vale', 'the screen says who is sitting there');
+    assert.equal(decoded(sa.export()).names.P, undefined,
+      'but nobody has played as purple, so the export has nothing to record');
+  });
+
+  it('exports the name of whoever actually played the turn', async () => {
+    const { sa, sb } = mkPair();
+    seat(sa, 'C', 'Rook');
+    seat(sb, 'P', 'Vale');
+    await sa.commit('D');
+    await sb.commit('A');
+    await settle();
+
+    assert.deepEqual(decoded(sb.export()).names, { C: 'Rook', P: 'Vale' },
+      'both sides of a resolved turn are named from the far end too');
+  });
+
+  it('seats an imported name straight into the view and the next export', () => {
+    const { s } = mkLone('imp', undefined, { C: 'Rook', P: 'Vale' });
+    assert.deepEqual(s.view().names, { C: 'Rook', P: 'Vale' });
+    assert.deepEqual(decoded(s.export()).names, { C: 'Rook', P: 'Vale' });
+  });
+
+  it('keeps the first name a colour was played under', async () => {
+    // A rename mid-match would leave whoever saw the old name reading a different
+    // label for the same log, so a later one is ignored rather than refused.
+    const { sa, peer } = mkSolo(undefined, { P: 'Vale' });
+    seat(sa, 'C', 'Rook');
+    const t = await twoPhase({
+      turn: 0, color: 'P', action: 'A', hash: sa.view().hash, name: 'Rook'
+    });
+    peer.send(t.commitment);
+    peer.send(t.reveal);
+    await sa.commit('D');
+    await settle();
+
+    assert.equal(sa.view().turn, 1, 'the turn resolved, so the reveal was applied');
+    assert.equal(decoded(sa.export()).names.P, 'Vale', 'the imported name stands');
+  });
+
+  it('ignores a name it has no seat for and a name the wire could not carry', () => {
+    const { s } = mkLone('junk', { roster: ['C', 'P'] }, { T: 'Nim', C: 'Bo Vale' });
+    assert.deepEqual(s.view().names, {}, 'teal is not in this match and a space is not a name');
+    assert.deepEqual(decoded(s.export()).names, {});
+  });
+});
+
 describe('a peer arriving late', () => {
   it('is sent the claim and the commitment for the turn in progress', async () => {
     // pair() wires both ends up front, so nobody is ever new. Built one end at a
@@ -805,8 +886,9 @@ describe('a peer arriving late', () => {
     await settle();
 
     const b = makeEnd('joinB');
+    const from = imported(trimUnresolved(sa.export()));
     const sb = Session.open({
-      match: imported(trimUnresolved(sa.export())), channel: b, onChange: () => {}
+      match: from.match, channel: b, names: from.names, onChange: () => {}
     });
     LoopbackChannel.link(a, b);
     await settle();
@@ -842,15 +924,15 @@ describe('export trimming', () => {
     await commitLegal(sa); // and turn 1 is under way, with only coral in
 
     const raw = sa.export();
-    assert.ok(!imported(raw).pendingColors().includes('C'),
+    assert.ok(!imported(raw).match.pendingColors().includes('C'),
       'the untrimmed export carries the draft, which is the whole problem');
 
     const trimmed = imported(trimUnresolved(raw));
-    assert.equal(trimmed.currentTurn(), sa.view().turn, 'the finished turns are all still there');
-    assert.deepEqual(trimmed.pendingColors(), ['C', 'P'], 'the unfinished one is owed by everybody again');
-    assert.equal(trimmed.view('C').myAction, null, 'no draft comes back, so commit() has something to do');
-    assert.equal(trimmed.stateHash(), sa.view().hash, 'on the state the live session is already on');
-    assert.equal(trimmed.names().C, 'Rook', 'and the names survive the cut');
+    assert.equal(trimmed.match.currentTurn(), sa.view().turn, 'the finished turns are all still there');
+    assert.deepEqual(trimmed.match.pendingColors(), ['C', 'P'],
+      'the unfinished one is owed by everybody again, so commit() has something to do');
+    assert.equal(trimmed.match.stateHash(), sa.view().hash, 'on the state the live session is already on');
+    assert.equal(trimmed.names.C, 'Rook', 'and the names survive the cut');
   });
 
   it('changes nothing at a turn boundary', async () => {
@@ -863,7 +945,8 @@ describe('export trimming', () => {
     assert.equal(sa.view().turn, 1, 'nobody is mid-turn');
 
     const raw = sa.export();
-    assert.equal(trimUnresolved(raw), imported(raw).export(), 'there was nothing to cut');
+    const back = imported(raw);
+    assert.equal(trimUnresolved(raw), back.match.export(back.names), 'there was nothing to cut');
   });
 
   it('leaves a string it cannot decode to Match.fromExport', () => {

@@ -491,8 +491,7 @@ describe('the horizon and view()', () => {
       null, 'occupied', 'wall', 'off the board', 'unknown action',
       'that is before the start of time', 'the match is over',
     ]);
-    const names = ['Coral', 'Purple', 'Teal', 'Amber', 'Rook', 'Vale', 'Nim', 'Sable'];
-    const opener: Record<string, string> = { C: 'Rook', P: 'Vale', T: 'Nim', A: 'Sable' };
+    const names = ['Coral', 'Purple', 'Teal', 'Amber'];
 
     for (let s = 0; s < 60; s++) {
       const roster = ['C', 'P', 'T', 'A'];
@@ -511,7 +510,7 @@ describe('the horizon and view()', () => {
           const opts = freeActions(m, color);
           const action = opts[(s + color.charCodeAt(0)) % opts.length];
           assert.ok(action);
-          const r = m.submit({ turn, color, action, hash, name: turn === 0 ? opener[color] : undefined });
+          const r = m.submit({ turn, color, action, hash });
           assert.ok(r.ok, `reason${s}: ${color} ${action}: ${r.error}`);
         }
       }
@@ -747,54 +746,6 @@ describe('the Wire codec', () => {
   });
 });
 
-describe('names', () => {
-  it('reaches every client without touching the state hash', () => {
-    const c = cfg({ w: 8, h: 2, seed: 'names' });
-    const named = Match.fromConfig(c);
-    const plain = Match.fromConfig(c);
-
-    named.submit({ turn: 0, color: 'C', action: 'D', hash: named.stateHash(), name: 'Rook' });
-    named.submit({ turn: 0, color: 'P', action: 'A', hash: named.stateHash(), name: 'Vale' });
-    plain.submit({ turn: 0, color: 'C', action: 'D', hash: plain.stateHash() });
-    plain.submit({ turn: 0, color: 'P', action: 'A', hash: plain.stateHash() });
-
-    assert.equal(named.stateHash(), plain.stateHash(), 'names must not change agreed state');
-    assert.equal(view(named, 'C').names.P, 'Vale', 'you see the name that arrived');
-    assert.equal(view(plain, 'C').names.P, undefined, 'and nothing before it arrives');
-  });
-
-  it('refuses a name with a delimiter rather than stripping it', () => {
-    const m = match({ w: 8, h: 2, seed: 'names2' });
-    const r = m.submit({ turn: 0, color: 'C', action: 'D', hash: m.stateHash(), name: 'x~y' });
-    assert.equal(r.ok, false);
-    assert.equal(r.error, 'a name must be 1-12 letters, digits, - or _');
-    assert.deepEqual(m.pendingColors(), ['C', 'P'], 'the refused action is not logged');
-  });
-
-  it('refuses a space but accepts an underscore', () => {
-    const m = match({ w: 8, h: 2, seed: 'space' });
-    assert.equal(m.setName('C', 'Bo Vale'), false, 'a spaced name is refused');
-    assert.deepEqual(m.names(), {}, 'and nothing is stored');
-    assert.equal(m.setName('C', 'Bo_Vale'), true);
-    assert.deepEqual(m.names(), { C: 'Bo_Vale' });
-  });
-
-  it('keeps the first name a colour was given', () => {
-    // A player who renamed themselves mid-match would desync everyone who saw
-    // them under the old name, so a late arrival is ignored, not refused.
-    const m = match({ w: 8, h: 2, seed: 'rename' });
-    assert.equal(m.setName('C', 'Rook'), true);
-    assert.equal(m.setName('C', 'Vale'), true, 'a late rename is accepted, not refused');
-    assert.deepEqual(m.names(), { C: 'Rook' });
-  });
-
-  it('ignores a name for a colour outside the roster', () => {
-    const m = match({ w: 8, h: 2, seed: 'stray' });
-    assert.equal(m.setName('T', 'Nim'), false);
-    assert.deepEqual(m.names(), {});
-  });
-});
-
 describe('submit', () => {
   it('rejects a stale hash, a wrong turn, a repeat, and an illegal action', () => {
     const m = match({ w: 8, h: 2, seed: 'guard' });
@@ -895,35 +846,6 @@ describe('withdraw', () => {
   });
 });
 
-describe('the committed action string', () => {
-  it("is carried in your own view and in nobody else's", () => {
-    const m = match({ w: 8, h: 2, seed: 'mine' });
-    assert.equal(view(m, 'C').myAction, null, 'nothing committed yet');
-
-    const t0 = m.currentTurn();
-    const h0 = m.stateHash();
-    assert.ok(m.submit({ turn: t0, color: 'C', action: 'D', hash: h0, name: 'Rook' }).ok);
-    assert.equal(view(m, 'C').myAction, '0C:D#' + h0 + '~Rook', 'the opening string carries the name');
-    assert.equal(view(m, 'P').myAction, null, "and nobody is handed anyone else's");
-
-    assert.ok(m.submit({ turn: t0, color: 'P', action: 'A', hash: m.stateHash() }).ok);
-    assert.equal(view(m, 'C').myAction, null, 'a resolved turn leaves nothing to send');
-
-    const t1 = m.currentTurn();
-    const h1 = m.stateHash();
-    assert.ok(m.submit({ turn: t1, color: 'C', action: 'D', hash: h1 }).ok);
-    assert.equal(view(m, 'C').myAction, '1C:D#' + h1, 'later turns drop the name');
-  });
-
-  it('is cleared by a withdraw', () => {
-    const m = match({ w: 8, h: 2, seed: 'mine2' });
-    assert.ok(m.submit({ turn: 0, color: 'C', action: 'D', hash: m.stateHash() }).ok);
-    assert.ok(view(m, 'C').myAction, 'there is a string to send');
-    assert.deepEqual(m.withdraw('C'), { ok: true });
-    assert.equal(view(m, 'C').myAction, null, 'nothing to send once it is taken back');
-  });
-});
-
 describe('export and import', () => {
   it('round-trips a played match', () => {
     const m = match({ w: 8, h: 2, seed: 'exp' });
@@ -933,22 +855,36 @@ describe('export and import', () => {
 
     const r = Match.fromExport(m.export());
     assert.ok(r.value, errorText(r));
-    assert.equal(r.value.stateHash(), m.stateHash(), 'the hash survives');
-    assert.equal(r.value.currentTurn(), m.currentTurn());
-    assert.deepEqual(r.value.view('C'), m.view('C'), 'the whole view survives');
-    assert.deepEqual(r.value.config(), m.config());
+    assert.equal(r.value.match.stateHash(), m.stateHash(), 'the hash survives');
+    assert.equal(r.value.match.currentTurn(), m.currentTurn());
+    assert.deepEqual(r.value.match.view('C'), m.view('C'), 'the whole view survives');
+    assert.deepEqual(r.value.match.config(), m.config());
   });
 
-  it('carries every name it knows', () => {
+  it('carries the names it is handed, and hands them back beside the match', () => {
     const m = match({ w: 8, h: 2, seed: 'exp2' });
-    m.submit({ turn: 0, color: 'C', action: 'D', hash: m.stateHash(), name: 'Rook' });
-    m.submit({ turn: 0, color: 'P', action: 'A', hash: m.stateHash(), name: 'Vale' });
     play(m, { C: 'D', P: 'A' });
 
+    const r = Match.fromExport(m.export({ C: 'Rook', P: 'Vale' }));
+    assert.ok(r.value, errorText(r));
+    assert.deepEqual(r.value.names, { C: 'Rook', P: 'Vale' });
+    assert.equal(r.value.match.stateHash(), m.stateHash(), 'the hash still survives');
+  });
+
+  it('drops a name for a colour outside the roster', () => {
+    const m = match({ w: 8, h: 2, seed: 'exp3', roster: ['C', 'P'] });
+    const r = Match.fromExport(m.export({ C: 'Rook', T: 'Nim' }));
+    assert.ok(r.value, errorText(r));
+    assert.deepEqual(r.value.names, { C: 'Rook' }, 'teal is not in this match');
+  });
+
+  it('writes a two-section export when it is handed no names', () => {
+    const m = match({ w: 8, h: 2, seed: 'exp4' });
+    play(m, { C: 'D', P: 'A' });
+    assert.ok(m.export().endsWith('|'), 'the name section is empty');
     const r = Match.fromExport(m.export());
     assert.ok(r.value, errorText(r));
-    assert.deepEqual(r.value.names(), { C: 'Rook', P: 'Vale' });
-    assert.equal(r.value.stateHash(), m.stateHash(), 'the hash still survives');
+    assert.deepEqual(r.value.names, {});
   });
 
   it('loses an action that was withdrawn', () => {
@@ -961,7 +897,7 @@ describe('export and import', () => {
     assert.notEqual(before, after, 'the export still carries the action it was told to forget');
     const r = Match.fromExport(after);
     assert.ok(r.value, errorText(r));
-    assert.deepEqual(r.value.pendingColors(), ['C', 'P']);
+    assert.deepEqual(r.value.match.pendingColors(), ['C', 'P']);
   });
 
   it('refuses an export whose config is out of range', () => {
@@ -1046,7 +982,7 @@ describe('soak', () => {
       // Invariant: export and import are lossless.
       const imported = Match.fromExport(m.export());
       assert.ok(imported.value, `soak ${s} import: ${errorText(imported)}`);
-      assert.equal(imported.value.stateHash(), m.stateHash(), `soak ${s}: export hash`);
+      assert.equal(imported.value.match.stateHash(), m.stateHash(), `soak ${s}: export hash`);
     }
 
     assert.ok(invertSeen > 0, 'the soak never exercised inversion');

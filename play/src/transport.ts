@@ -1,4 +1,4 @@
-import { Wire, COLORS, fnv1a, isColor, metaTurn } from './engine.js';
+import { Wire, COLORS, fnv1a, isAction, isColor, metaTurn, validName } from './engine.js';
 import type { Action, Color, Config, DecodedAction, MetaTurn, Match, View } from './engine.js';
 
 function hex8(n: number): string { return (n >>> 0).toString(16).padStart(8, '0'); }
@@ -254,12 +254,15 @@ type Held = { action: string; nonce: string; v: DecodedAction };
 export type SessionOptions = {
   match: Match;
   channel: Channel;
+  // The names an imported export was carrying. A match keeps none of its own.
+  names?: Readonly<Partial<Record<Color, string>>> | null;
   onChange?: (s: Session) => void;
 };
 
 // The engine's view with the transport's own fields merged in, so renderBoard,
 // renderStrip, renderLegend and renderLog keep working untouched.
 export type SessionView = View & {
+  names: Partial<Record<Color, string>>;
   peers: string[];
   detail: string | null;
   peersNeeded: number;
@@ -275,6 +278,10 @@ class Session {
   private _ch: Channel;
   private _onChange: (s: Session) => void;
   private _claims: Partial<Record<Color, Claim>>;
+  // Two tables because there are two questions. A claim says who holds the seat
+  // right now and can change hands mid-match; _logNames says who played the log,
+  // so it keeps the first name it is told and it is what an export carries.
+  private _logNames: Partial<Record<Color, string>>;
   private _me: Color | null;
   private _buffer: string[];
   private _commitments: Map<string, string[]>;   // "0C" -> [digest, ...]; more than one is legitimate
@@ -293,6 +300,10 @@ class Session {
     this._ch = o.channel;
     this._onChange = o.onChange ?? function () {};
     this._claims = {};
+    this._logNames = {};
+    for (const c of Object.keys(o.names ?? {})) {
+      if (isColor(c)) this._recordName(c, (o.names ?? {})[c]);
+    }
     this._me = null;
     this._buffer = [];
     this._commitments = new Map();
@@ -309,6 +320,13 @@ class Session {
   static open(o: SessionOptions): Session { return new Session(o); }
 
   private _changed(): void { this._onChange(this); }
+
+  // A rename is ignored rather than refused. Whoever saw the old name first would
+  // otherwise be reading a different label than everyone else for the same log.
+  private _recordName(color: Color, name: unknown): void {
+    if (this._match.config().roster.indexOf(color) < 0 || !validName(name)) return;
+    if (!(color in this._logNames)) this._logNames[color] = name;
+  }
 
   private _statusChanged(s: ChannelStatus): void {
     const before = this._peers;
@@ -382,7 +400,7 @@ class Session {
     this._claims[color] = { name: name, clientId: this._ch.id };
     this._me = color;
     this._notice = null;
-    this._match.setName(color, name);
+    this._recordName(color, name);
     this._ch.send(this._claimString(color));
     this._changed();
     return { ok: true, error: null };
@@ -523,7 +541,8 @@ class Session {
         continue;
       }
       const r = this._match.submit(d.value);
-      if (!r.ok) this._error = r.error;   // nothing legitimate is left to fail on
+      if (!r.ok) { this._error = r.error; continue; }   // nothing legitimate is left to fail on
+      this._recordName(d.value.color, d.value.name);
     }
     this._buffer = keep;
     this._prune();
@@ -531,18 +550,19 @@ class Session {
 
   // Async, because sealing an action means hashing it. The local submit still
   // happens first and synchronously, so the screen has something to draw while
-  // the opponent is still deciding, and myAction keeps working.
+  // the opponent is still deciding.
   async commit(action: string): Promise<{ ok: boolean; error: string | null }> {
     if (!this._me) return { ok: false, error: 'pick a colour first' };
-    const turn = this._match.currentTurn(), color = this._me;
-    const r = this._match.submit({
-      turn: turn, color: color, action: action, hash: this._match.stateHash()
-    });
+    const turn = this._match.currentTurn(), color = this._me, hash = this._match.stateHash();
+    const r = this._match.submit({ turn: turn, color: color, action: action, hash: hash });
     if (!r.ok) return { ok: false, error: r.error };
-    // The engine's own string, so a name still rides along on turn 0. An export is
-    // never broadcast. It serialises partial turns and would leak the current one.
-    const out = this._match.view(color).myAction;
-    if (out === null) throw new Error('submitted action did not land in the log');
+    if (!isAction(action)) throw new Error('the match accepted ' + action);
+    // Built here rather than read back off the match, because the name a turn-0
+    // string carries is the session's to supply. An export is never broadcast,
+    // because it serialises partial turns and would leak the current one.
+    const out = Wire.encodeAction({
+      turn: turn, color: color, action: action, hash: hash, name: this._logNames[color]
+    });
     const nonce = nonce128();
     const digest = await digest128(turn, color, action, nonce);
     this._mine = { turn: turn, action: out, nonce: nonce, digest: digest, revealed: false };
@@ -597,13 +617,13 @@ class Session {
     // matter what the channel thinks of its own sockets.
     const peersNeeded = Math.max(0, roster.length - 1 - peers.length);
     const status = this._status.state === 'live' && peersNeeded ? 'connecting' : this._status.state;
-    // The engine keeps the first name it is told, which is what an export needs.
-    // A claim names whoever holds the seat now, and a contested colour changes
-    // hands, so the screen reads the claim and the engine keeps its own answer.
-    const names = { ...v.names };
+    // The screen wants whoever is sitting there now, so a claim outranks the name
+    // the log was played under. Both are kept; export() takes the other one.
+    const names: Partial<Record<Color, string>> = {};
     for (const c of roster) {
       const held = this._claims[c];
-      if (held && held.name) names[c] = held.name;
+      const n = (held && held.name) || this._logNames[c];
+      if (n) names[c] = n;
     }
     return {
       ...v,
@@ -622,7 +642,7 @@ class Session {
     };
   }
 
-  export(): string { return this._match.export(); }
+  export(): string { return this._match.export(this._logNames); }
 
   close(): void {
     this._ch.onMessage = null;

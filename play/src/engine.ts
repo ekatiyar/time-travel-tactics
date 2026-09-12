@@ -82,8 +82,6 @@ export type View = {
   };
   bodies: ViewBody[];
   events: TurnEvent[];
-  names: Partial<Record<Color, string>>;
-  myAction: string | null;
   actions: ActionOffer[];
 };
 
@@ -271,38 +269,37 @@ function everyoneActed(
   return roster.every((c) => typeof acts[c] === 'string');
 }
 
+// A match is its config and its log, and nothing else. A name is not in the log
+// and not in hashState, and no rule here reads one, so names live with the
+// client that knows who is in the room.
 class Match {
   private _cfg: Config;
   private _log: LogEntry[];
-  private _names: Partial<Record<Color, string>>;
   private _walls: Set<string>;
   private _cache: Derived | null;
 
-  constructor(
-    config: ConfigInput,
-    log?: readonly LogEntry[] | null,
-    names?: Readonly<Record<string, unknown>> | null
-  ) {
+  constructor(config: ConfigInput, log?: readonly LogEntry[] | null) {
     this._cfg = normalizeConfig(config);
     this._log = (log ?? []).map((e) => ({ turn: e.turn, color: e.color, action: e.action }));
-    // Names are display only. They stay out of _log and out of hashState, so two
-    // clients that know different names still agree on state.
-    this._names = {};
-    for (const c of Object.keys(names ?? {})) {
-      const n = (names ?? {})[c];
-      if (isColor(c) && this._cfg.roster.includes(c) && validName(n)) this._names[c] = n;
-    }
     this._walls = genWalls(this._cfg);
     this._cache = null;
   }
 
-  static fromConfig(config: ConfigInput): Match { return new Match(config, [], null); }
+  static fromConfig(config: ConfigInput): Match { return new Match(config, []); }
 
-  static fromExport(str: unknown): Result<Match> {
+  // Names come back beside the match rather than inside it, because the caller is
+  // the one that has somewhere to keep them.
+  static fromExport(str: unknown): Result<{ match: Match; names: Partial<Record<Color, string>> }> {
     const r = Wire.decodeExport(str);
     if (!r.ok) return r;
     try {
-      return { ok: true, value: new Match(r.value.config, r.value.log, r.value.names) };
+      const match = new Match(r.value.config, r.value.log);
+      const names: Partial<Record<Color, string>> = {};
+      for (const c of r.value.config.roster) {
+        const n = r.value.names[c];
+        if (n !== undefined) names[c] = n;
+      }
+      return { ok: true, value: { match: match, names: names } };
     } catch (e) {
       return { ok: false, error: String(e instanceof Error ? e.message : e) };
     }
@@ -480,15 +477,6 @@ class Match {
     return -1;
   }
 
-  private _myAction(color: Color, d: Derived): string | null {
-    const i = this._draftIndex(color, d);
-    if (i < 0) return null;
-    return Wire.encodeAction({
-      turn: d.turn, color: color, action: this._log[i]!.action,
-      hash: d.hash, name: this._names[color]
-    });
-  }
-
   // If someone already pasted your first string, your replacement bounces off
   // pendingColors as a repeat and neither of you finds out until the next hash.
   withdraw(color: string): Outcome {
@@ -518,9 +506,7 @@ class Match {
 
   // The wire seam. Everything here arrives as text from another client, so the
   // parameter stays wide and each field is checked on the way in.
-  submit(sub: {
-    turn: number; color: string; action: string; hash: string; name?: string | null
-  }): Outcome {
+  submit(sub: { turn: number; color: string; action: string; hash: string }): Outcome {
     const d = this._derive();
     if (d.over) return { ok: false, error: 'the match is over' };
     if (!isColor(sub.color) || this._cfg.roster.indexOf(sub.color) < 0) {
@@ -533,30 +519,9 @@ class Match {
     if (!isAction(sub.action)) return { ok: false, error: '"' + sub.action + '" is not an action' };
     const reason = legal[sub.action];
     if (reason !== null) return { ok: false, error: 'illegal: ' + reason };
-    if (sub.name != null && !this.setName(sub.color, sub.name)) {
-      return { ok: false, error: 'a name must be 1-12 letters, digits, - or _' };
-    }
     this._log.push({ turn: d.turn, color: sub.color, action: sub.action });
     this._cache = null;
     return { ok: true };
-  }
-
-  // Names arrive on turn-0 action strings, in an export, or from the local setup
-  // screen. Late arrivals are ignored rather than refused. A player who renamed
-  // themselves mid-match would otherwise desync everyone who saw them first.
-  setName(color: string, name: unknown): boolean {
-    if (!isColor(color) || this._cfg.roster.indexOf(color) < 0 || !validName(name)) return false;
-    if (!(color in this._names)) this._names[color] = name;
-    return true;
-  }
-
-  names(): Partial<Record<Color, string>> {
-    const out: Partial<Record<Color, string>> = {};
-    for (const c of this._cfg.roster) {
-      const n = this._names[c];
-      if (n !== undefined) out[c] = n;
-    }
-    return out;
   }
 
   view(color: string): View {
@@ -590,10 +555,6 @@ class Match {
         turn: e.turn, color: e.color, kind: e.kind,
         t: e.t, x: e.x, y: e.y, by: e.by, dir: e.dir
       })),
-      names: this.names(),
-      // The string this player owes everyone else, rebuilt from the log rather
-      // than remembered by the screen, so it survives a reload or a re-import.
-      myAction: this._myAction(color, d),
       // Every action with the square it would land on, so the board and the button
       // row read one structure and no renderer re-derives DIRS.
       actions: d.over ? [] : ACTIONS.map((a) => {
@@ -606,8 +567,10 @@ class Match {
     };
   }
 
-  export(): string {
-    return Wire.encodeExport(this.config(), this._log, this._names);
+  // The caller supplies the labels. Passing none writes a two-section export,
+  // which decodeExport still loads.
+  export(names?: Readonly<Partial<Record<Color, string>>> | null): string {
+    return Wire.encodeExport(this.config(), this._log, names ?? null);
   }
 }
 
@@ -619,8 +582,9 @@ export type DecodedExport = {
 };
 
 const Wire = {
-  // A name rides along on turn 0 only. That is the one string every other client
-  // is guaranteed to receive, so nobody has to broadcast a name separately.
+  // A name rides along on turn 0 only. Claims carry one too, but a claim says who
+  // holds the seat now and this says who played the log, which is what an export
+  // has to reproduce.
   encodeAction: function (a: {
     turn: MetaTurn; color: Color; action: Action; hash: string; name?: string | null
   }): string {
@@ -714,4 +678,4 @@ const Wire = {
   }
 };
 
-export { Match, Wire, COLORS, ORDER, DIRS, MOVES, ACTIONS, spawnFor, fnv1a, isColor, isAction };
+export { Match, Wire, COLORS, ORDER, DIRS, MOVES, ACTIONS, spawnFor, fnv1a, isColor, isAction, validName };
