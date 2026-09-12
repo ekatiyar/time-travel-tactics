@@ -70,18 +70,12 @@ Measured instead of designed around. Two machines on separate networks play a ma
 Chrome and Firefox. Stock Firefox 153 runs the real transport; a peer appears in about 4s in both
 browsers, as it does in Chromium.
 
-`file://` measurements, which the dev loop depends on:
+Trystero is a declared dependency, `@trystero-p2p/nostr` pinned at 0.25.2 in `package.json`.
+esbuild bundles it into `play/dist/`. `--splitting` keeps it in a 129.5 kb chunk of its own,
+fetched only when a match starts. Nothing loads from a CDN at runtime.
 
-| | Result |
-|---|---|
-| Remote ES module from esm.sh | works |
-| A locally vendored `.js` module | blocked by CORS |
-| Classic `<script src>` from a CDN | works |
-| `crypto.subtle`, Chromium and Firefox | works, `isSecureContext` is true in both |
-
-So the `file://` dev loop survives, and no local http server is needed. **Do not vendor the
-library here**, because the local copy is the one the browser refuses. That is a property of
-`file://` rather than of the hosting; served over http, a local module loads fine.
+`crypto.subtle` backs the commitments, and it needs a secure context. Both localhost and the
+published https site are one.
 
 ### The relay draw
 
@@ -117,7 +111,7 @@ work.
 0.23 moved to scoped packages and 0.25 changed what `makeAction` returns. What 0.25.2 wants:
 
 ```js
-import {joinRoom} from 'https://esm.sh/@trystero-p2p/nostr@0.25.2?bundle';
+import {joinRoom} from '@trystero-p2p/nostr';
 const room   = joinRoom({appId: 'tbtt'}, roomId);
 const action = room.makeAction('m');       // {send, onMessage, onReceiveProgress}
 action.onMessage = (data, peerId) => {};   // assigned, not called

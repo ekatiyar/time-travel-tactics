@@ -1,7 +1,8 @@
 # Playing
 
-How to run and use `play/index.html`. Open it in any browser, straight off the filesystem or
-from the published site. One static file, no build step, no server.
+How to run and use `play/index.html`. It loads an ES module bundle, so it needs a server;
+`file://` cannot load one. Run `npm run dev` and open the printed address, or visit the
+published site.
 
 The rules come from §3 and §4 of
 [`time-travel-tactics-design-doc.md`](time-travel-tactics-design-doc.md). How turns cross the
@@ -131,13 +132,8 @@ people you trust.
 
 ## Tests
 
-`play/tests.engine.js` holds the engine assertions and `play/tests.js` the transport ones. The
-harness runs both, from the repo root:
-
-```
-uv run --with playwright python run_tests.py
-```
-
-It loads the page in headless Chromium, injects each test file, and calls `runTests()`, because
-there is no node on this machine. Run it from anywhere with the path adjusted; the harness
-resolves its argument against its own directory and defaults to `play`.
+`tests/engine.test.ts`, `tests/transport.test.ts` and `tests/peer-channel.test.ts` run under
+`node --test`. `tests/ui.spec.ts` drives the built page in Chromium with `@playwright/test`.
+`npm test` runs the node suites then the UI suite; `npm run test:node` and `npm run test:ui` run
+them separately. `tests/live.spec.ts` opens two real pages against real nostr relays; it is slow,
+networked, and run by hand with `npm run test:live`, never in CI.

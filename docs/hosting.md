@@ -81,16 +81,14 @@ it; nothing enforces it. Fine for a prototype.
 **One self-contained HTML file per prototype.** It bought a file you could hand someone, and no
 toolchain to install before editing. The published site covers both.
 
-**Running from `file://`.** That was the dev loop, never a hosting requirement. It's also why
-the transport prototype loads Trystero from esm.sh instead of vendoring a copy: CORS blocks a
-local `.js` module on a `file://` page but allows the same file from a CDN
-([`turn-transport.md`](turn-transport.md) §4). Over http, a local module loads fine.
-
-Dropping these costs the double-click dev loop. Serve the repo root instead:
+**Running from `file://`.** That was the dev loop, never a hosting requirement. `play/index.html`
+loads an ES module bundle from `play/dist/`, and `file://` cannot load a module. Use
+`npm run dev`, which rebuilds on change and serves `play/`. For the whole repo, including the
+front page:
 
 ```
 python3 -m http.server
 ```
 
-`play/index.html` still opens from `file://`, and should keep working that way. The front page
-does not, because it reads `releases.json` over `fetch`, which `file://` blocks.
+The front page never opened from `file://` anyway, because it reads `releases.json` over
+`fetch`, which `file://` blocks.
