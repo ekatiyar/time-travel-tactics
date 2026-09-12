@@ -470,6 +470,14 @@ test.describe('play screen', () => {
     await expect(page.locator('#pickWhy')).toContainText('Inverting keeps your world turn');
   });
 
+  test('a claim names the other seat before a single turn resolves', async ({ page }) => {
+    await startMatch(page);
+    await expect(page.locator('#prioInfo')).toContainText('Purple');
+    await deliver(page, '!P~Rival@other-client');
+    await expect(page.locator('#prioInfo')).toContainText('Rival');
+    await expect(page.locator('#prioInfo')).not.toContainText('Purple');
+  });
+
   test('the log rules off between turns', async ({ page }) => {
     await startMatch(page);
     await resolveTurn(page, 0, 'H', 'H', 'Rival');

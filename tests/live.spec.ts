@@ -113,7 +113,7 @@ async function playTurn(a: Page, b: Page, turn: number) {
   await a.locator('#btnCommit').click();
   await expect(a.locator('#phaseShare'), `turn ${turn}: page A's commitment did not go in`)
     .toBeVisible();
-  await expect(a.locator('#pending')).toHaveText(/^still waiting on: /);
+  await expect(a.locator('#pending')).toHaveText('still waiting on: Vale');
 
   // One commitment opens nothing, and page A's own wire is where that shows.
   // A seals its action and sends only the digest, then holds the reveal until

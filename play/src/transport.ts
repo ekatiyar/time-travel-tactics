@@ -597,8 +597,17 @@ class Session {
     // matter what the channel thinks of its own sockets.
     const peersNeeded = Math.max(0, roster.length - 1 - peers.length);
     const status = this._status.state === 'live' && peersNeeded ? 'connecting' : this._status.state;
+    // The engine keeps the first name it is told, which is what an export needs.
+    // A claim names whoever holds the seat now, and a contested colour changes
+    // hands, so the screen reads the claim and the engine keeps its own answer.
+    const names = { ...v.names };
+    for (const c of roster) {
+      const held = this._claims[c];
+      if (held && held.name) names[c] = held.name;
+    }
     return {
       ...v,
+      names: names,
       peers: peers,
       detail: this._status.detail,
       peersNeeded: peersNeeded,

@@ -654,6 +654,27 @@ describe('colour claims', () => {
     assert.deepEqual(sb.claims().C, { name: 'Rook', clientId: lowId });
   });
 
+  it('name the other side on the view as soon as the claim lands', () => {
+    // The picker reads claims() directly, but every screen past it reads
+    // view().names. Without this the other seat stays labelled by its colour
+    // until their turn-0 reveal turns up carrying the name.
+    const { sa, peer } = mkSolo();
+    peerClaim(peer, 'P', 'Vale');
+    assert.equal(sa.view().names.P, 'Vale', 'no turn has resolved yet, and none should have to');
+  });
+
+  it('name the winner of a contested colour, whichever claim arrived first', () => {
+    // Match.setName is first-write-wins on purpose, so the losing claim must not
+    // be the one that reaches it. A third client watching two players fight over
+    // a colour sees both claims, in whatever order the relays deliver them.
+    const { sa, peer } = mkSolo();
+    peer.send('!P~Vale@zzzz');
+    peer.send('!P~Rook@aaaa');
+
+    assert.equal(sa.claims().P?.name, 'Rook', 'the lower client id holds the seat');
+    assert.equal(sa.view().names.P, 'Rook', 'and the screen says so');
+  });
+
   it('list only the taken colours, for the picker to grey out', () => {
     const { a, b, sa, sb } = mkPair({ roster: ['C', 'P', 'T', 'A'] });
     seat(sa, 'C', 'Rook');
