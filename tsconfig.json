@@ -12,11 +12,7 @@
     "isolatedModules": true,
     "skipLibCheck": true,
     "types": ["node"],
-    "noEmit": true,
-    // The split lands as .js before the TypeScript conversion. allowJs lets tsc
-    // resolve those modules; checkJs stays off so they are not type-checked yet.
-    "allowJs": true,
-    "checkJs": false
+    "noEmit": true
   },
   "include": ["play/src", "tests", "playwright.config.ts"]
 }

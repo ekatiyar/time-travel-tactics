@@ -141,6 +141,20 @@ function revealOf(turn: number, color: string, action: string, hash: string, non
   return `${turn}${color}:${action}#${hash}${named}|${nonce}`;
 }
 
+// One whole turn, with the other seat played by hand: read the hash the turn
+// opens on, seal against it, commit, then open. Leaves you on the next turn, or
+// on the match-over panel if that was the cap.
+async function resolveTurn(page: Page, turn: number, mine: string, theirs: string, name?: string) {
+  const hash = await stateHash(page);
+  const { nonce, commitment } = seal(turn, 'P', theirs);
+  await deliver(page, commitment);
+  await page.locator(`#turnCard [data-act="${mine}"]`).click();
+  await page.locator('#btnCommit').click();
+  await expect(page.locator('#phaseShare')).toBeVisible();
+  await deliver(page, revealOf(turn, 'P', theirs, hash, nonce, name));
+  await expect(page.locator('#phaseShare')).toBeHidden();
+}
+
 test.describe('setup screen', () => {
   test('loads and runs its module', async ({ page }) => {
     await open(page);
@@ -232,6 +246,16 @@ test.describe('setup screen', () => {
     await expect(page.locator('#setupErr')).toHaveText('');
     await expect(page.locator('#pickRows .pickrow')).toHaveCount(3);
   });
+
+  test('a good export opens the picker with the names already filled in', async ({ page }) => {
+    await open(page);
+    await page.locator('#tabImport').click();
+    await page.locator('#fExport').fill('X1:M1:4x4:0:tst:8:CP||C~Rook,P~Vale');
+    await page.locator('#btnImport').click();
+    await expect(page.locator('#pickRows .pickrow')).toHaveCount(2);
+    await expect(page.locator('#pickRows .pickrow[data-color="C"] input')).toHaveValue('Rook');
+    await expect(page.locator('#pickRows .pickrow[data-color="P"] input')).toHaveValue('Vale');
+  });
 });
 
 test.describe('colour picker', () => {
@@ -288,6 +312,16 @@ test.describe('colour picker', () => {
     await row.locator('input').fill('Rook');
     await expect(page.locator('#nameErr')).toHaveText('');
     await expect(page.locator('#btnPlay')).toBeEnabled();
+  });
+
+  test('the copy button says Copied, then goes back to saying what it copies', async ({ page, context }) => {
+    await context.grantPermissions(['clipboard-read', 'clipboard-write']);
+    await open(page);
+    await createMatch(page);
+    await expect(page.locator('#btnCopyCode')).toHaveText('Copy match code');
+    await page.locator('#btnCopyCode').click();
+    await expect(page.locator('#btnCopyCode')).toHaveText('Copied');
+    await expect(page.locator('#btnCopyCode')).toHaveText('Copy match code', { timeout: 3000 });
   });
 });
 
@@ -425,5 +459,65 @@ test.describe('play screen', () => {
   test('the export box carries the match', async ({ page }) => {
     await startMatch(page);
     await expect(page.locator('#outExport')).toHaveValue('X1:M1:4x4:0:tst:8:CP||C~Rook');
+  });
+
+  test('priority names both seats, and the note under the pad explains the aim', async ({ page }) => {
+    await startMatch(page);
+    await expect(page.locator('#prioInfo')).toContainText('Rook');
+    await expect(page.locator('#prioInfo')).toContainText('\u203a');
+    await expect(page.locator('#pickWhy')).toContainText('Holding costs a world turn');
+    await page.locator('#turnCard [data-act="I"]').click();
+    await expect(page.locator('#pickWhy')).toContainText('Inverting keeps your world turn');
+  });
+
+  test('the log rules off between turns', async ({ page }) => {
+    await startMatch(page);
+    await resolveTurn(page, 0, 'H', 'H', 'Rival');
+    await expect(page.locator('#log li.turnsep')).toHaveCount(0);
+    await resolveTurn(page, 1, 'H', 'H');
+    // Two turns, two rows each, and one rule between them.
+    await expect(page.locator('#log li.turnsep')).toHaveCount(1);
+    await expect(page.locator('#log li')).toHaveCount(5);
+  });
+
+  test('switching theme redraws the trail at the new floor', async ({ page }) => {
+    // --dot-floor is 0.22 dark and 0.14 light, and shade() reads it off computed
+    // style. Three turns, so there are two history turns and the older one sits
+    // on the floor rather than on a flat 1.
+    await startMatch(page);
+    await resolveTurn(page, 0, 'H', 'H', 'Rival');
+    await resolveTurn(page, 1, 'H', 'H');
+    await resolveTurn(page, 2, 'H', 'H');
+    const faded = page.locator('#board .trail').last();
+    await expect(faded).toHaveAttribute('style', /opacity: 0\.22/);
+
+    await page.locator('#btnTheme').click();
+    await expect(page.locator('html')).toHaveAttribute('data-theme', 'light');
+    await expect(faded).toHaveAttribute('style', /opacity: 0\.14/);
+  });
+
+  test('the turn cap freezes the match', async ({ page }) => {
+    await open(page);
+    await createMatch(page, { cap: '2' });
+    await sitDown(page);
+    await resolveTurn(page, 0, 'H', 'H', 'Rival');
+    await resolveTurn(page, 1, 'H', 'H');
+
+    await expect(page.locator('#phaseOver')).toBeVisible();
+    await expect(page.locator('#phasePick')).toBeHidden();
+    await expect(page.locator('#phaseShare')).toBeHidden();
+    await expect(page.locator('#turnInfo')).toHaveText('match over at turn 2');
+    await expect(page.locator('#prioInfo')).toHaveText('the match is over');
+    // Still scrubbable, which is the whole point of freezing rather than leaving.
+    await expect(page.locator('#board .cell')).toHaveCount(16);
+  });
+
+  test('the look back slider caps at a quarter of the turn cap', async ({ page }) => {
+    await open(page);
+    await createMatch(page, { cap: '40' });
+    await sitDown(page);
+    await expect(page.locator('#rdNote')).toHaveText('look back caps at 10 \u2014 a quarter of the 40-turn cap');
+    await expect(page.locator('#rdo')).toHaveText('10');
+    await expect(page.locator('#rd')).toHaveAttribute('max', '10');
   });
 });

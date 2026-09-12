@@ -247,7 +247,7 @@ const REVEAL_RE = /^(.*)\|([0-9a-f]{32})$/;
 
 function ckey(turn: MetaTurn, color: Color): string { return turn + color; }
 
-type Claim = { name: string; clientId: string };
+export type Claim = { name: string; clientId: string };
 type Mine = { turn: MetaTurn; action: string; nonce: string; digest: string; revealed: boolean };
 type Held = { action: string; nonce: string; v: DecodedAction };
 
@@ -621,4 +621,4 @@ class Session {
   }
 }
 
-export { Session, Code, trimUnresolved, PeerChannel, LoopbackChannel };
+export { Session, Code, trimUnresolved, PeerChannel, LoopbackChannel, joinTrystero };
