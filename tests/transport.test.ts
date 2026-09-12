@@ -1,9 +1,3 @@
-/* Transport tests: a Session over a loopback channel, the two-phase turn it
-   plays, and the three strings that carry it.
-
-   The engine underneath has its own suite. PeerChannel is not covered here. It
-   needs a network, and nothing in this file touches one. */
-
 import { describe, it } from 'node:test';
 import assert from 'node:assert/strict';
 
@@ -11,8 +5,6 @@ import { Session, Code, trimUnresolved, LoopbackChannel } from '../play/src/tran
 import { Match, Wire, metaTurn } from '../play/src/engine.js';
 import type { Action, Color, Config } from '../play/src/engine.js';
 import type { Channel, LoopbackEnd } from '../play/src/transport.js';
-
-// ---- the seam -------------------------------------------------------------
 
 function makeEnd(id?: string): LoopbackEnd {
   return LoopbackChannel.make(id);
@@ -23,16 +15,10 @@ function makePair(): [LoopbackEnd, LoopbackEnd] {
 
 type Sess = ReturnType<typeof Session.open>;
 
-/** assert.match, where the value is allowed to be null and null is a failure. */
 function matches(actual: string | null, re: RegExp, message?: string): void {
   assert.ok(actual !== null, message ?? 'expected text matching ' + re + ', got null');
   assert.match(actual, re, message);
 }
-
-// ---- the wire format, rebuilt here ----------------------------------------
-//
-// Built from the spec rather than read off a Session, so a test can hand a
-// client a commitment nobody issued, or open one with the wrong string.
 
 const CLAIM_RE = /^!([CPTA])~([A-Za-z0-9_-]{1,12})@([A-Za-z0-9_-]{1,80})$/;
 const COMMITMENT_RE = /^#(\d{1,4})([CPTA]):([0-9a-f]{32})$/;
@@ -66,9 +52,6 @@ interface Sealed {
   reveal: string;
 }
 
-// The two strings one colour puts on the wire for one action. The commitment
-// binds turn and colour, which is what stops it being replayed elsewhere; the
-// reveal is the engine's own action string with the nonce hung off the end.
 async function twoPhase(o: {
   turn: number;
   color: Color;
@@ -89,24 +72,17 @@ async function twoPhase(o: {
   };
 }
 
-// ---- fixtures -------------------------------------------------------------
-
 const CONFIG: Config = { w: 16, h: 9, wallPct: 0, seed: 'test', cap: 40, roster: ['C', 'P'] };
 
 function cfg(over?: Partial<typeof CONFIG>) {
   return { ...CONFIG, ...over };
 }
 
-// A channel delivers synchronously, but the handler on the far end is async and
-// returns nothing a test can wait on, and one message sets off a chain of them.
-// A commitment lands, that completes the set, the reveal goes out, the other
-// side hashes it and submits. Rounds of setTimeout drain the whole chain, not
-// just the microtasks queued so far.
+// Delivery starts async work that tests cannot await directly.
 async function settle(rounds = 8): Promise<void> {
   for (let i = 0; i < rounds; i++) await new Promise((r) => setTimeout(r, 0));
 }
 
-// Records every string handed to the channel. Wrap before Session.open.
 function record(ch: LoopbackEnd): string[] {
   const sent: string[] = [];
   const raw = ch.send.bind(ch);
@@ -114,8 +90,6 @@ function record(ch: LoopbackEnd): string[] {
   return sent;
 }
 
-// One session on one end of an unwired channel. Linking it to anything is the
-// test's own business, which is what lets a test bring a peer in late.
 function mkLone(id?: string, over?: Partial<typeof CONFIG>, names?: Partial<Record<Color, string>>) {
   const ch = makeEnd(id);
   const sent = record(ch);
@@ -125,8 +99,6 @@ function mkLone(id?: string, over?: Partial<typeof CONFIG>, names?: Partial<Reco
   return { ch, s, sent };
 }
 
-// Two sessions on the two ends of one loopback channel, each with its own Match
-// built from the same config, and a record of what each end broadcast.
 function mkPair(over?: Partial<typeof CONFIG>) {
   const [a, b] = makePair();
   const sentA = record(a), sentB = record(b);
@@ -137,9 +109,6 @@ function mkPair(over?: Partial<typeof CONFIG>) {
   return { a, b, sa, sb, changes, sentA, sentB };
 }
 
-// One session and a bare channel wired to it. The bare end is the opponent a
-// test writes by hand, so it can send strings in an order or a shape no honest
-// client would produce. heard is everything the session broadcast.
 function mkSolo(over?: Partial<typeof CONFIG>, names?: Partial<Record<Color, string>>) {
   const { ch: a, s: sa, sent } = mkLone(undefined, over, names);
   const peer = makeEnd();
@@ -173,16 +142,12 @@ function decoded(str: string) {
   return d.value;
 }
 
-// The match and the names it was carrying, which is how fromExport hands them
-// back now that a match keeps no names of its own.
 function imported(str: string) {
   const r = Match.fromExport(str);
   assert.ok(r.ok, 'export should load: ' + str);
   assert.ok(r.value);
   return r.value;
 }
-
-// ---- a turn over the wire -------------------------------------------------
 
 describe('a turn over a loopback pair', () => {
   it('plays without anyone pasting a string', async () => {
@@ -207,8 +172,6 @@ describe('a turn over a loopback pair', () => {
     assert.equal(sa.view().error, null);
     assert.ok(changes.a > 0 && changes.b > 0, 'onChange fired on both sides');
 
-    // One turn costs each side a commitment and then a reveal, in that order,
-    // and nothing else goes out at all.
     assert.deepEqual(sentA.map(kindOf), ['claim', 'commitment', 'reveal'], sentA.join(' '));
     assert.deepEqual(sentB.map(kindOf), ['claim', 'commitment', 'reveal'], sentB.join(' '));
   });
@@ -243,9 +206,6 @@ describe('a turn over a loopback pair', () => {
   });
 
   it('lets the first to commit change their mind, and the change reaches the far side', async () => {
-    // Two phases exist so this withdrawal is not too late. Under one phase the
-    // action would already be applied on the far side, and the fork would go
-    // unannounced until the next hash.
     const { sa, sb } = mkPair();
     seat(sa, 'C', 'Rook');
     seat(sb, 'P', 'Vale');
@@ -283,8 +243,6 @@ describe('a turn over a loopback pair', () => {
     await sb.commit('A');
     await settle();
 
-    // Purple committing completes the set, so purple's own reveal leaves in the
-    // same breath. There is no moment in between for a withdrawal to happen in.
     const fresh = sentB.slice(before);
     assert.deepEqual(fresh.map(kindOf), ['commitment', 'reveal'], fresh.join(' '));
     assert.equal(sb.view().turn, 1, 'the turn is already resolved');
@@ -316,13 +274,10 @@ describe('a turn over a loopback pair', () => {
     await sb.commit('A');
     await settle();
 
-    // A commitment counts as in, one phase before a submission does.
     assert.deepEqual(sa.view().waiting, [], 'everyone else is in, coral is just deciding');
     assert.equal(sa.view().turn, 0, 'and still nothing has resolved');
   });
 });
-
-// ---- commitments ----------------------------------------------------------
 
 describe('commitments', () => {
   it('move nothing on their own', async () => {
@@ -390,8 +345,6 @@ describe('commitments', () => {
     await settle();
     assert.equal(sa.view().turn, 1, 'turn 0 played normally');
 
-    // The same digest, relabelled for turn 1. The turn is in the preimage, so
-    // the matching reveal for turn 1 hashes to something else entirely.
     peer.send('#1P:' + t0.digest);
     const replay = await twoPhase({ turn: 1, color: 'P', action: 'A', hash: sa.view().hash, nonce: t0.nonce });
     peer.send(replay.reveal);
@@ -418,8 +371,6 @@ describe('commitments', () => {
     const first = await twoPhase({ turn: 0, color: 'P', action: 'A', hash, nonce: NONCE_A });
     const second = await twoPhase({ turn: 0, color: 'P', action: 'H', hash, nonce: NONCE_B });
 
-    // Purple changed its mind and published again. A commitment tells nobody
-    // anything, so publishing three costs nobody anything either.
     peer.send(first.commitment);
     peer.send(second.commitment);
     peer.send(first.commitment);
@@ -437,8 +388,6 @@ describe('commitments', () => {
   });
 });
 
-// ---- reveals --------------------------------------------------------------
-
 describe('reveals', () => {
   it('are dropped when they open no commitment', async () => {
     const { peer, sa } = mkSolo();
@@ -452,7 +401,7 @@ describe('reveals', () => {
     const forged = await twoPhase({ turn: 0, color: 'P', action: 'H', hash, nonce: NONCE_A });
 
     peer.send(sealed.commitment);
-    peer.send(forged.reveal); // the sealed nonce, a different action: it opens nothing
+    peer.send(forged.reveal);
     await settle();
 
     assert.equal(sa.view().turn, 0, 'a reveal its commitment does not open must not resolve the turn');
@@ -476,11 +425,9 @@ describe('reveals', () => {
     const first = await twoPhase({ turn: 0, color: 'P', action: 'A', hash, nonce: NONCE_A });
     const second = await twoPhase({ turn: 0, color: 'P', action: 'H', hash, nonce: NONCE_B });
 
-    peer.send(first.reveal); // nothing opens it yet, so it is kept
+    peer.send(first.reveal);
     await settle();
 
-    // Purple thought better of it before opening anything. The reveal it will
-    // actually open is the last one it sent, so that is the one worth keeping.
     peer.send(second.reveal);
     await settle();
 
@@ -501,8 +448,6 @@ describe('reveals', () => {
   });
 });
 
-// ---- arrival order --------------------------------------------------------
-
 describe('arrival order', () => {
   it('accepts a reveal that arrives before the commitment it opens', async () => {
     const { peer, sa } = mkSolo();
@@ -510,7 +455,7 @@ describe('arrival order', () => {
     peerClaim(peer, 'P', 'Vale');
 
     const p = await twoPhase({ turn: 0, color: 'P', action: 'A', hash: sa.view().hash });
-    peer.send(p.reveal); // nothing has been published that opens this yet
+    peer.send(p.reveal);
     await settle();
     assert.equal(sa.view().turn, 0, 'an unopened reveal decides nothing on its own');
     assert.equal(sa.view().error, null, 'waiting for its commitment is not an error');
@@ -544,7 +489,7 @@ describe('arrival order', () => {
     assert.equal(sa.view().turn, 1, 'the turn resolved exactly once');
     const hash = sa.view().hash;
 
-    peer.send(p.commitment); // and once more, after they have both been used
+    peer.send(p.commitment);
     peer.send(p.reveal);
     await settle();
     assert.equal(sa.view().turn, 1, 'a late repeat changes nothing');
@@ -571,7 +516,7 @@ describe('arrival order', () => {
     assert.equal(sa.view().turn, 1, 'and now it resolves');
 
     const t1 = await twoPhase({ turn: 1, color: 'P', action: 'A', hash: sa.view().hash, nonce: NONCE_B });
-    peer.send(t1.reveal); // opens the commitment that turned up a turn early
+    peer.send(t1.reveal);
     await sa.commit('D');
     await settle();
     assert.equal(sa.view().turn, 2, 'the early commitment was kept and still opened');
@@ -586,9 +531,9 @@ describe('arrival order', () => {
 
     for (const junk of [
       '', 'hello', '#0P:zz', '!X~Vale@' + peer.id, sa.export(),
-      '#0T:' + JUNK_DIGEST,                 // a colour outside the roster
-      '#40P:' + JUNK_DIGEST,                // a turn past the cap
-      '0P:D#zzzz|' + NONCE_A                // an action string that does not decode
+      '#0T:' + JUNK_DIGEST,
+      '#40P:' + JUNK_DIGEST,
+      '0P:D#zzzz|' + NONCE_A
     ]) peer.send(junk);
     await settle();
 
@@ -600,8 +545,6 @@ describe('arrival order', () => {
     assert.deepEqual(Object.keys(sa.claims()).sort(), ['C', 'P'], 'and no seat moved');
   });
 });
-
-// ---- closing --------------------------------------------------------------
 
 describe('closing a session', () => {
   it('stops hearing the room, and the room stops resolving turns for it', async () => {
@@ -623,12 +566,8 @@ describe('closing a session', () => {
   });
 });
 
-// ---- claims ---------------------------------------------------------------
-
 describe('colour claims', () => {
   it('give a contested colour to the lower client id', () => {
-    // No authority, so both ends run the same comparison on the two client ids
-    // and reach the same seat. Ids compare as strings.
     const { a, b, sa, sb } = mkPair();
     const low = a.id < b.id ? sa : sb;
     const high = a.id < b.id ? sb : sa;
@@ -658,18 +597,12 @@ describe('colour claims', () => {
   });
 
   it('name the other side on the view as soon as the claim lands', () => {
-    // The picker reads claims() directly, but every screen past it reads
-    // view().names. Without this the other seat stays labelled by its colour
-    // until their turn-0 reveal turns up carrying the name.
     const { sa, peer } = mkSolo();
     peerClaim(peer, 'P', 'Vale');
     assert.equal(sa.view().names.P, 'Vale', 'no turn has resolved yet, and none should have to');
   });
 
   it('name the winner of a contested colour, whichever claim arrived first', () => {
-    // The seat is display state and the log's name is not, so the losing claim must
-    // not be the one the screen reads. A third client watching two players fight over
-    // a colour sees both claims, in whatever order the relays deliver them.
     const { sa, peer } = mkSolo();
     peer.send('!P~Vale@zzzz');
     peer.send('!P~Rook@aaaa');
@@ -699,10 +632,7 @@ describe('colour claims', () => {
   });
 
   it('take back what you played with a colour you lose', async () => {
-    // The seat can go out from under you between committing and the turn
-    // resolving. What you submitted locally has to go with it, or you carry on
-    // holding a draft for a colour that is no longer yours and nobody is told.
-    const { ch: mine, s: sa } = mkLone('zzMine'); // the higher id: the contest goes against us
+    const { ch: mine, s: sa } = mkLone('zzMine');
     const peer = makeEnd('aaThem');
     LoopbackChannel.link(mine, peer);
 
@@ -729,9 +659,6 @@ describe('colour claims', () => {
   });
 
   it('count every seat before the room reports live', () => {
-    // A turn needs a commitment from every roster colour, so one peer on a
-    // four-colour roster cannot resolve anything. Saying live there invites a
-    // player to start a match that hangs on turn 0.
     const four = mkPair({ roster: ['C', 'P', 'T', 'A'] });
     assert.equal(four.sa.view().status, 'connecting', 'one peer of the three needed is not live');
     assert.equal(four.sa.view().peersNeeded, 2, 'and it says how many are still missing');
@@ -742,13 +669,7 @@ describe('colour claims', () => {
   });
 });
 
-// ---- a peer arriving late -------------------------------------------------
-
 describe('names', () => {
-  // Two questions, two answers. view().names is who is sitting there now, and an
-  // export is who played the log. They are the same string until a seat changes
-  // hands, and every test here is about the cases where they are not.
-
   it('carries the name on the turn-0 reveal and nowhere later', async () => {
     const { sa, sb, sentA } = mkPair();
     seat(sa, 'C', 'Rook');
@@ -799,8 +720,6 @@ describe('names', () => {
   });
 
   it('keeps the first name a colour was played under', async () => {
-    // A rename mid-match would leave whoever saw the old name reading a different
-    // label for the same log, so a later one is ignored rather than refused.
     const { sa, peer } = mkSolo(undefined, { P: 'Vale' });
     seat(sa, 'C', 'Rook');
     const t = await twoPhase({
@@ -824,12 +743,9 @@ describe('names', () => {
 
 describe('a peer arriving late', () => {
   it('is sent the claim and the commitment for the turn in progress', async () => {
-    // pair() wires both ends up front, so nobody is ever new. Built one end at a
-    // time instead, and linked once the second is open. The status report that
-    // link() emits is the entire trigger.
     const { ch: a, s: sa, sent: sentA } = mkLone('lateA');
     seat(sa, 'C', 'Rook');
-    await sa.commit('D'); // into an empty room
+    await sa.commit('D');
     await settle();
     const before = sentA.length;
 
@@ -854,8 +770,6 @@ describe('a peer arriving late', () => {
   });
 
   it('is sent the reveal as well, once we have opened ours', async () => {
-    // Coral has already revealed, and purple's commitment is in. A peer arriving
-    // now needs the reveal too, or it sits forever on a turn already finished.
     const { ch: a, s: sa, sent: sentA } = mkLone('midA');
     const peer = makeEnd('midP');
     LoopbackChannel.link(a, peer);
@@ -877,12 +791,9 @@ describe('a peer arriving late', () => {
   });
 
   it('can rejoin from a trimmed export and finish the turn the room waits on', async () => {
-    // Untrimmed, this hangs. The import carries coral's draft, so purple's own
-    // commit completes the turn locally on the spot, the reveal is never sent,
-    // and coral waits for something that never comes.
     const { ch: a, s: sa } = mkLone('liveA');
     seat(sa, 'C', 'Rook');
-    await sa.commit('D'); // into an empty room, so the turn is still open
+    await sa.commit('D');
     await settle();
 
     const b = makeEnd('joinB');
@@ -910,8 +821,6 @@ describe('a peer arriving late', () => {
   });
 });
 
-// ---- export trimming ------------------------------------------------------
-
 describe('export trimming', () => {
   it('cuts a mid-turn draft back to the last finished turn', async () => {
     const { sa, sb } = mkPair();
@@ -921,7 +830,7 @@ describe('export trimming', () => {
     await sb.commit('A');
     await settle();
     assert.equal(sa.view().turn, 1, 'turn 0 finished');
-    await commitLegal(sa); // and turn 1 is under way, with only coral in
+    await commitLegal(sa);
 
     const raw = sa.export();
     assert.ok(!imported(raw).match.pendingColors().includes('C'),
@@ -954,8 +863,6 @@ describe('export trimming', () => {
   });
 });
 
-// ---- match code -----------------------------------------------------------
-
 describe('room ids', () => {
   it('put one code in one room, whitespace and all', () => {
     const s1 = Wire.encodeMatchCode(cfg({ seed: 'aaa' }));
@@ -975,14 +882,7 @@ describe('room ids', () => {
   });
 });
 
-// ---- divergence -----------------------------------------------------------
-//
-// Commit-reveal decides when an action becomes visible and nothing more. The
-// state hash is still the only thing that catches a fork, so every path that
-// applies an action has to check it and hold on to what it found.
-
 describe('the divergence check', () => {
-  // A properly sealed, properly opened action for a state neither of us is in.
   async function diverge(sa: Sess, peer: Channel) {
     const p = await twoPhase({ turn: 0, color: 'P', action: 'A', hash: 'dead' });
     peer.send(p.commitment);
@@ -994,7 +894,7 @@ describe('the divergence check', () => {
     const { peer, sa } = mkSolo();
     seat(sa, 'C', 'Rook');
     peerClaim(peer, 'P', 'Vale');
-    await sa.commit('D'); // committed, so an opened reveal is applied rather than held
+    await sa.commit('D');
     await settle();
     await diverge(sa, peer);
 
@@ -1002,7 +902,7 @@ describe('the divergence check', () => {
     assert.ok(first, 'a diverged timeline has to surface');
     assert.equal(sa.view().turn, 0, 'and the turn does not resolve on it');
 
-    peer.send('!P~Vale@' + peer.id); // unrelated traffic must not wipe the report
+    peer.send('!P~Vale@' + peer.id);
     await settle();
     assert.equal(sa.view().error, first, 'the error is held, not flashed and lost');
   });
@@ -1016,9 +916,9 @@ describe('the divergence check', () => {
     await settle();
     await diverge(sa, peer);
 
-    matches(sa.view().error, /^turn 0 arrived on state dead\b/);
+    matches(sa.view().error, /^Turn 0 is for state dead\b/);
     matches(sa.view().error, new RegExp('this match is on ' + hash));
-    matches(sa.view().error, /Export and re-import/, 'and says what the player can do');
+    matches(sa.view().error, /Export, then re-import/, 'and says what the player can do');
   });
 
   it('does not apply the action that failed the check', async () => {
@@ -1045,8 +945,6 @@ describe('the divergence check', () => {
     const first = sa.view().error;
     assert.ok(first, 'the fork was reported');
 
-    // Nothing you do at the keyboard fixes a fork, so a well-formed message that
-    // happens to arrive afterwards must not read as recovery.
     const good = await twoPhase({ turn: 0, color: 'P', action: 'H', hash: sa.view().hash, nonce: NONCE_B });
     peer.send(good.commitment);
     peer.send(good.reveal);
@@ -1055,8 +953,6 @@ describe('the divergence check', () => {
   });
 
   it('catches a mismatch that was buffered before we committed', async () => {
-    // Opened reveals are held, not applied, until we have committed, so the
-    // check has to run on the buffer too and not only on arrival.
     const { peer, sa } = mkSolo();
     seat(sa, 'C', 'Rook');
     peerClaim(peer, 'P', 'Vale');
@@ -1066,7 +962,7 @@ describe('the divergence check', () => {
 
     await sa.commit('D');
     await settle();
-    matches(sa.view().error, /timelines have diverged/, 'committing flushes it, and it fails there');
+    matches(sa.view().error, /Export, then re-import/, 'committing flushes it, and it fails there');
     assert.equal(sa.view().turn, 0);
   });
 
@@ -1088,13 +984,8 @@ describe('the divergence check', () => {
   });
 });
 
-// ---- wire discipline ------------------------------------------------------
-
 describe('wire discipline', () => {
   it('puts nothing but claims, commitments and reveals on the wire', async () => {
-    // Match.export() would leak this turn's move if broadcast, and so would a
-    // bare action string. An action travels only inside a reveal, sent once
-    // every commitment for the turn is in.
     const { sa, sb, sentA, sentB } = mkPair({ w: 8, h: 2, cap: 8, seed: 'wire' });
     seat(sa, 'C', 'Rook');
     seat(sb, 'P', 'Vale');

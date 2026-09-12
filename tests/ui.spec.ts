@@ -11,10 +11,7 @@ declare global {
   }
 }
 
-// PeerChannel reaches the network exactly once, by dynamically importing
-// Trystero. esbuild gives that import a chunk of its own, so serving the chunk
-// is what keeps the suite off the network: the room it returns never opens a
-// socket, and the test drives its peer list and its inbox directly.
+// Stub Trystero's lazy chunk to keep UI tests off the network.
 const ROOM_STUB = `
 export function joinRoom(config, roomId) {
   const hub = globalThis.__tbtt;
@@ -58,10 +55,7 @@ async function open(page: Page, opts: Options = {}) {
     window.__tbtt = { peers: ids, sent: [], action: null };
   }, peers);
 
-  // Registered first, so it only ever sees what the chunk handler below does
-  // not. That handler is matched by a path, and a path is easy to outgrow. These
-  // two name whatever went out instead, so the suite fails rather than dials a
-  // relay.
+  // Block every request outside the test server.
   await page.route(/.*/, (route) => {
     const url = route.request().url();
     if (url.startsWith(server)) return route.continue();
@@ -73,9 +67,7 @@ async function open(page: Page, opts: Options = {}) {
     ws.close();
   });
 
-  // Everything under dist/ except the entry is a lazily loaded chunk, and
-  // Trystero's is the only one. Matched by position rather than by esbuild's
-  // content hash, which moves on every change to the library.
+  // The lazy Trystero chunk has a content-hashed name.
   await page.route('**/dist/*.js', (route) => {
     if (route.request().url().endsWith('/main.js')) return route.continue();
     return opts.offline
@@ -94,7 +86,6 @@ async function createMatch(page: Page, cfg: Partial<typeof MATCH> = {}) {
   await page.locator('#fWall').fill(c.wall);
   await page.locator('#fSeed').fill(c.seed);
   await page.locator('#fRoster').selectOption(c.roster);
-  // Last, because editing the board size rewrites it.
   await page.locator('#fCap').fill(c.cap);
   await page.locator('#btnMake').click();
 }
@@ -125,8 +116,7 @@ async function stateHash(page: Page) {
   return hash;
 }
 
-// The other player, played by hand: seal, then open. The preimage is pinned in
-// turn-transport.md, so a change there breaks these tests rather than the seam.
+// Simulate the other player's commit.
 function seal(turn: number, color: string, action: string) {
   const nonce = randomBytes(16).toString('hex');
   const digest = createHash('sha256')
@@ -141,9 +131,7 @@ function revealOf(turn: number, color: string, action: string, hash: string, non
   return `${turn}${color}:${action}#${hash}${named}|${nonce}`;
 }
 
-// One whole turn, with the other seat played by hand: read the hash the turn
-// opens on, seal against it, commit, then open. Leaves you on the next turn, or
-// on the match-over panel if that was the cap.
+// Resolve one turn with a simulated opponent.
 async function resolveTurn(page: Page, turn: number, mine: string, theirs: string, name?: string) {
   const hash = await stateHash(page);
   const { nonce, commitment } = seal(turn, 'P', theirs);
@@ -158,10 +146,9 @@ async function resolveTurn(page: Page, turn: number, mine: string, theirs: strin
 test.describe('setup screen', () => {
   test('loads and runs its module', async ({ page }) => {
     await open(page);
-    await expect(page.getByRole('heading', { name: 'Time travel tactics — prototype' })).toBeVisible();
+    await expect(page.getByRole('heading', { name: 'Time travel tactics' })).toBeVisible();
     await expect(page.locator('#setup')).toBeVisible();
     await expect(page.locator('#play')).toBeHidden();
-    // The module ran if it filled the seed, which the markup leaves empty.
     await expect(page.locator('#fSeed')).not.toHaveValue('');
   });
 
@@ -275,14 +262,14 @@ test.describe('colour picker', () => {
     await page.locator('#pickRows .pickrow[data-color="C"]').click();
     await page.locator('#pickRows .pickrow[data-color="C"] input').fill('Rook');
     await expect(page.locator('#pickWait')).toHaveText(
-      'Waiting for 1 more player to open this match code.');
+      'Waiting for 1 player.');
     await expect(page.locator('#btnPlay')).toBeDisabled();
   });
 
   test('reports a connection that never opened', async ({ page }) => {
     await open(page, { offline: true });
     await createMatch(page);
-    await expect(page.locator('#pickWait')).toContainText('No connection:');
+    await expect(page.locator('#pickWait')).toContainText('Could not connect.');
     await expect(page.locator('#btnPlay')).toBeDisabled();
   });
 
@@ -306,7 +293,7 @@ test.describe('colour picker', () => {
     await row.click();
     await row.locator('input').fill('my name');
     await expect(page.locator('#nameErr')).toHaveText(
-      'A name can only use letters, digits, - and _, up to 12 characters.');
+      'Use letters, digits, hyphens, or underscores. Max 12 characters.');
     await expect(page.locator('#btnPlay')).toBeDisabled();
 
     await row.locator('input').fill('Rook');
@@ -333,10 +320,10 @@ test.describe('play screen', () => {
     await expect(page.locator('#youAre')).toHaveText('Rook');
     await expect(page.locator('#youAt')).toHaveText('index 0 · t0 · forward · (0,0)');
     await expect(page.locator('#turnInfo')).toContainText('turn 0 / 8');
-    await expect(page.locator('#netInfo')).toHaveText('turns move: live · 1 peer');
-    await expect(page.locator('#rdNote')).toHaveText('look back caps at 2 — a quarter of the 8-turn cap');
+    await expect(page.locator('#netInfo')).toHaveText('Connected · 1 other player');
+    await expect(page.locator('#rdNote')).toHaveText('up to 2 turns of history');
     await expect(page.locator('#legend')).toContainText('Rook');
-    await expect(page.locator('#log li')).toHaveText('Nothing yet.');
+    await expect(page.locator('#log li')).toHaveText('No turns yet.');
     await expect(page.locator('#phasePick')).toBeVisible();
     await expect(page.locator('#phaseShare')).toBeHidden();
     await expect(page.locator('#phaseOver')).toBeHidden();
@@ -355,7 +342,6 @@ test.describe('play screen', () => {
 
   test('disables a move off the board', async ({ page }) => {
     await startMatch(page);
-    // Coral spawns at (0,0), so up and left leave the board.
     await expect(page.locator('#turnCard [data-act="W"]')).toBeDisabled();
     await expect(page.locator('#turnCard [data-act="A"]')).toBeDisabled();
     await expect(page.locator('#turnCard [data-act="D"]')).toBeEnabled();
@@ -368,7 +354,7 @@ test.describe('play screen', () => {
 
     await expect(page.locator('#phaseShare')).toBeVisible();
     await expect(page.locator('#phasePick')).toBeHidden();
-    await expect(page.locator('#pending')).toHaveText('still waiting on: Purple');
+    await expect(page.locator('#pending')).toHaveText('Waiting for Purple');
     await expect(page.locator('#btnUndo')).toBeVisible();
 
     await page.locator('#btnUndo').click();
@@ -386,8 +372,7 @@ test.describe('play screen', () => {
     await page.locator('#turnCard [data-act="D"]').click();
     await page.locator('#btnCommit').click();
     await expect(page.locator('#phaseShare')).toBeVisible();
-    // Everyone sealed, so there is nothing left to take back.
-    await expect(page.locator('#pending')).toHaveText('everyone is in, opening');
+    await expect(page.locator('#pending')).toHaveText('All actions are in.');
     await expect(page.locator('#btnUndo')).toBeHidden();
 
     await deliver(page, revealOf(0, 'P', 'H', hash, nonce, 'Rival'));
@@ -419,7 +404,6 @@ test.describe('play screen', () => {
     await page.locator('#sl').press('Home');
     await expect(page.locator('#slo')).toHaveText('0');
     await expect(page.locator('#board .tok')).toHaveCount(2);
-    // Nothing sits before t0, so the trail empties.
     await expect(page.locator('#board .trail')).toHaveCount(0);
     await expect(page.locator('#board .tok').first()).toHaveAttribute('title', /world turn 0/);
 
@@ -428,7 +412,7 @@ test.describe('play screen', () => {
     await expect(page.locator('#board .trail')).toHaveCount(2);
   });
 
-  test('the look back slider drops the trail', async ({ page }) => {
+  test('the history slider drops the trail', async ({ page }) => {
     await startMatch(page);
     const hash = await stateHash(page);
     const { nonce, commitment } = seal(0, 'P', 'H');
@@ -448,7 +432,6 @@ test.describe('play screen', () => {
 
   test('losing the seat sends you back to the picker', async ({ page }) => {
     await startMatch(page);
-    // PeerChannel ids start with "p-", so a claim from "0-" outranks ours.
     await deliver(page, '!C~Thief@0-lower');
 
     await expect(page.locator('#setup')).toBeVisible();
@@ -465,9 +448,9 @@ test.describe('play screen', () => {
     await startMatch(page);
     await expect(page.locator('#prioInfo')).toContainText('Rook');
     await expect(page.locator('#prioInfo')).toContainText('\u203a');
-    await expect(page.locator('#pickWhy')).toContainText('Holding costs a world turn');
+    await expect(page.locator('#pickWhy')).toContainText('This uses a world turn');
     await page.locator('#turnCard [data-act="I"]').click();
-    await expect(page.locator('#pickWhy')).toContainText('Inverting keeps your world turn');
+    await expect(page.locator('#pickWhy')).toContainText('Stay at t0');
   });
 
   test('a claim names the other seat before a single turn resolves', async ({ page }) => {
@@ -483,15 +466,11 @@ test.describe('play screen', () => {
     await resolveTurn(page, 0, 'H', 'H', 'Rival');
     await expect(page.locator('#log li.turnsep')).toHaveCount(0);
     await resolveTurn(page, 1, 'H', 'H');
-    // Two turns, two rows each, and one rule between them.
     await expect(page.locator('#log li.turnsep')).toHaveCount(1);
     await expect(page.locator('#log li')).toHaveCount(5);
   });
 
   test('switching theme redraws the trail at the new floor', async ({ page }) => {
-    // --dot-floor is 0.22 dark and 0.14 light, and shade() reads it off computed
-    // style. Three turns, so there are two history turns and the older one sits
-    // on the floor rather than on a flat 1.
     await startMatch(page);
     await resolveTurn(page, 0, 'H', 'H', 'Rival');
     await resolveTurn(page, 1, 'H', 'H');
@@ -515,16 +494,15 @@ test.describe('play screen', () => {
     await expect(page.locator('#phasePick')).toBeHidden();
     await expect(page.locator('#phaseShare')).toBeHidden();
     await expect(page.locator('#turnInfo')).toHaveText('match over at turn 2');
-    await expect(page.locator('#prioInfo')).toHaveText('the match is over');
-    // Still scrubbable, which is the whole point of freezing rather than leaving.
+    await expect(page.locator('#prioInfo')).toHaveText('match over');
     await expect(page.locator('#board .cell')).toHaveCount(16);
   });
 
-  test('the look back slider caps at a quarter of the turn cap', async ({ page }) => {
+  test('the history slider caps its range', async ({ page }) => {
     await open(page);
     await createMatch(page, { cap: '40' });
     await sitDown(page);
-    await expect(page.locator('#rdNote')).toHaveText('look back caps at 10 \u2014 a quarter of the 40-turn cap');
+    await expect(page.locator('#rdNote')).toHaveText('up to 10 turns of history');
     await expect(page.locator('#rdo')).toHaveText('10');
     await expect(page.locator('#rd')).toHaveAttribute('max', '10');
   });

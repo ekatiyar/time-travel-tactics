@@ -21,12 +21,7 @@ function push<K, V>(m: Map<K, V[]>, k: K, v: V): void {
   else m.set(k, [v]);
 }
 
-// ---------- renderers: view in, DOM out, no Session access ----------
-
-// Rank the distinct world turns that actually have a visible dot, then spread
-// opacity across the whole range. Fading by raw distance instead puts three dots
-// at 1.00 / 0.92 / 0.83, which reads as one shade. On a busy board the two
-// converge; this only bites when there is little to show.
+// Spread trail opacity across visible turns, not raw distance.
 function shade(bodies: readonly ViewBody[], focusT: number, lookBack: number): Map<number, number> {
   const floor = parseFloat(getComputedStyle(document.documentElement)
     .getPropertyValue('--dot-floor')) || 0.14;
@@ -42,21 +37,21 @@ function shade(bodies: readonly ViewBody[], focusT: number, lookBack: number): M
 }
 
 function describe(view: SessionView, b: ViewBody): string {
-  return nameOf(view, b.color) + ' · index ' + b.p + ' · world turn ' + b.t + (b.live ? ' · live' : '');
+  return nameOf(view, b.color) + ', index ' + b.p + ', world turn ' + b.t + (b.live ? ', current' : '');
 }
 
 function eventText(view: SessionView, e: TurnEvent): string {
   const at = '(' + e.x + ',' + e.y + ')';
   if (e.kind === 'moved') return 'moved to ' + at + ' at t' + e.t;
-  if (e.kind === 'held') return 'held ' + at + ' — cost a world turn, not a step';
+  if (e.kind === 'held') return 'held ' + at;
   if (e.kind === 'inverted') {
-    return 'inverted at ' + at + ' — still t' + e.t + ', now walking ' +
+    return 'turned around at ' + at + ', now walking ' +
       (e.dir === 1 ? 'forward' : 'backward');
   }
   if (e.kind === 'blocked') {
     return 'was blocked by ' + (e.by ? nameOf(view, e.by) : 'someone') + ' and stayed at ' + at;
   }
-  return 'was stuck — turn skipped';
+  return 'was stuck';
 }
 
 function Swatch({ color }: { color: Color }) {
@@ -84,9 +79,7 @@ function Board({ view, focusT, lookBack, picked, onPick }: BoardProps) {
     else if (b.t >= lo && b.t < focusT) push(history, k, b);
   }
 
-  // Only offer actions while looking at the slice you actually act from. Invert
-  // is left off the board. It lands on the tile you already stand on, which is
-  // where hold goes, and hold is the one you mean when you click yourself.
+  // Board clicks apply only at the current world turn.
   const targets = new Map<string, ActionOffer>();
   if (onPick && focusT === view.me.t) {
     for (const a of view.actions) if (a.action !== 'I') targets.set(a.x + ',' + a.y, a);
@@ -146,7 +139,7 @@ function Cell({ view, wall, target, picked, onPick, here, past, op }: CellProps)
     click = onPick ? () => { onPick(a); } : undefined;
   } else if (target) {
     style = { background: 'var(--wall)', opacity: 0.55 };
-    title = 'blocked — ' + target.reason;
+    title = 'Blocked by ' + target.reason;
   }
 
   const live = wall ? undefined : here;
@@ -155,7 +148,7 @@ function Cell({ view, wall, target, picked, onPick, here, past, op }: CellProps)
   return (
     <div class="cell" style={style} title={title} onClick={click}>
       {live && live.length > 0 && <Token view={view} bodies={live} />}
-      {/* A live token already eats most of the cell, so show fewer trail dots beside it. */}
+      {/* A current token leaves room for two trail dots. */}
       {trail && [...trail].sort((a, b) => b.t - a.t).slice(0, live ? 2 : 4).map((b) => (
         <div
           key={b.color + ':' + b.p}
@@ -201,7 +194,6 @@ function Strip({ view, focusT, lookBack }: { view: SessionView; focusT: number; 
 
   const cols = [];
   for (let t = 0; t < span; t++) cols.push(t);
-  // Beyond your horizon, dashed and unreadable.
   const beyond = !view.over && view.me.horizon < view.cap;
 
   return (
@@ -252,8 +244,8 @@ function Strip({ view, focusT, lookBack }: { view: SessionView; focusT: number; 
         ))}
       </div>
       <div class="muted" style="font-size:11.5px;margin-top:4px;">
-        your horizon is t{view.me.horizon}
-        {beyond ? ' — dashed means you have not been there' : ''}
+        explored through t{view.me.horizon}
+        {beyond ? '. Dashed is unexplored.' : ''}
       </div>
     </div>
   );
@@ -269,15 +261,14 @@ function Legend({ view }: { view: SessionView }) {
         <i class="sw" style="width:6px;height:6px;background:var(--text-muted);opacity:.4" />
         earlier turns
       </span>
-      <span>number = personal index</span>
+      <span>number is personal index</span>
     </div>
   );
 }
 
-// Every turn so far, newest first, with a rule between meta turns.
 function Log({ view }: { view: SessionView }) {
   if (!view.events.length) {
-    return <ul class="log" id="log"><li class="muted">Nothing yet.</li></ul>;
+    return <ul class="log" id="log"><li class="muted">No turns yet.</li></ul>;
   }
   const groups: { turn: number; rows: TurnEvent[] }[] = [];
   for (const e of view.events) {
@@ -308,8 +299,6 @@ function Log({ view }: { view: SessionView }) {
   );
 }
 
-// ---------- theme ----------
-
 export type Theme = 'dark' | 'light';
 const THEME_KEY = 'tbtt-theme';
 
@@ -317,18 +306,14 @@ export function readTheme(): Theme {
   try {
     return localStorage.getItem(THEME_KEY) === 'light' ? 'light' : 'dark';
   } catch {
-    return 'dark';                  // storage off
+    return 'dark';
   }
 }
 
-// Applied straight to the document rather than through a render, because shade()
-// reads --dot-floor off computed style and has to see the new theme, not the old.
 export function applyTheme(t: Theme): void {
   document.documentElement.setAttribute('data-theme', t);
   try { localStorage.setItem(THEME_KEY, t); } catch { /* storage off */ }
 }
-
-// ---------- setup ----------
 
 function randomSeed(): string {
   return Math.floor(Math.random() * 0x100000000).toString(36).slice(0, 6);
@@ -359,7 +344,7 @@ function SetupCard({ onMatch }: { onMatch: (m: Match, names?: Names) => void }) 
 
   const pick = (t: Tab) => () => { setTab(t); setError(''); };
 
-  // Editing the board rewrites the suggested cap, so a cap typed first is lost.
+  // Board size resets the suggested cap.
   const size = (key: 'w' | 'h') => (e: { currentTarget: HTMLInputElement }) => {
     const value = e.currentTarget.value;
     setForm((f) => {
@@ -412,21 +397,21 @@ function SetupCard({ onMatch }: { onMatch: (m: Match, names?: Names) => void }) 
       </div>
 
       <div id="paneNew" class={tab === 'new' ? '' : 'hide'}>
-        <h2>Everyone needs the same settings, so set them here and share the code.</h2>
+        <h2>Set the board, then share the code.</h2>
         <div class="grid2">
           <div>
             <label class="f">Width <input id="fW" type="number" min="2" max="64" value={form.w} onInput={size('w')} /></label>
             <label class="f">Height <input id="fH" type="number" min="2" max="64" value={form.h} onInput={size('h')} /></label>
-            <label class="f">Wall density % <input id="fWall" type="number" min="0" max="45" value={form.wallPct} onInput={field('wallPct')} /></label>
+            <label class="f">Walls (%) <input id="fWall" type="number" min="0" max="45" value={form.wallPct} onInput={field('wallPct')} /></label>
           </div>
           <div>
             <label class="f">Seed <input id="fSeed" type="text" value={form.seed} onInput={field('seed')} /></label>
             <label class="f">Turn cap <input id="fCap" type="number" min="2" max="400" value={form.cap} onInput={field('cap')} /></label>
             <label class="f">Players
               <select id="fRoster" value={form.roster} onChange={field('roster')}>
-                <option value="CP">2 — coral, purple</option>
-                <option value="CPT">3 — + teal</option>
-                <option value="CPTA">4 — + amber</option>
+                <option value="CP">2: Coral, Purple</option>
+                <option value="CPT">3: Coral, Purple, Teal</option>
+                <option value="CPTA">4: Coral, Purple, Teal, Amber</option>
               </select>
             </label>
           </div>
@@ -435,7 +420,7 @@ function SetupCard({ onMatch }: { onMatch: (m: Match, names?: Names) => void }) 
       </div>
 
       <div id="paneJoin" class={tab === 'join' ? '' : 'hide'}>
-        <h2>Paste the match code the host sent you.</h2>
+        <h2>Paste a match code.</h2>
         <textarea
           id="fCode" rows={2} placeholder="M1:16x9:11:19f4:43:CPTA"
           value={joinCode} onInput={(e) => { setJoinCode(e.currentTarget.value); }}
@@ -444,7 +429,7 @@ function SetupCard({ onMatch }: { onMatch: (m: Match, names?: Names) => void }) 
       </div>
 
       <div id="paneImport" class={tab === 'import' ? '' : 'hide'}>
-        <h2>Paste a full export. Use this after a reload, or to catch up mid-match.</h2>
+        <h2>Paste an export to resume a match.</h2>
         <textarea
           id="fExport" rows={4} placeholder="X1:M1:16x9:11:19f4:43:CPTA|CDPATWAD,...|C~Rook,P~Vale"
           value={exported} onInput={(e) => { setExported(e.currentTarget.value); }}
@@ -456,8 +441,6 @@ function SetupCard({ onMatch }: { onMatch: (m: Match, names?: Names) => void }) 
     </div>
   );
 }
-
-// ---------- copy buttons ----------
 
 function CopyButton(
   { id, area, label, style }:
@@ -482,8 +465,6 @@ function CopyButton(
   );
 }
 
-// ---------- picker ----------
-
 const NAME_RE = /^[A-Za-z0-9_-]{1,12}$/;
 
 type PickerProps = {
@@ -506,18 +487,15 @@ function PickCard(p: PickerProps) {
     return held && held.clientId !== p.channel.id ? held : null;
   };
 
-  // Trimmed before checking. A space is not a legal name character, so a stray
-  // one off a paste would otherwise dead-end the Play button.
+  // Trim pasted whitespace before validation.
   const typed = (p.chosen ? p.names[p.chosen] ?? '' : '').trim();
   const badName = typed.length > 0 && !NAME_RE.test(typed);
   const live = p.view.status === 'live';
   const canPlay = Boolean(live && p.chosen && !heldByOther(p.chosen) && typed && !badName);
 
-  // A turn needs everyone in before anything opens, so an empty room is not a
-  // match you can start playing. Waiting here beats walking into one and hanging.
   const waiting = live ? '' : p.view.status === 'failed'
-    ? 'No connection: ' + (p.view.detail || 'the relays did not answer.')
-    : 'Waiting for ' + plural(p.view.peersNeeded, 'more player') + ' to open this match code.';
+    ? 'Could not connect. ' + (p.view.detail || 'The relays did not answer.')
+    : 'Waiting for ' + plural(p.view.peersNeeded, 'player') + '.';
 
   function sit() {
     if (!canPlay || !p.chosen) return;
@@ -527,13 +505,13 @@ function PickCard(p: PickerProps) {
   return (
     <div id="pickCard">
       <div class="card">
-        <h2>Match code — every player needs this exact string.</h2>
+        <h2>Share this code with every player.</h2>
         <textarea id="outCode" rows={2} readOnly ref={codeArea} value={p.code} />
         <CopyButton id="btnCopyCode" area={codeArea} label="Copy match code" style="margin-top:8px;" />
       </div>
 
       <div class="card">
-        <h2>Pick your colour and choose a name.</h2>
+        <h2>Choose a color and a name.</h2>
         <div id="pickRows">
           {p.view.roster.map((c) => {
             const theirs = heldByOther(c);
@@ -550,7 +528,7 @@ function PickCard(p: PickerProps) {
                 <Swatch color={c} />
                 <span class="sec" style="width:56px;flex:none;">{COLORS[c].name}</span>
                 <input
-                  type="text" maxLength={12} placeholder="your name"
+                  type="text" maxLength={12} placeholder="Name"
                   value={p.names[c] ?? ''}
                   onInput={(e) => {
                     const value = e.currentTarget.value;
@@ -563,14 +541,8 @@ function PickCard(p: PickerProps) {
             );
           })}
         </div>
-        <div class="muted" style="font-size:12.5px;margin-top:10px;">
-          Names are for you and the other players to read. Action strings and the state hash
-          stay on colour codes, so nobody has to agree on names to stay in sync.
-        </div>
-        {/* A name is refused rather than stripped, so nobody types a tilde and
-            quietly ends up called something else. */}
         <div id="nameErr" class="err">
-          {badName ? 'A name can only use letters, digits, - and _, up to 12 characters.' : ''}
+          {badName ? 'Use letters, digits, hyphens, or underscores. Max 12 characters.' : ''}
         </div>
         <div id="pickErr" class="err">{p.view.notice || p.view.error || ''}</div>
         <div id="pickWait" class="sec" style="margin-top:12px;">{waiting}</div>
@@ -580,8 +552,6 @@ function PickCard(p: PickerProps) {
   );
 }
 
-// ---------- play ----------
-
 const LABEL: Record<Action, string> = {
   W: 'up', A: 'left', S: 'down', D: 'right', H: 'hold', I: 'invert'
 };
@@ -590,8 +560,8 @@ const KEYS: Record<string, Action> = {
   w: 'W', a: 'A', s: 'S', d: 'D', W: 'W', A: 'A', S: 'S', D: 'D'
 };
 const NET_LABEL: Record<string, string> = {
-  offline: 'not connected', connecting: 'connecting…', live: 'live',
-  failed: 'connection failed, export to rejoin'
+  offline: 'Offline', connecting: 'Connecting', live: 'Connected',
+  failed: 'Connection failed. Use an export to rejoin.'
 };
 
 function committed(v: SessionView): boolean {
@@ -615,12 +585,7 @@ function PlayScreen({ session, view }: { session: Session; view: SessionView }) 
   const [busy, setBusy] = useState(false);
   const [pickMsg, setPickMsg] = useState('');
   const [shareMsg, setShareMsg] = useState('');
-  // A resolved turn moves your playhead, and the world turn follows it. Keyed on
-  // the turn number rather than on who resolved it, so committing, receiving and
-  // importing all get the same behaviour and the slider still scrubs freely.
   const [scrub, setScrub] = useState<{ turn: number; t: number } | null>(null);
-  // A quarter of the turn cap is as far back as the window ever reaches. At the
-  // full cap every dot ever recorded lands in one cell.
   const maxBack = Math.max(1, Math.ceil(v.cap / 4));
   const [lookBack, setLookBack] = useState<number | null>(null);
 
@@ -629,8 +594,7 @@ function PlayScreen({ session, view }: { session: Session; view: SessionView }) 
   const done = committed(v);
   const reasons = reasonsOf(v);
 
-  // Hold first, then invert. An inverted player at t0 can do nothing else, and
-  // leaving Commit dead there points at nothing.
+  // Prefer hold, then invert, so Commit always names a legal action.
   const active: Action | null = v.over || done ? null
     : pick && legalNow(v, pick) ? pick
       : legalNow(v, 'H') ? 'H' : legalNow(v, 'I') ? 'I' : null;
@@ -645,8 +609,6 @@ function PlayScreen({ session, view }: { session: Session; view: SessionView }) 
     setBusy(true);
     const r = await session.commit(active);
     setBusy(false);
-    // The share phase is still hidden here, so a failed commit has to report
-    // into the pick phase or it reports nowhere.
     if (!r.ok) { setPickMsg(r.error ?? 'commit failed'); return; }
     setPickMsg('');
     setShareMsg('');
@@ -658,9 +620,7 @@ function PlayScreen({ session, view }: { session: Session; view: SessionView }) 
     setShareMsg(r.ok ? '' : r.error ?? 'could not take it back');
   }, [session]);
 
-  // Arrows and WASD aim, Enter commits, Escape goes back to the default. Invert is
-  // deliberately keyless. It flips your direction, which should not sit one
-  // keystroke from a movement key.
+  // Invert has no shortcut because it reverses direction.
   useEffect(() => {
     function onKey(e: KeyboardEvent): void {
       const target = e.target;
@@ -671,8 +631,6 @@ function PlayScreen({ session, view }: { session: Session; view: SessionView }) 
         if (active && !busy) { void commit(); e.preventDefault(); }
         return;
       }
-      // Escape means "undo the last step of this turn" in both phases. Take the
-      // action back if it is committed, otherwise drop the aim.
       if (e.key === 'Escape') {
         if (done) { if (v.canChange) undo(); } else setPick(null);
         e.preventDefault();
@@ -709,11 +667,10 @@ function PlayScreen({ session, view }: { session: Session; view: SessionView }) 
   }
 
   const why = active === 'I'
-    ? 'Inverting keeps your world turn. You stay on this tile at t' + v.me.t +
-      ' and start walking ' + (v.me.dir === 1 ? 'back' : 'forward') + '.'
+    ? 'Stay at t' + v.me.t + ' and walk ' + (v.me.dir === 1 ? 'backward' : 'forward') + '.'
     : active === 'H'
-      ? 'Holding costs a world turn but not a step. Nobody can take this tile off you.'
-      : reasons.H ? 'Holding is blocked here — ' + reasons.H + '.' : '';
+      ? 'Stay here. This uses a world turn, not an index.'
+      : reasons.H ? 'Cannot hold here: ' + reasons.H + '.' : '';
 
   return (
     <div class="cols">
@@ -724,7 +681,7 @@ function PlayScreen({ session, view }: { session: Session; view: SessionView }) 
         </div>
         <div class="card">
           <h2>Export</h2>
-          <div class="muted" style="font-size:12.5px;margin-bottom:8px;">Nothing is saved, and there is no fallback if the connection dies. Copy this if you might reload, and to get back in step with someone who has dropped.</div>
+          <div class="muted" style="font-size:12.5px;margin-bottom:8px;">Matches are not saved. Copy this before reloading or if a player drops.</div>
           <textarea id="outExport" rows={3} readOnly ref={exportArea} value={session.export()} />
           <CopyButton id="btnCopyExport" area={exportArea} label="Copy export" style="margin-top:8px;" />
         </div>
@@ -738,7 +695,7 @@ function PlayScreen({ session, view }: { session: Session; view: SessionView }) 
                 <span class="pill" style={{ background: c.hex, color: c.ink }}>{nameOf(v, v.me.color)}</span>
               </strong>{' '}
               <span id="youAt" class="sec mono">
-                index {v.me.p} · t{v.me.t} · {v.me.dir === 1 ? 'forward' : 'inverted'} · ({v.me.x},{v.me.y})
+                index {v.me.p} · t{v.me.t} · {v.me.dir === 1 ? 'forward' : 'backward'} · ({v.me.x},{v.me.y})
               </span>
             </div>
             <div class="mono muted" id="turnInfo">
@@ -747,8 +704,6 @@ function PlayScreen({ session, view }: { session: Session; view: SessionView }) 
           </div>
 
           <div class="boardframe">
-            {/* Once committed the pick panel is hidden, so a board click could only
-                arm a move invisibly and fire it on the next turn. Drop the handler. */}
             <Board view={v} focusT={focusT} lookBack={back} picked={active} onPick={v.over || done ? null : aim} />
           </div>
 
@@ -761,7 +716,7 @@ function PlayScreen({ session, view }: { session: Session; view: SessionView }) 
             <span class="out" id="slo">{focusT}</span>
           </div>
           <div class="row">
-            <label for="rd">Look back</label>
+            <label for="rd">History</label>
             <input
               type="range" id="rd" min={0} max={maxBack} value={back} step={1} style="flex:1;"
               onInput={(e) => { setLookBack(+e.currentTarget.value); }}
@@ -769,7 +724,7 @@ function PlayScreen({ session, view }: { session: Session; view: SessionView }) 
             <span class="out" id="rdo">{back}</span>
           </div>
           <div class="muted" style="font-size:11.5px;margin-top:-2px;" id="rdNote">
-            look back caps at {maxBack} — a quarter of the {v.cap}-turn cap
+            up to {maxBack} turns of history
           </div>
           <Strip view={v} focusT={focusT} lookBack={back} />
           <Legend view={v} />
@@ -779,9 +734,9 @@ function PlayScreen({ session, view }: { session: Session; view: SessionView }) 
       <div>
         <div class="card" id="turnCard">
           <div class="mono sec" id="netInfo" style="margin-bottom:10px;">
-            {'turns move: ' + net
-              + (v.peersNeeded ? ' · waiting for ' + plural(v.peersNeeded, 'more player') : '')
-              + (v.status === 'live' ? ' · ' + plural(v.peers.length, 'peer') : '')
+            {net
+              + (v.peersNeeded ? ' · waiting for ' + plural(v.peersNeeded, 'player') : '')
+              + (v.status === 'live' ? ' · ' + plural(v.peers.length, 'other player') : '')
               + (v.detail ? ' · ' + v.detail : '')}
           </div>
           <div class="err" id="netErr">{v.error || v.notice || ''}</div>
@@ -799,57 +754,51 @@ function PlayScreen({ session, view }: { session: Session; view: SessionView }) 
               {padButton('S', '↓', 'S', 'move down')}
               <div class="blank" />
             </div>
-            {padButton('I', 'Invert — turn around in time', null, 'turn around in time', 'btnInvert', 'width:100%;')}
+            {padButton('I', 'Turn around in time', null, 'Turn around in time', 'btnInvert', 'width:100%;')}
             <button id="btnCommit" style="width:100%;margin-top:10px;" disabled={!active || busy} onClick={() => { void commit(); }}>
               {active ? 'Commit ' + LABEL[active] : 'Commit'}
             </button>
-            <div class="keyhint">Arrows or WASD to aim · Enter to commit · Esc back to the
-              default. Inverting has no key, on purpose.</div>
+            <div class="keyhint">Arrows or WASD: choose. Enter: commit. Esc: clear. Turn around has no shortcut.</div>
             <div class="muted" style="font-size:12.5px;margin-top:8px;" id="pickWhy">{why}</div>
             <div id="pickMsg">{pickMsg && <div class="err">{pickMsg}</div>}</div>
           </div>
 
           <div id="phaseShare" class={v.over || !done ? 'hide' : ''}>
-            <h2>Your action is in.</h2>
+            <h2>Action locked in</h2>
             <div id="pending" class="mono muted" style="margin-bottom:8px;">
               {v.waiting.length
-                ? 'still waiting on: ' + v.waiting.map((x) => nameOf(v, x)).join(', ')
-                : 'everyone is in, opening'}
+                ? 'Waiting for ' + v.waiting.map((x) => nameOf(v, x)).join(', ')
+                : 'All actions are in.'}
             </div>
-            {/* Your action is out in the open the moment the last commitment lands,
-                so there is nothing left to take back and the button says so by leaving. */}
             <div style="display:flex;gap:8px;margin:0 0 6px;">
               <button id="btnUndo" class={v.canChange ? '' : 'hide'} onClick={undo}>Change my action</button>
             </div>
-            <div id="keyUndo" style="margin:0 0 14px;" class={v.canChange ? 'keyhint' : 'keyhint hide'}>Esc changes it too.</div>
+            <div id="keyUndo" style="margin:0 0 14px;" class={v.canChange ? 'keyhint' : 'keyhint hide'}>Esc also changes it.</div>
             <div id="shareMsg">{shareMsg && <div class="err">{shareMsg}</div>}</div>
           </div>
 
           <div id="phaseOver" class={v.over ? '' : 'hide'}>
-            <h2>Match over — the turn cap was reached.</h2>
-            <div class="muted" style="font-size:13px;">The board is frozen. Scrub the world-turn slider to review what happened.</div>
+            <h2>Match over</h2>
+            <div class="muted" style="font-size:13px;">Use World turn to review the match.</div>
           </div>
         </div>
 
         <div class="card">
           <h2>Priority this turn</h2>
           <div class="mono sec" id="prioInfo">
-            {v.over ? 'the match is over' : v.priority.map((x, i) => (
+            {v.over ? 'match over' : v.priority.map((x, i) => (
               <Fragment key={x}>
                 {i > 0 && ' › '}
                 <span style="display:inline-flex;align-items:center;gap:5px;"><Swatch color={x} />{nameOf(v, x)}</span>
               </Fragment>
             ))}
           </div>
-          <div class="muted" style="font-size:12.5px;margin-top:6px;">Holders take their square before
-            movers, whatever the order says.</div>
+          <div class="muted" style="font-size:12.5px;margin-top:6px;">Holders resolve before movers.</div>
         </div>
       </div>
     </div>
   );
 }
-
-// ---------- app ----------
 
 type Live = { match: Match; session: Session; channel: Channel; code: string };
 
@@ -859,8 +808,7 @@ export function App({ loadRoom }: { loadRoom: RoomLoader }) {
   const [names, setNames] = useState<Names>({});
   const [chosen, setChosen] = useState<Color | null>(null);
   const [playing, setPlaying] = useState(false);
-  // Session mutates in place, so onChange has nothing to hand back. Bumping this
-  // is how a message off the wire reaches the screen.
+  // Session mutates in place, so messages need an explicit redraw.
   const [, setTick] = useState(0);
   const redraw = useCallback(() => { setTick((n) => n + 1); }, []);
 
@@ -875,13 +823,8 @@ export function App({ loadRoom }: { loadRoom: RoomLoader }) {
     setPlaying(false);
   }, [live, loadRoom, redraw]);
 
-  // One source of truth for which seat is yours. A claim that arrives late
-  // outranks yours, so the session can take the seat away mid-match. Losing it is
-  // not a message to read on someone else's board; the picker has the reason and
-  // the free colours already.
   const seated = live ? live.session.color() !== null : false;
   const showPlay = playing && seated;
-  // One view per redraw. Both screens read the same one, and only one is built.
   const view = live ? live.session.view() : null;
   useEffect(() => {
     if (playing && !seated) { setPlaying(false); setChosen(null); }
@@ -890,7 +833,7 @@ export function App({ loadRoom }: { loadRoom: RoomLoader }) {
   function sit() {
     if (!live || !chosen) return;
     const r = live.session.claim(chosen, (names[chosen] ?? '').trim());
-    if (!r.ok) { redraw(); return; }   // the refusal is already a notice
+    if (!r.ok) { redraw(); return; }
     setPlaying(true);
   }
 
@@ -898,8 +841,8 @@ export function App({ loadRoom }: { loadRoom: RoomLoader }) {
     <div class="wrap">
       <div style="display:flex;justify-content:space-between;align-items:flex-start;gap:16px;">
         <div>
-          <h1>Time travel tactics — prototype</h1>
-          <p class="sub">Inversion only. No weapons, no erasure fronts, no win condition. Everyone runs their own copy and the turns travel between them.</p>
+          <h1>Time travel tactics</h1>
+          <p class="sub">A multiplayer time-travel tactics prototype.</p>
         </div>
         <button
           id="btnTheme" title="Switch between dark and light"

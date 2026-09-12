@@ -1,7 +1,4 @@
-// Index spaces, design doc section 3. A world turn, a meta turn, and a personal
-// index are all counters and all plain numbers at runtime. The brands keep them
-// apart at compile time, which is the bug class erasure fronts walk into: front
-// arithmetic combines a personal index and a meta turn in one expression.
+// Prevent mixing turn and tape indexes.
 declare const brand: unique symbol;
 type Branded<T extends string> = { readonly [brand]: T };
 
@@ -45,8 +42,7 @@ function isAction(a: unknown): a is Action {
 export type Config = {
   w: number; h: number; wallPct: number; seed: string; cap: number; roster: Color[];
 };
-// What arrives from the setup form, a match code, or an export: shaped right,
-// contents unchecked. normalizeConfig is the only way in.
+// Unvalidated configuration from forms, codes, and exports.
 export type ConfigInput = {
   w: number; h: number; wallPct: number; seed: string; cap: number; roster: readonly string[];
 };
@@ -117,7 +113,6 @@ function unkey(k: string): Vec {
   return [Number(k.slice(0, i)), Number(k.slice(i + 1))];
 }
 
-// Fixed corner per colour, so a two-player match starts diagonally opposed.
 function spawnFor(color: Color, w: number, h: number): Vec {
   if (color === 'C') return [0, 0];
   if (color === 'P') return [w - 1, h - 1];
@@ -129,8 +124,7 @@ function normalizeConfig(c: ConfigInput): Config {
   const asked = c.roster.slice();
   const w = Math.floor(c.w), h = Math.floor(c.h), wallPct = Math.floor(c.wallPct);
   const seed = String(c.seed), cap = Math.floor(c.cap);
-  // The same range the setup form offers. Unbounded, a typed 999 builds a
-  // 998001-cell board and wedges the tab.
+  // Cap board size to keep rendering bounded.
   if (!(w >= 2 && w <= 64 && h >= 2 && h <= 64)) throw new Error('board must be between 2x2 and 64x64');
   if (!(wallPct >= 0 && wallPct <= 45)) throw new Error('wall density must be 0-45');
   if (!(cap >= 2 && cap <= 400)) throw new Error('turn cap must be 2-400');
@@ -153,7 +147,7 @@ function normalizeConfig(c: ConfigInput): Config {
   return cfg;
 }
 
-// Without the carve pass, a seed can silently seal a player into their corner.
+// Carve walls until every spawn is reachable.
 function genWalls(cfg: Config): Set<string> {
   const w = cfg.w, h = cfg.h;
   const spawns = cfg.roster.map((c) => spawnFor(c, w, h));
@@ -222,9 +216,6 @@ function hashState(bodies: readonly Body[], players: Players, roster: readonly C
   return short(fnv1a(b + '|' + p));
 }
 
-// Every colour a caller can reach is in the roster, so a miss is a bug here
-// rather than bad input. The two public entry points check first and throw
-// their own message.
 function playerOf(players: Players, c: Color): Player {
   const pl = players[c];
   if (!pl) throw new Error('unknown colour ' + c);
@@ -236,19 +227,12 @@ function validName(s: unknown): s is string {
   return typeof s === 'string' && NAME_RE.test(s);
 }
 
-// Every group in these patterns is mandatory, and the caller has already
-// checked the match, but the index signature cannot say so.
 function group(m: RegExpExecArray, i: number): string {
   const v = m[i];
   if (v === undefined) throw new Error('pattern group ' + i + ' did not match');
   return v;
 }
 
-// Where an action would put you, given a player's current playhead. Inverting
-// spends no world turn. You stay on the tile you already hold and only your
-// direction flips, so its target can never be refused. Holding spends the world
-// turn without the step, and can be refused like any other target.
-// No default branch: a new action must be handled here to compile.
 function targetOf(pl: Player, action: Action): Target {
   switch (action) {
     case 'I': return { t: pl.t, x: pl.x, y: pl.y, move: false };
@@ -260,18 +244,12 @@ function targetOf(pl: Player, action: Action): Target {
   }
 }
 
-// The completeness check the caller wants, written as a predicate so the reads
-// that follow are typed. It speaks only for the roster; other colours are
-// absent from every list this turn loop walks.
 function everyoneActed(
   acts: Partial<Record<Color, Action>>, roster: readonly Color[]
 ): acts is Record<Color, Action> {
   return roster.every((c) => typeof acts[c] === 'string');
 }
 
-// A match is its config and its log, and nothing else. A name is not in the log
-// and not in hashState, and no rule here reads one, so names live with the
-// client that knows who is in the room.
 class Match {
   private _cfg: Config;
   private _log: LogEntry[];
@@ -287,8 +265,6 @@ class Match {
 
   static fromConfig(config: ConfigInput): Match { return new Match(config, []); }
 
-  // Names come back beside the match rather than inside it, because the caller is
-  // the one that has somewhere to keep them.
   static fromExport(str: unknown): Result<{ match: Match; names: Partial<Record<Color, string>> }> {
     const r = Wire.decodeExport(str);
     if (!r.ok) return r;
@@ -312,15 +288,11 @@ class Match {
     if (tg.x < 0 || tg.y < 0 || tg.x >= cfg.w || tg.y >= cfg.h) return 'off the board';
     if (this._walls.has(tileKey(tg.x, tg.y))) return 'wall';
     const who = occ.get(cellKey(tg.t, tg.x, tg.y));
-    // Same colour on one tile is the turnstile; a move must diverge immediately.
-    // The reason is shown as a tooltip and the target can sit past the viewer's
-    // horizon, so it must never name a colour or a world turn.
+    // Hover text cannot reveal information beyond the viewer's horizon.
     if (who && (who !== pl.color || tg.move)) return 'occupied';
     return null;
   }
 
-  // Inverting is unblockable, so there is no state with nothing to do and no pass
-  // action to offer.
   private _legalFrom(pl: Player, occ: Map<string, Color>): Record<Action, string | null> {
     const out = {} as Record<Action, string | null>;
     for (const a of ACTIONS) out[a] = this._blockReason(pl, a, occ);
@@ -369,21 +341,17 @@ class Match {
       if (!everyoneActed(acts, roster)) break;
 
       const prio = priorityFor(cfg.seed, turn, roster);
-      // Legality is judged against the board as it stood before the turn, because
-      // that is what every player could see when they chose blind. Tiles taken
-      // during this turn are a separate, later check.
+      // Resolve blind actions against the prior board state.
       const occBase = new Map(occ);
 
-      // Holders beat movers, and a bounced mover becomes a holder, so this iterates.
-      // The holder and stuck sets only grow, which is why it terminates.
+      // Bounces become holders; these sets only grow.
       const holds = new Set<Color>(), frozen = new Set<Color>();
       const bounceBy = new Map<Color, Color>();
 
       for (const c of prio) {
         const a = acts[c];
         const lg = this._legalFrom(playerOf(players, c), occBase);
-        // An action that was never legal, only reachable from a tampered import.
-        // The turn is skipped entirely.
+        // A tampered import cannot move this player.
         if (lg[a] !== null) frozen.add(c);
         else if (a === 'I' || a === 'H') holds.add(c);
       }
@@ -392,18 +360,16 @@ class Match {
         const claim = new Map<string, Color>();
         let changed = false;
 
-        for (const c of prio) {   // holders reserve their squares first
+        for (const c of prio) {
           if (frozen.has(c) || !holds.has(c)) continue;
           const pl = playerOf(players, c);
           const k = cellKey(targetOf(pl, acts[c]).t, pl.x, pl.y);
           const occWho = occBase.get(k);
-          // Another colour already recorded there, or two holders after one square
-          // (priority breaks that tie). Nothing left to do but lose the turn.
           if ((occWho && occWho !== c) || claim.has(k)) { frozen.add(c); changed = true; continue; }
           claim.set(k, c);
         }
 
-        for (const c of prio) {   // then movers, settled by priority
+        for (const c of prio) {
           if (frozen.has(c) || holds.has(c)) continue;
           const pl = playerOf(players, c), tg = targetOf(pl, acts[c]);
           const k = cellKey(tg.t, tg.x, tg.y);
@@ -423,8 +389,6 @@ class Match {
           continue;
         }
         const tg = targetOf(pl, action);
-        // Holding is a holder by choice; a bounce is one by force. Only the second
-        // is worth telling the player about, so read it off who did the bouncing.
         const by = bounceBy.get(color) ?? null;
         pl.stuck = false;
         if (action === 'I') pl.dir = pl.dir === 1 ? -1 : 1;
@@ -466,9 +430,6 @@ class Match {
     return this._cfg.roster.filter((c) => !done.has(c));
   }
 
-  // Index into _log of this colour's entry for the current turn, or -1. A turn
-  // resolves the moment everyone is in, so an entry found here is always still a
-  // draft. It has not been applied to anything.
   private _draftIndex(color: Color, d: Derived): number {
     for (let i = this._log.length - 1; i >= 0; i--) {
       const e = this._log[i]!;
@@ -477,8 +438,6 @@ class Match {
     return -1;
   }
 
-  // If someone already pasted your first string, your replacement bounces off
-  // pendingColors as a repeat and neither of you finds out until the next hash.
   withdraw(color: string): Outcome {
     if (!isColor(color) || this._cfg.roster.indexOf(color) < 0) {
       return { ok: false, error: 'colour ' + color + ' is not in this match' };
@@ -504,16 +463,14 @@ class Match {
     return this._legalFrom(me, d.occ);
   }
 
-  // The wire seam. Everything here arrives as text from another client, so the
-  // parameter stays wide and each field is checked on the way in.
   submit(sub: { turn: number; color: string; action: string; hash: string }): Outcome {
     const d = this._derive();
     if (d.over) return { ok: false, error: 'the match is over' };
     if (!isColor(sub.color) || this._cfg.roster.indexOf(sub.color) < 0) {
       return { ok: false, error: 'colour ' + sub.color + ' is not in this match' };
     }
-    if (sub.turn !== d.turn) return { ok: false, error: 'that string is for turn ' + sub.turn + ', this match is on turn ' + d.turn };
-    if (sub.hash !== d.hash) return { ok: false, error: 'state hash ' + sub.hash + ' does not match yours (' + d.hash + '). Your timelines have diverged' };
+    if (sub.turn !== d.turn) return { ok: false, error: 'action is for turn ' + sub.turn + '; match is on turn ' + d.turn };
+    if (sub.hash !== d.hash) return { ok: false, error: 'state ' + sub.hash + " does not match this match's state " + d.hash + '. Timelines diverged.' };
     if (this.pendingColors().indexOf(sub.color) < 0) return { ok: false, error: COLORS[sub.color].name + ' has already acted this turn' };
     const legal = this.legalActions(sub.color);
     if (!isAction(sub.action)) return { ok: false, error: '"' + sub.action + '" is not an action' };
@@ -543,20 +500,15 @@ class Match {
         color: color, p: me.p, t: me.t, x: me.x, y: me.y,
         dir: me.dir, horizon: hz, stuck: me.stuck
       },
-      // Horizon filtering happens here and only here, so no renderer can draw
-      // past it by accident.
+      // Filter here so renderers cannot reveal future positions.
       bodies: d.bodies.filter((b) => b.t <= hz).map((b) => ({
         color: b.color, p: b.p, t: b.t, x: b.x, y: b.y,
         live: playerOf(d.players, b.color).p === b.p
       })),
-      // Copied, not filtered. Filter clones the array but not the entries, and a
-      // caller holding a reference into the cache could edit the match's own past.
       events: d.events.filter((e) => e.t <= hz).map((e) => ({
         turn: e.turn, color: e.color, kind: e.kind,
         t: e.t, x: e.x, y: e.y, by: e.by, dir: e.dir
       })),
-      // Every action with the square it would land on, so the board and the button
-      // row read one structure and no renderer re-derives DIRS.
       actions: d.over ? [] : ACTIONS.map((a) => {
         const tg = targetOf(me, a);
         return {
@@ -567,8 +519,6 @@ class Match {
     };
   }
 
-  // The caller supplies the labels. Passing none writes a two-section export,
-  // which decodeExport still loads.
   export(names?: Readonly<Partial<Record<Color, string>>> | null): string {
     return Wire.encodeExport(this.config(), this._log, names ?? null);
   }
@@ -582,9 +532,6 @@ export type DecodedExport = {
 };
 
 const Wire = {
-  // A name rides along on turn 0 only. Claims carry one too, but a claim says who
-  // holds the seat now and this says who played the log, which is what an export
-  // has to reproduce.
   encodeAction: function (a: {
     turn: MetaTurn; color: Color; action: Action; hash: string; name?: string | null
   }): string {
@@ -643,7 +590,6 @@ const Wire = {
   decodeExport: function (raw: unknown): Result<DecodedExport> {
     const s = String(raw == null ? '' : raw).trim();
     if (s.slice(0, 3) !== 'X1:') return { ok: false, error: 'not an export string (it should start with X1:)' };
-    // Two-section exports, with no name section, still load.
     const parts = s.slice(3).split('|');
     if (parts.length < 2 || parts.length > 3) {
       return { ok: false, error: 'export string is missing its action section' };

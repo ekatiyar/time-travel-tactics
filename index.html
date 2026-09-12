@@ -5,7 +5,6 @@
 <meta name="viewport" content="width=device-width, initial-scale=1" />
 <title>Time travel tactics</title>
 <style>
-  /* Dark is the default; the light theme is the original mockup palette. */
   :root{
     color-scheme:dark;
     --surface-0:#17161A; --surface-1:#212024; --surface-2:#2B2A2F;
@@ -42,21 +41,20 @@
   <div style="display:flex;justify-content:space-between;align-items:flex-start;gap:16px;">
     <div>
       <h1>Time travel tactics</h1>
-      <p class="sub">Design-stage prototypes.</p>
+      <p class="sub">Playable prototypes.</p>
     </div>
     <button id="btnTheme" title="Switch between dark and light">Light</button>
   </div>
 
   <a class="card" href="play/">
-    <div class="name">Latest <span class="tag">unreleased</span></div>
-    <div class="what">The tip of master. Whatever is being worked on right now.</div>
+    <div class="name">Current prototype</div>
+    <div class="what">Play the latest build.</div>
   </a>
 
   <div id="releases"></div>
 </div>
 
 <script>
-  // Same key as the prototypes, so a choice here carries into them on a shared origin.
   var THEME_KEY = 'tbtt-theme';
   var btn = document.getElementById('btnTheme');
   function setTheme(t) {
@@ -71,8 +69,6 @@
     setTheme(document.documentElement.getAttribute('data-theme') === 'light' ? 'dark' : 'light');
   };
 
-  // One card per release tag. tools/build_site.py writes releases.json from the
-  // tag messages, so it only exists on the built site.
   var box = document.getElementById('releases');
   function note(text) {
     var p = document.createElement('p');
@@ -103,7 +99,7 @@
       });
     })
     .catch(function () {
-      note('No release list here. Serve the built site over http: python tools/build_site.py, then python3 -m http.server -d _site');
+      note('Archived builds are unavailable.');
     });
 </script>
 </body>

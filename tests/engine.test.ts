@@ -6,7 +6,6 @@ import type { Config, ConfigInput, TurnEvent, View, ViewBody } from '../play/src
 
 type MatchInstance = ReturnType<typeof Match.fromConfig>;
 
-// ConfigInput, not Config: normalizeConfig rejecting a bad roster is under test.
 function cfg(over: Partial<ConfigInput> = {}): ConfigInput {
   return { w: 16, h: 9, wallPct: 0, seed: 'test', cap: 40, roster: ['C', 'P'], ...over };
 }
@@ -19,7 +18,6 @@ function view(m: MatchInstance, color: string): View {
   return m.view(color);
 }
 
-/** Submit one action per colour and assert the turn resolves. */
 function play(m: MatchInstance, actions: Record<string, string>): void {
   const turn = m.currentTurn();
   const hash = m.stateHash();
@@ -35,7 +33,6 @@ function at(m: MatchInstance, color: string): [number, number] {
   return [me.x, me.y];
 }
 
-/** Every body a colour ever recorded at world turn `t`, read off its own tape. */
 function bodiesAt(m: MatchInstance, color: string, t: number): ViewBody[] {
   return view(m, color).bodies.filter((b) => b.color === color && b.t === t);
 }
@@ -51,14 +48,10 @@ function legalNow(m: MatchInstance, color: string): Record<string, string | null
 function freeActions(m: MatchInstance, color: string): string[] {
   const legal = legalNow(m, color);
   const free = Object.keys(legal).filter((a) => legal[a] === null);
-  // Inverting is unblockable, so this can only empty if the engine has wedged a
-  // player, and every random-play loop below would then spin forever.
   assert.ok(free.length, `${color} has no legal action`);
   return free;
 }
 
-// Match.fromExport's success branch has no `error` key at all, so TypeScript
-// refuses a plain `r.error` across the union.
 function errorText(r: object): string {
   return 'error' in r && typeof r.error === 'string' ? r.error : '';
 }
@@ -157,9 +150,6 @@ describe('inversion', () => {
   });
 
   it('can never be blocked', () => {
-    // The target is the tile you already hold at the world turn you already hold,
-    // so bounds, walls and occupancy all pass. That is what guarantees every
-    // player always has at least one legal action.
     const m = match({ w: 3, h: 2 });
     play(m, { C: 'D', P: 'W' });
     play(m, { C: 'D', P: 'A' });
@@ -202,7 +192,7 @@ describe('movement and blocking', () => {
 
   it('blocks a move off the board', () => {
     const m = match();
-    const legal = legalNow(m, 'C'); // spawn is (0,0)
+    const legal = legalNow(m, 'C');
     assert.equal(legal.W, 'off the board');
     assert.equal(legal.A, 'off the board');
     assert.equal(legal.D, null);
@@ -220,13 +210,10 @@ describe('movement and blocking', () => {
 
   it('blocks a backward move onto your own earlier instance', () => {
     const m = match({ w: 8, h: 2 });
-    play(m, { C: 'D', P: 'A' });   // C (1,0)@t1
-    play(m, { C: 'D', P: 'A' });   // C (2,0)@t2
-    play(m, { C: 'D', P: 'A' });   // C (3,0)@t3
-    play(m, { C: 'I', P: 'A' });   // C stays on (3,0)@t3, now heading backward
-
-    // Retracing your steps is the one thing you cannot do. (2,0) at t2 is where
-    // your own p2 already stands.
+    play(m, { C: 'D', P: 'A' });
+    play(m, { C: 'D', P: 'A' });
+    play(m, { C: 'D', P: 'A' });
+    play(m, { C: 'I', P: 'A' });
     const legal = legalNow(m, 'C');
     assert.equal(legal.A, 'occupied', 'the tile you came from holds your own instance');
     assert.equal(legal.S, null, 'down is free');
@@ -236,13 +223,11 @@ describe('movement and blocking', () => {
 
   it("blocks a backward move onto another colour's recorded body", () => {
     const m = match({ w: 4, h: 2 });
-    play(m, { C: 'D', P: 'W' }); // C (1,0)@t1 ; P (3,0)@t1
-    play(m, { C: 'S', P: 'A' }); // C (1,1)@t2 ; P (2,0)@t2
-    play(m, { C: 'D', P: 'A' }); // C (2,1)@t3 ; P (1,0)@t3
-    play(m, { C: 'W', P: 'S' }); // C (2,0)@t4 ; P (1,1)@t4
-    play(m, { C: 'I', P: 'D' }); // C turns around on (2,0)@t4 ; P (2,1)@t5
-
-    // Walking back means walking into written history, and none of it can change.
+    play(m, { C: 'D', P: 'W' });
+    play(m, { C: 'S', P: 'A' });
+    play(m, { C: 'D', P: 'A' });
+    play(m, { C: 'W', P: 'S' });
+    play(m, { C: 'I', P: 'D' });
     const legal = legalNow(m, 'C');
     assert.equal(legal.A, 'occupied', "left is where purple's p3 already is");
     assert.equal(legal.S, 'occupied', "down is coral's own p3");
@@ -251,13 +236,11 @@ describe('movement and blocking', () => {
 
   it('refuses a hold when that tile is already written to another colour', () => {
     const m = match({ w: 4, h: 2 });
-    play(m, { C: 'D', P: 'A' }); // C (1,0)@t1 ; P (2,1)@t1
-    play(m, { C: 'S', P: 'W' }); // C (1,1)@t2 ; P (2,0)@t2
-    play(m, { C: 'D', P: 'H' }); // C (2,1)@t3 ; P holds (2,0)@t3
-    play(m, { C: 'W', P: 'D' }); // C (2,0)@t4 ; P (3,0)@t4
-    play(m, { C: 'I', P: 'S' }); // C turns around on (2,0)@t4 ; P (3,1)@t5
-
-    // Standing still is a move through time, and t3 on this tile belongs to purple.
+    play(m, { C: 'D', P: 'A' });
+    play(m, { C: 'S', P: 'W' });
+    play(m, { C: 'D', P: 'H' });
+    play(m, { C: 'W', P: 'D' });
+    play(m, { C: 'I', P: 'S' });
     const legal = legalNow(m, 'C');
     assert.equal(legal.H, 'occupied', 'holding would walk back onto purple');
     assert.equal(legal.I, null, 'inverting is still available, as it always is');
@@ -266,7 +249,6 @@ describe('movement and blocking', () => {
 
   it('has no pass action: X is gone from the alphabet', () => {
     const m = match({ w: 8, h: 2, seed: 'nox' });
-    // Widened on purpose: the point of the test is that X is outside the type.
     const alphabet: readonly string[] = ACTIONS;
     assert.ok(!alphabet.includes('X'), 'X is still in the alphabet');
     assert.equal(legalNow(m, 'C').X, undefined, 'X is still offered');
@@ -306,7 +288,7 @@ describe('priority and contests', () => {
 
   it('gives a contested tile to the priority winner and leaves the loser put', () => {
     const m = match({ w: 4, h: 2, seed: 'collide' });
-    play(m, { C: 'D', P: 'W' }); // C (1,0)@t1 ; P (3,0)@t1
+    play(m, { C: 'D', P: 'W' });
 
     const prio = view(m, 'C').priority;
     assert.equal(prio.length, 2);
@@ -314,7 +296,7 @@ describe('priority and contests', () => {
     assert.ok(win && lose);
     const stay: Record<string, number[]> = { C: [1, 0], P: [3, 0] };
 
-    play(m, { C: 'D', P: 'A' }); // both target (2,0)@t2
+    play(m, { C: 'D', P: 'A' });
 
     const w = view(m, win).me;
     const l = view(m, lose).me;
@@ -331,16 +313,15 @@ describe('priority and contests', () => {
   });
 
   it('lets a holder keep its square against a higher-priority mover', () => {
-    // Priority is seed-derived, so find a seed where purple outranks coral.
     let m: MatchInstance | null = null;
     for (let s = 0; s < 200 && !m; s++) {
       const c = match({ w: 3, h: 2, seed: `hold${s}` });
-      play(c, { C: 'D', P: 'W' }); // C (1,0)@t1 ; P (2,0)@t1
+      play(c, { C: 'D', P: 'W' });
       if (view(c, 'C').priority[0] === 'P') m = c;
     }
     assert.ok(m, 'no seed in 0..199 gave purple priority on turn 1');
 
-    play(m, { C: 'H', P: 'A' }); // coral stands still, purple walks into it
+    play(m, { C: 'H', P: 'A' });
 
     const c = view(m, 'C').me;
     assert.deepEqual([c.x, c.y], [1, 0], 'coral kept its square');
@@ -358,9 +339,6 @@ describe('priority and contests', () => {
   });
 
   it('lets a stayer beat a higher-priority mover', (t) => {
-    // Staying beats moving whoever has priority, so a mover can lose its target
-    // to someone below it in the order. Searched rather than hand-built, since
-    // priority comes from the seed.
     const roster = ['C', 'P', 'T', 'A'];
     let bounces = 0;
     let upsets = 0;
@@ -379,8 +357,6 @@ describe('priority and contests', () => {
           const opts = freeActions(m, color);
           const action = opts[(s * 13 + step++) % opts.length];
           assert.ok(action);
-          // Unchecked, a refused submit would leave the turn unresolved and spin
-          // this loop forever.
           assert.ok(m.submit({ turn, color, action, hash }).ok, `${seed}: ${color} ${action}`);
         }
 
@@ -394,7 +370,6 @@ describe('priority and contests', () => {
           if (e.kind !== 'blocked' || e.by === null) continue;
           bounces++;
           const winnerKind = kindOf[e.by] ?? '';
-          // Whoever won held their square: they held, inverted, or were bounced themselves.
           assert.match(winnerKind, /^(held|inverted|blocked|moved)$/, `blocker ${e.by} has no outcome`);
           if (prio.indexOf(e.by) > prio.indexOf(e.color)) {
             upsets++;
@@ -413,9 +388,6 @@ describe('priority and contests', () => {
   });
 
   it('bounces the next player in turn when a mover is bounced', () => {
-    // The cascade the resolver's fixed point exists for. Built by hand rather than
-    // searched: random play finds none in 600 matches, because a cascade needs one
-    // player bounced and a second aimed at exactly the square they fall back to.
     const m = match({ w: 3, h: 2, roster: ['C', 'P', 'T'] });
     play(m, { C: 'H', P: 'W', T: 'A' });
 
@@ -425,8 +397,6 @@ describe('priority and contests', () => {
       assert.deepEqual([me.x, me.y, me.t], [...xy, 1], `${color} lines up at t1`);
     }
 
-    // Purple holds. Teal walks into purple and is thrown back onto (1,0). Coral
-    // walks into (1,0) and is thrown back by the player just thrown back.
     play(m, { P: 'H', T: 'D', C: 'D' });
 
     const byColor: Record<string, TurnEvent> = {};
@@ -452,7 +422,7 @@ describe('the horizon and view()', () => {
     play(m, { C: 'D', P: 'A' });
     play(m, { C: 'D', P: 'A' });
     play(m, { C: 'I', P: 'A' });
-    play(m, { C: 'S', P: 'A' }); // sidestep, because retracing onto your own body is refused
+    play(m, { C: 'S', P: 'A' });
     return m;
   }
 
@@ -485,8 +455,6 @@ describe('the horizon and view()', () => {
   });
 
   it('never names a colour or a world turn in a block reason', () => {
-    // The renderer shows these verbatim on hover, and the blocked tile can sit
-    // past the viewer's horizon, so the text itself has to stay uninformative.
     const allowed = new Set([
       null, 'occupied', 'wall', 'off the board', 'unknown action',
       'that is before the start of time', 'the match is over',
@@ -518,11 +486,9 @@ describe('the horizon and view()', () => {
   });
 
   it('never names a body past your horizon in a blocked direction', () => {
-    // Purple turns around at t1 while coral runs on. Hovering a blocked direction
-    // must not report "Coral is there at t3".
     const m = match({ w: 4, h: 2, seed: 'leak' });
-    play(m, { C: 'D', P: 'A' }); // C (1,0)@t1 ; P (2,1)@t1
-    play(m, { C: 'D', P: 'I' }); // C (2,0)@t2 ; P turns around on (2,1)@t1
+    play(m, { C: 'D', P: 'A' });
+    play(m, { C: 'D', P: 'I' });
 
     const v = view(m, 'P');
     assert.equal(v.me.horizon, 1, 'purple never reached past t1');
@@ -537,8 +503,6 @@ describe('the horizon and view()', () => {
   });
 
   it('never hands out the same event object twice', () => {
-    // A renderer is free to annotate what it was given, so one call's scribble
-    // must not turn up in the next.
     const m = match({ w: 8, h: 2, seed: 'iso' });
     play(m, { C: 'D', P: 'A' });
 
@@ -754,11 +718,11 @@ describe('submit', () => {
 
     const stale = m.submit({ turn, color: 'C', action: 'D', hash: 'dead' });
     assert.equal(stale.ok, false);
-    assert.match(stale.error, /^state hash dead does not match yours \(\w{4}\)/);
+    assert.match(stale.error, /^state dead does not match this match's state \w{4}/);
 
     const wrongTurn = m.submit({ turn: turn + 3, color: 'C', action: 'D', hash });
     assert.equal(wrongTurn.ok, false);
-    assert.equal(wrongTurn.error, 'that string is for turn 3, this match is on turn 0');
+    assert.equal(wrongTurn.error, 'action is for turn 3; match is on turn 0');
 
     const offBoard = m.submit({ turn, color: 'C', action: 'W', hash });
     assert.equal(offBoard.ok, false);
@@ -935,8 +899,6 @@ describe('soak', () => {
         const hash = m.stateHash();
 
         for (const color of roster) {
-          // Inverting is unblockable by construction, so this is the load-bearing
-          // reason no player can ever run out of moves.
           assert.equal(legalNow(m, color).I, null, `soak ${s}: ${color} cannot invert`);
           const opts = freeActions(m, color);
           const action = opts[Math.floor(rnd() * opts.length)];
@@ -953,14 +915,11 @@ describe('soak', () => {
         blockedSeen += eventsOn(m, lead, turn).filter((e) => e.kind === 'blocked').length;
 
         for (const color of roster) {
-          // Only an inverted player can be stuck. A forward player's fallback
-          // square is unwritten future, so nothing can already own it.
           if (eventsOn(m, color, turn).some((e) => e.color === color && e.kind === 'stuck')) {
             stuckSeen++;
             assert.equal(view(m, color).me.dir, -1, `soak ${s}: a forward player got stuck at turn ${turn}`);
           }
 
-          // Invariant: no two colours ever share a tile at the same world turn.
           const occ = new Map<string, string>();
           for (const b of view(m, color).bodies) {
             const k = `${b.t},${b.x},${b.y}`;
@@ -971,7 +930,6 @@ describe('soak', () => {
         }
       }
 
-      // Invariant: replaying the same log rebuilds the same state.
       const replay = Match.fromConfig(c);
       for (const e of log) {
         const r = replay.submit({ turn: e.turn, color: e.color, action: e.action, hash: replay.stateHash() });
@@ -979,7 +937,6 @@ describe('soak', () => {
       }
       assert.equal(replay.stateHash(), m.stateHash(), `soak ${s}: replay hash`);
 
-      // Invariant: export and import are lossless.
       const imported = Match.fromExport(m.export());
       assert.ok(imported.value, `soak ${s} import: ${errorText(imported)}`);
       assert.equal(imported.value.match.stateHash(), m.stateHash(), `soak ${s}: export hash`);
