@@ -12,6 +12,3 @@
 /package.json         -export-ignore
 /package-lock.json    -export-ignore
 /tsconfig.json        -export-ignore
-
-# Re-included by /play/** above. Goes away with the live check rewrite.
-play/live_check.py    export-ignore
