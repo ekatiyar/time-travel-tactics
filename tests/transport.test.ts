@@ -15,6 +15,12 @@ function makePair(): [LoopbackEnd, LoopbackEnd] {
 
 type Sess = ReturnType<typeof Session.open>;
 
+function seatOf(s: Sess, color: Color) {
+  const seat = s.view().seats.find((candidate) => candidate.color === color);
+  assert.ok(seat, 'missing seat ' + color);
+  return seat;
+}
+
 function matches(actual: string | null, re: RegExp, message?: string): void {
   assert.ok(actual !== null, message ?? 'expected text matching ' + re + ', got null');
   assert.match(actual, re, message);
@@ -542,7 +548,8 @@ describe('arrival order', () => {
     assert.deepEqual(sa.view().waiting, ['P'], 'purple is still owed a commitment');
     assert.equal(sa.view().error, null, 'noise on a public room is not the match\'s problem');
     assert.equal(sa.view().notice, null);
-    assert.deepEqual(Object.keys(sa.claims()).sort(), ['C', 'P'], 'and no seat moved');
+    assert.deepEqual(sa.view().seats.filter((seat) => seat.state !== 'free').map((seat) => seat.color).sort(),
+      ['C', 'P'], 'and no seat moved');
   });
 });
 
@@ -571,7 +578,6 @@ describe('colour claims', () => {
     const { a, b, sa, sb } = mkPair();
     const low = a.id < b.id ? sa : sb;
     const high = a.id < b.id ? sb : sa;
-    const lowId = a.id < b.id ? a.id : b.id;
 
     const first = low.claim('C', 'Rook');
     assert.deepEqual(first, { ok: true, error: null }, 'the lower id claimed first and keeps it');
@@ -579,21 +585,22 @@ describe('colour claims', () => {
     assert.equal(second.ok, false, 'the higher id must lose the contest');
     matches(second.error, /taken by Rook/, 'and be told why');
 
-    assert.deepEqual(sa.claims().C, { name: 'Rook', clientId: lowId }, 'one side names the winner');
-    assert.deepEqual(sb.claims().C, { name: 'Rook', clientId: lowId }, 'and so does the other');
+    assert.equal(seatOf(low, 'C').state, 'mine', 'the winner owns the seat');
+    assert.equal(seatOf(high, 'C').state, 'taken', 'the loser sees it taken');
+    assert.equal(seatOf(sa, 'C').name, 'Rook', 'one side names the winner');
+    assert.equal(seatOf(sb, 'C').name, 'Rook', 'and so does the other');
   });
 
   it('reach the same seat whichever claim arrives first', () => {
     const { a, b, sa, sb } = mkPair();
     const low = a.id < b.id ? sa : sb;
     const high = a.id < b.id ? sb : sa;
-    const lowId = a.id < b.id ? a.id : b.id;
 
     high.claim('C', 'Vale');
     low.claim('C', 'Rook');
 
-    assert.deepEqual(sa.claims().C, { name: 'Rook', clientId: lowId }, 'arrival order does not decide it');
-    assert.deepEqual(sb.claims().C, { name: 'Rook', clientId: lowId });
+    assert.equal(seatOf(low, 'C').state, 'mine', 'arrival order does not decide it');
+    assert.equal(seatOf(high, 'C').state, 'taken');
   });
 
   it('name the other side on the view as soon as the claim lands', () => {
@@ -607,7 +614,7 @@ describe('colour claims', () => {
     peer.send('!P~Vale@zzzz');
     peer.send('!P~Rook@aaaa');
 
-    assert.equal(sa.claims().P?.name, 'Rook', 'the lower client id holds the seat');
+    assert.equal(seatOf(sa, 'P').name, 'Rook', 'the lower client id holds the seat');
     assert.equal(sa.view().names.P, 'Rook', 'and the screen says so');
   });
 
@@ -616,11 +623,12 @@ describe('colour claims', () => {
     seat(sa, 'C', 'Rook');
     seat(sb, 'P', 'Vale');
 
-    assert.deepEqual(sa.claims(), {
-      C: { name: 'Rook', clientId: a.id },
-      P: { name: 'Vale', clientId: b.id }
-    }, 'a free colour is absent, not present and blank');
-    assert.deepEqual(sb.claims(), sa.claims(), 'both sides see the same board');
+    assert.deepEqual(sa.view().seats.map((seat) => [seat.color, seat.state]), [
+      ['C', 'mine'], ['P', 'taken'], ['T', 'free'], ['A', 'free']
+    ]);
+    assert.deepEqual(sb.view().seats.map((seat) => [seat.color, seat.state]), [
+      ['C', 'taken'], ['P', 'mine'], ['T', 'free'], ['A', 'free']
+    ]);
   });
 
   it('refuse a colour that is not in the roster', () => {
@@ -666,6 +674,20 @@ describe('colour claims', () => {
     const two = mkPair();
     assert.equal(two.sa.view().status, 'live', 'the one peer a two-colour roster needs is live');
     assert.equal(two.sa.view().peersNeeded, 0);
+  });
+
+  it('release a claim as soon as its sending peer leaves', () => {
+    const { ch, s } = mkLone('watcher');
+    const peer = makeEnd('departing');
+    LoopbackChannel.link(ch, peer);
+    peerClaim(peer, 'P', 'Vale');
+    assert.equal(seatOf(s, 'P').state, 'taken');
+
+    ch.emit({ state: 'connecting', peers: [], detail: null });
+    assert.deepEqual(seatOf(s, 'P'), { color: 'P', name: null, locked: false, state: 'free' });
+    peerClaim(peer, 'P', 'Vale');
+    assert.equal(seatOf(s, 'P').state, 'free', 'a delayed message cannot restore a departed claim');
+    assert.ok(s.claim('P', 'Rook').ok, 'the disconnected seat can be reclaimed');
   });
 });
 
@@ -716,7 +738,21 @@ describe('names', () => {
   it('seats an imported name straight into the view and the next export', () => {
     const { s } = mkLone('imp', undefined, { C: 'Rook', P: 'Vale' });
     assert.deepEqual(s.view().names, { C: 'Rook', P: 'Vale' });
+    assert.deepEqual(s.view().seats.map((seat) => [seat.color, seat.name, seat.locked]), [
+      ['C', 'Rook', true], ['P', 'Vale', true]
+    ]);
     assert.deepEqual(decoded(s.export()).names, { C: 'Rook', P: 'Vale' });
+  });
+
+  it('locks imported names but leaves missing names open', () => {
+    const { s } = mkLone('partial', undefined, { C: 'Rook' });
+    assert.deepEqual(seatOf(s, 'C'), { color: 'C', name: 'Rook', locked: true, state: 'free' });
+    assert.deepEqual(seatOf(s, 'P'), { color: 'P', name: null, locked: false, state: 'free' });
+
+    assert.ok(s.claim('C', 'Rename').ok);
+    assert.equal(seatOf(s, 'C').name, 'Rook', 'a historical name cannot be replaced');
+    assert.ok(s.claim('P', 'Vale').ok);
+    assert.equal(seatOf(s, 'P').name, 'Vale');
   });
 
   it('keeps the first name a colour was played under', async () => {
@@ -757,7 +793,7 @@ describe('a peer arriving late', () => {
     const announced = sentA.slice(before);
     assert.deepEqual(announced.map(kindOf), ['claim', 'commitment'],
       'no reveal: purple has not committed, so coral has nothing to open yet');
-    assert.deepEqual(sb.claims().C, { name: 'Rook', clientId: a.id });
+    assert.deepEqual(seatOf(sb, 'C'), { color: 'C', name: 'Rook', locked: false, state: 'taken' });
 
     seat(sb, 'P', 'Vale');
     await sb.commit('A');
@@ -803,8 +839,7 @@ describe('a peer arriving late', () => {
     });
     LoopbackChannel.link(a, b);
     await settle();
-    assert.deepEqual(sb.claims().C, { name: 'Rook', clientId: a.id },
-      'linking announces the seat coral already holds');
+    assert.equal(seatOf(sb, 'C').state, 'taken', 'linking announces the seat coral already holds');
     assert.equal(sb.view().turn, 0, 'and the importer is on the turn coral is waiting to finish');
 
     seat(sb, 'P', 'Vale');

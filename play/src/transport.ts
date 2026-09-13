@@ -48,7 +48,7 @@ export type ChannelStatus = { state: ChannelState; peers: string[]; detail: stri
 export type Channel = {
   id: string;
   send: (text: string) => void;
-  onMessage: ((text: string) => void) | null;
+  onMessage: ((text: string, peerId: string) => void) | null;
   onStatus: ((s: ChannelStatus) => void) | null;
   close: () => void;
 };
@@ -68,8 +68,7 @@ function copyStatus(s: ChannelStatus): ChannelStatus {
 
 export type RoomAction = {
   send: (data: string) => unknown;
-  // Required by Trystero's invariant callback type.
-  onMessage: ((data: string, context: never) => void) | null;
+  onMessage: ((data: string, context: { peerId: string }) => void) | null;
 };
 export type Room = {
   makeAction: (namespace: string) => RoomAction;
@@ -114,8 +113,8 @@ function PeerChannel(roomId: string, loadRoom: RoomLoader = joinTrystero): Chann
     if (closed) return;
     room = joined;
     act = room.makeAction('m');
-    act.onMessage = function (data) {
-      if (ch.onMessage) ch.onMessage(String(data));
+    act.onMessage = function (data, context) {
+      if (ch.onMessage) ch.onMessage(String(data), context.peerId);
     };
     room.onPeerJoin = function (id) {
       if (peers.indexOf(id) < 0) peers.push(id);
@@ -148,7 +147,7 @@ function makeLoopback(id: string): LoopbackEnd {
     wires: [],
     emit: () => {},
     send: function (text) {
-      for (const o of ch.wires.slice()) if (o.onMessage) o.onMessage(String(text));
+      for (const o of ch.wires.slice()) if (o.onMessage) o.onMessage(String(text), ch.id);
     },
     close: function () {
       ch.wires = []; ch.onMessage = null;
@@ -181,7 +180,7 @@ const REVEAL_RE = /^(.*)\|([0-9a-f]{32})$/;
 
 function ckey(turn: MetaTurn, color: Color): string { return turn + color; }
 
-export type Claim = { name: string; clientId: string };
+type Claim = { name: string; clientId: string; peerId: string | null };
 type Mine = { turn: MetaTurn; action: string; nonce: string; digest: string; revealed: boolean };
 type Held = { action: string; nonce: string; v: DecodedAction };
 
@@ -194,6 +193,7 @@ export type SessionOptions = {
 
 export type SessionView = View & {
   names: Partial<Record<Color, string>>;
+  seats: SeatView[];
   peers: string[];
   detail: string | null;
   peersNeeded: number;
@@ -202,6 +202,13 @@ export type SessionView = View & {
   canChange: boolean;
   error: string | null;
   notice: string | null;
+};
+
+export type SeatView = {
+  color: Color;
+  name: string | null;
+  locked: boolean;
+  state: 'free' | 'mine' | 'taken';
 };
 
 class Session {
@@ -217,6 +224,7 @@ class Session {
   private _reveals: Map<string, Held>;
   private _mine: Mine | null;
   private _peers: string[];
+  private _departedPeers: Set<string>;
   private _status: ChannelStatus;
   private _error: string | null;
   private _notice: string | null;
@@ -236,10 +244,11 @@ class Session {
     this._reveals = new Map();
     this._mine = null;
     this._peers = [];
+    this._departedPeers = new Set();
     this._status = { state: 'offline', peers: [], detail: null };
     this._error = null;
     this._notice = null;
-    this._ch.onMessage = (text) => { this._receive(String(text)); };
+    this._ch.onMessage = (text, peerId) => { this._receive(String(text), peerId); };
     this._ch.onStatus = (s) => { this._statusChanged(s); };
   }
 
@@ -257,6 +266,14 @@ class Session {
     const before = this._peers;
     this._status = copyStatus(s);
     this._peers = this._status.peers.slice();
+    const present = new Set(this._peers);
+    for (const peerId of before) if (!present.has(peerId)) this._departedPeers.add(peerId);
+    for (const peerId of this._peers) this._departedPeers.delete(peerId);
+    for (const c of Object.keys(this._claims)) {
+      const color = isColor(c) ? c : null;
+      const held = color ? this._claims[color] : undefined;
+      if (color && held?.peerId && !present.has(held.peerId)) delete this._claims[color];
+    }
     const fresh = this._peers.filter((p) => before.indexOf(p) < 0);
     if (fresh.length) this._announce();
     this._changed();
@@ -280,15 +297,6 @@ class Session {
     return '!' + color + '~' + c.name + '@' + c.clientId;
   }
 
-  claims(): Partial<Record<Color, Claim>> {
-    const out: Partial<Record<Color, Claim>> = {};
-    for (const c of Object.keys(this._claims)) {
-      const held = isColor(c) ? this._claims[c] : undefined;
-      if (isColor(c) && held) out[c] = { name: held.name, clientId: held.clientId };
-    }
-    return out;
-  }
-
   color(): Color | null { return this._me; }
 
   // Remove local state so a lost seat cannot advance this client alone.
@@ -308,28 +316,31 @@ class Session {
     if (!isColor(color) || this._match.config().roster.indexOf(color) < 0) {
       return refuse('colour ' + color + ' is not in this match');
     }
+    const claimName = this._logNames[color] ?? name;
+    if (!validName(claimName)) return refuse('invalid name');
     const held = this._claims[color];
     if (held && held.clientId !== this._ch.id && held.clientId < this._ch.id) {
       return refuse(COLORS[color].name + ' is taken by ' + held.name);
     }
     if (this._me && this._me !== color) this._dropSeat(this._me);
-    this._claims[color] = { name: name, clientId: this._ch.id };
+    this._claims[color] = { name: claimName, clientId: this._ch.id, peerId: null };
     this._me = color;
     this._notice = null;
-    this._recordName(color, name);
+    this._recordName(color, claimName);
     this._ch.send(this._claimString(color));
     this._changed();
     return { ok: true, error: null };
   }
 
-  private _claimReceived(text: string): void {
+  private _claimReceived(text: string, peerId: string): void {
+    if (this._departedPeers.has(peerId)) return;
     const m = CLAIM_RE.exec(text);
     if (!m) return;
     const [, color = '', name = '', id = ''] = m;
     if (!isColor(color)) return;
     const held = this._claims[color];
     if (held && held.clientId <= id) return;
-    this._claims[color] = { name: name, clientId: id };
+    this._claims[color] = { name: this._logNames[color] ?? name, clientId: id, peerId: peerId };
     if (this._me === color && id < this._ch.id) {
       this._dropSeat(color);
       this._me = null;
@@ -338,8 +349,8 @@ class Session {
     this._changed();
   }
 
-  private _receive(text: string): void {
-    if (text.charAt(0) === '!') return this._claimReceived(text);
+  private _receive(text: string, peerId: string): void {
+    if (text.charAt(0) === '!') return this._claimReceived(text, peerId);
     if (text.charAt(0) === '#') return this._commitmentReceived(text);
     return this._revealReceived(text);
   }
@@ -498,14 +509,23 @@ class Session {
     const peersNeeded = Math.max(0, roster.length - 1 - peers.length);
     const status = this._status.state === 'live' && peersNeeded ? 'connecting' : this._status.state;
     const names: Partial<Record<Color, string>> = {};
+    const seats: SeatView[] = [];
     for (const c of roster) {
       const held = this._claims[c];
-      const n = (held && held.name) || this._logNames[c];
+      const saved = this._logNames[c];
+      const n = saved || (held && held.name);
       if (n) names[c] = n;
+      seats.push({
+        color: c,
+        name: n ?? null,
+        locked: saved !== undefined,
+        state: !held ? 'free' : held.clientId === this._ch.id ? 'mine' : 'taken'
+      });
     }
     return {
       ...v,
       names: names,
+      seats: seats,
       peers: peers,
       detail: this._status.detail,
       peersNeeded: peersNeeded,

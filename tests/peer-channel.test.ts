@@ -4,10 +4,9 @@ import assert from 'node:assert/strict';
 import { PeerChannel } from '../play/src/transport.js';
 import type { Channel, ChannelStatus, Room, RoomLoader } from '../play/src/transport.js';
 
-// Keep the test callback callable despite Room's invariant `never` argument.
 type FakeAction = {
   send: (data: string) => unknown;
-  onMessage: ((data: string, peerId: string) => void) | null;
+  onMessage: ((data: string, context: { peerId: string }) => void) | null;
 };
 
 type Fake = {
@@ -54,7 +53,7 @@ function fakeRoom(o: { peers?: string[]; leaveThrows?: Error } = {}): Fake {
       if (i >= 0) present.splice(i, 1);
       if (room.onPeerLeave) room.onPeerLeave(id);
     },
-    deliver: (text) => { if (action.onMessage) action.onMessage(text, 'relay'); }
+    deliver: (text) => { if (action.onMessage) action.onMessage(text, { peerId: 'relay' }); }
   };
 }
 
@@ -151,10 +150,10 @@ describe('messages', () => {
     const { fake, ch } = await joined({ peers: ['a'] });
     fake.deliver('nobody is listening yet');
 
-    const heard: string[] = [];
-    ch.onMessage = (text) => { heard.push(text); };
+    const heard: Array<[string, string]> = [];
+    ch.onMessage = (text, peerId) => { heard.push([text, peerId]); };
     fake.deliver('!C~Rook@p-0000000000000000');
-    assert.deepEqual(heard, ['!C~Rook@p-0000000000000000']);
+    assert.deepEqual(heard, [['!C~Rook@p-0000000000000000', 'relay']]);
   });
 
   it('go out through the room action', async () => {
