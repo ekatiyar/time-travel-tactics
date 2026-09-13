@@ -160,6 +160,8 @@ def main() -> int:
         print(f"root entry {DEFAULT_ENTRY} is missing: {', '.join(unresolved)}")
         return 1
 
+    root_date = git("log", "-1", "--format=%cs", args.root_ref)
+
     kept = []
     for release in read_tags():
         tag, entry = release["tag"], release["entry"]
@@ -184,7 +186,9 @@ def main() -> int:
         kept.append(release)
         print(f"  v/{tag}  {entry}")
 
-    (out / "releases.json").write_text(json.dumps(kept, indent=2) + "\n")
+    (out / "releases.json").write_text(
+        json.dumps({"current": {"date": root_date}, "releases": kept}, indent=2) + "\n"
+    )
     print(f"\n{len(kept)} releases -> {out}")
     return 0
 

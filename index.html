@@ -22,8 +22,7 @@
   body{margin:0;padding:14px 18px 40px;background:var(--surface-0);color:var(--text-primary);
     font:400 15px/1.6 system-ui,-apple-system,"Segoe UI",sans-serif;}
   .narrow{max-width:640px;margin:0 auto;}
-  h1{font-size:19px;font-weight:500;margin:0 0 2px;}
-  .sub{font-size:13px;color:var(--text-secondary);margin:0 0 18px;}
+  h1{font-size:19px;font-weight:500;margin:0 0 14px;}
   button{font:inherit;font-size:12.5px;padding:4px 10px;border-radius:8px;
     border:1px solid var(--btn-border);background:transparent;color:inherit;cursor:pointer;}
   button:hover{background:var(--surface-2);}
@@ -41,13 +40,12 @@
   <div style="display:flex;justify-content:space-between;align-items:flex-start;gap:16px;">
     <div>
       <h1>Time travel tactics</h1>
-      <p class="sub">Playable prototypes.</p>
     </div>
     <button id="btnTheme" title="Switch between dark and light">Light</button>
   </div>
 
   <a class="card" href="play/">
-    <div class="name">Current prototype</div>
+    <div class="name">Latest<span class="tag" id="currentDate"></span></div>
     <div class="what">Play the latest build.</div>
   </a>
 
@@ -78,8 +76,10 @@
   }
   fetch('releases.json')
     .then(function (r) { if (!r.ok) throw new Error(r.status); return r.json(); })
-    .then(function (releases) {
-      releases.forEach(function (rel) {
+    .then(function (data) {
+      var date = document.getElementById('currentDate');
+      if (data.current && data.current.date) date.textContent = data.current.date;
+      data.releases.forEach(function (rel) {
         var a = document.createElement('a');
         a.className = 'card';
         a.href = 'v/' + rel.tag + '/' + rel.entry;
