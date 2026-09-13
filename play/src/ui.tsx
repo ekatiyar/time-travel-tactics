@@ -142,21 +142,27 @@ function Cell({ view, wall, target, picked, onPick, here, past, op }: CellProps)
     title = 'Blocked by ' + target.reason;
   }
 
-  const live = wall ? undefined : here;
+  const focused = wall ? undefined : here;
   const trail = wall ? undefined : past;
+  const dots = trail
+    ? [...trail].sort((a, b) => b.t - a.t).slice(0, focused ? 2 : 4)
+    : [];
 
   return (
     <div class="cell" style={style} title={title} onClick={click}>
-      {live && live.length > 0 && <Token view={view} bodies={live} />}
-      {/* A current token leaves room for two trail dots. */}
-      {trail && [...trail].sort((a, b) => b.t - a.t).slice(0, live ? 2 : 4).map((b) => (
-        <div
-          key={b.color + ':' + b.p}
-          class="trail"
-          style={{ background: COLORS[b.color].hex, opacity: op.get(b.t) }}
-          title={describe(view, b)}
-        />
-      ))}
+      {focused && focused.length > 0 && <Token view={view} bodies={focused} />}
+      {dots.length > 0 && (
+        <div class={'trail-cluster' + (focused ? ' corner' : '')}>
+          {dots.map((b) => (
+            <div
+              key={b.color + ':' + b.p}
+              class="trail"
+              style={{ background: COLORS[b.color].hex, opacity: op.get(b.t) }}
+              title={describe(view, b)}
+            />
+          ))}
+        </div>
+      )}
     </div>
   );
 }
@@ -167,17 +173,13 @@ function Token({ view, bodies }: { view: SessionView; bodies: ViewBody[] }) {
   if (!first) return null;
   const c = COLORS[first.color];
   const many = sorted.length > 1;
+  const description = sorted.map((b) => describe(view, b)).join('\n');
   return (
     <div
-      class="tok"
-      style={{
-        background: c.hex,
-        color: c.ink,
-        ...(many
-          ? { padding: '0 5%', borderRadius: '9999px' }
-          : { aspectRatio: '1', borderRadius: '50%' })
-      }}
-      title={sorted.map((b) => describe(view, b)).join('\n')}
+      class={'tok ' + (many ? 'tok-many' : 'tok-single')}
+      style={{ background: c.hex, color: c.ink }}
+      title={description}
+      aria-label={description}
     >
       {sorted.map((b) => b.p).join('·')}
     </div>
@@ -468,8 +470,6 @@ function CopyButton(
 const NAME_RE = /^[A-Za-z0-9_-]{1,12}$/;
 
 type PickerProps = {
-  session: Session;
-  channel: Channel;
   code: string;
   view: SessionView;
   names: Names;
@@ -481,17 +481,16 @@ type PickerProps = {
 
 function PickCard(p: PickerProps) {
   const codeArea = useRef<HTMLTextAreaElement>(null);
-  const claims = p.session.claims();
-  const heldByOther = (c: Color) => {
-    const held = claims[c];
-    return held && held.clientId !== p.channel.id ? held : null;
-  };
+  const seatOf = (c: Color) => p.view.seats.find((seat) => seat.color === c)!;
 
   // Trim pasted whitespace before validation.
-  const typed = (p.chosen ? p.names[p.chosen] ?? '' : '').trim();
+  const chosenSeat = p.chosen ? seatOf(p.chosen) : null;
+  const typed = (p.chosen
+    ? chosenSeat?.locked ? chosenSeat.name ?? '' : p.names[p.chosen] ?? ''
+    : '').trim();
   const badName = typed.length > 0 && !NAME_RE.test(typed);
   const live = p.view.status === 'live';
-  const canPlay = Boolean(live && p.chosen && !heldByOther(p.chosen) && typed && !badName);
+  const canPlay = Boolean(live && p.chosen && chosenSeat?.state !== 'taken' && typed && !badName);
 
   const waiting = live ? '' : p.view.status === 'failed'
     ? 'Could not connect. ' + (p.view.detail || 'The relays did not answer.')
@@ -514,11 +513,14 @@ function PickCard(p: PickerProps) {
         <h2>Choose a color and a name.</h2>
         <div id="pickRows">
           {p.view.roster.map((c) => {
-            const theirs = heldByOther(c);
+            const seat = seatOf(c);
+            const taken = seat.state === 'taken';
+            const fixed = seat.locked || taken;
+            const value = fixed ? seat.name ?? '' : p.names[c] ?? '';
             return (
               <div
                 key={c}
-                class={'pickrow' + (p.chosen === c ? ' on' : '') + (theirs ? ' taken' : '')}
+                class={'pickrow' + (p.chosen === c ? ' on' : '') + (taken ? ' taken' : '')}
                 data-color={c}
                 onClick={(e) => {
                   p.setChosen(c);
@@ -529,14 +531,15 @@ function PickCard(p: PickerProps) {
                 <span class="sec" style="width:56px;flex:none;">{COLORS[c].name}</span>
                 <input
                   type="text" maxLength={12} placeholder="Name"
-                  value={p.names[c] ?? ''}
+                  value={value}
+                  readOnly={fixed}
                   onInput={(e) => {
+                    if (fixed) return;
                     const value = e.currentTarget.value;
                     p.setNames((n) => ({ ...n, [c]: value }));
                   }}
                   onKeyDown={(e) => { if (e.key === 'Enter') sit(); }}
                 />
-                <span class="sec who" style="flex:none;">{theirs ? p.view.names[c] ?? '' : ''}</span>
               </div>
             );
           })}
@@ -860,8 +863,7 @@ export function App({ loadRoom }: { loadRoom: RoomLoader }) {
         <SetupCard onMatch={openMatch} />
         {live && view && !showPlay && (
           <PickCard
-            session={live.session} channel={live.channel} code={live.code}
-            view={view}
+            code={live.code} view={view}
             names={names} setNames={setNames}
             chosen={chosen} setChosen={setChosen} onSit={sit}
           />

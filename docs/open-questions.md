@@ -16,7 +16,6 @@
 - How should erasure and restoration fronts read on the board and strip?
 - What visual treatment distinguishes urgent threats without overloading player colours?
 - How should touch users inspect a history body?
-- How should a tile show more than two bodies from one player?
 - Is a personal-index colour ramp needed for target value at a glance?
 - How should shooting and placed objects work in the controls?
 

@@ -6,7 +6,10 @@ declare global {
     __tbtt: {
       peers: string[];
       sent: string[];
-      action: { send: (text: string) => void; onMessage: ((text: string) => void) | null } | null;
+      action: {
+        send: (text: string) => void;
+        onMessage: ((text: string, context: { peerId: string }) => void) | null;
+      } | null;
     };
   }
 }
@@ -105,8 +108,11 @@ async function startMatch(page: Page, opts: Options = {}) {
   await sitDown(page);
 }
 
-function deliver(page: Page, text: string) {
-  return page.evaluate((t) => window.__tbtt.action?.onMessage?.(t), text);
+function deliver(page: Page, text: string, peerId = 'stub-peer') {
+  return page.evaluate(
+    ([t, id]) => window.__tbtt.action?.onMessage?.(t, { peerId: id }),
+    [text, peerId] as const,
+  );
 }
 
 async function stateHash(page: Page) {
@@ -240,8 +246,22 @@ test.describe('setup screen', () => {
     await page.locator('#fExport').fill('X1:M1:4x4:0:tst:8:CP||C~Rook,P~Vale');
     await page.locator('#btnImport').click();
     await expect(page.locator('#pickRows .pickrow')).toHaveCount(2);
-    await expect(page.locator('#pickRows .pickrow[data-color="C"] input')).toHaveValue('Rook');
-    await expect(page.locator('#pickRows .pickrow[data-color="P"] input')).toHaveValue('Vale');
+    const coral = page.locator('#pickRows .pickrow[data-color="C"] input');
+    const purple = page.locator('#pickRows .pickrow[data-color="P"] input');
+    await expect(coral).toHaveValue('Rook');
+    await expect(purple).toHaveValue('Vale');
+    await expect(coral).toHaveAttribute('readonly', '');
+    await expect(purple).toHaveAttribute('readonly', '');
+  });
+
+  test('an import locks known names but leaves a missing one editable', async ({ page }) => {
+    await open(page);
+    await page.locator('#tabImport').click();
+    await page.locator('#fExport').fill('X1:M1:4x4:0:tst:8:CP||C~Rook');
+    await page.locator('#btnImport').click();
+
+    await expect(page.locator('#pickRows .pickrow[data-color="C"] input')).toHaveAttribute('readonly', '');
+    await expect(page.locator('#pickRows .pickrow[data-color="P"] input')).toBeEditable();
   });
 });
 
@@ -282,8 +302,25 @@ test.describe('colour picker', () => {
     const taken = page.locator('#pickRows .pickrow[data-color="P"]');
     await expect(taken).toHaveClass(/taken/);
     await expect(taken).toHaveCSS('opacity', '0.45');
-    await expect(taken.locator('.who')).toHaveText('Rival');
+    await expect(taken.locator('input')).toHaveValue('Rival');
+    await expect(taken.locator('input')).toHaveAttribute('readonly', '');
     await expect(page.locator('#pickRows .pickrow[data-color="C"]')).not.toHaveClass(/taken/);
+  });
+
+  test('rejoins a free imported seat without selecting the opponent first', async ({ page }) => {
+    await open(page);
+    await page.locator('#tabImport').click();
+    await page.locator('#fExport').fill('X1:M1:4x4:0:tst:8:CP||C~Rook,P~Vale');
+    await page.locator('#btnImport').click();
+    await deliver(page, '!P~Vale@other-client');
+
+    const mine = page.locator('#pickRows .pickrow[data-color="C"]');
+    await mine.locator('input').click();
+    await expect(page.locator('#btnPlay')).toBeEnabled();
+    await page.locator('#btnPlay').click();
+    await expect(page.locator('#play')).toBeVisible();
+    const sent = await page.evaluate(() => window.__tbtt.sent);
+    expect(sent.some((text) => /^!C~Rook@/.test(text))).toBe(true);
   });
 
   test('refuses a name with a space', async ({ page }) => {
@@ -481,6 +518,64 @@ test.describe('play screen', () => {
     await page.locator('#btnTheme').click();
     await expect(page.locator('html')).toHaveAttribute('data-theme', 'light');
     await expect(faded).toHaveAttribute('style', /opacity: 0\.14/);
+  });
+
+  test('keeps a repeated-inversion token inside a fixed oval', async ({ page }) => {
+    await open(page);
+    await page.locator('#tabImport').click();
+    await page.locator('#fExport').fill(
+      'X1:M1:4x4:0:tst:8:CP|CIPH,CIPH,CIPH,CIPH|C~Rook,P~Vale',
+    );
+    await page.locator('#btnImport').click();
+    await page.locator('#pickRows .pickrow[data-color="C"] input').click();
+    await page.locator('#btnPlay').click();
+
+    const token = page.locator('#board .tok-many');
+    await expect(token).toHaveCount(1);
+    await expect(token).toHaveText('0·1·2·3·4');
+    await expect(token).toHaveAttribute('title', /index 4/);
+    await expect(token).toHaveCSS('text-overflow', 'ellipsis');
+    const geometry = await token.evaluate((node) => {
+      const tokenBox = node.getBoundingClientRect();
+      const cellBox = node.parentElement!.getBoundingClientRect();
+      return {
+        width: tokenBox.width, height: tokenBox.height,
+        within: tokenBox.left >= cellBox.left && tokenBox.right <= cellBox.right
+      };
+    });
+    expect(geometry.width).toBeGreaterThan(geometry.height);
+    expect(geometry.within).toBe(true);
+  });
+
+  test('pins trails in the corner without offsetting a focused token', async ({ page }) => {
+    await open(page);
+    await page.locator('#tabImport').click();
+    await page.locator('#fExport').fill('X1:M1:4x4:0:tst:8:CP|CHPH|C~Rook,P~Vale');
+    await page.locator('#btnImport').click();
+    await page.locator('#pickRows .pickrow[data-color="C"] input').click();
+    await page.locator('#btnPlay').click();
+
+    const cell = page.locator('#board .cell').first();
+    await expect(cell.locator('.trail-cluster.corner')).toHaveCount(1);
+    const geometry = await cell.evaluate((node) => {
+      const box = node.getBoundingClientRect();
+      const token = node.querySelector('.tok')!.getBoundingClientRect();
+      const trails = node.querySelector('.trail-cluster')!.getBoundingClientRect();
+      const center = (r: DOMRect, axis: 'x' | 'y') => axis === 'x'
+        ? r.left + r.width / 2 : r.top + r.height / 2;
+      const overlap = !(token.right <= trails.left || trails.right <= token.left ||
+        token.bottom <= trails.top || trails.bottom <= token.top);
+      return {
+        dx: Math.abs(center(token, 'x') - center(box, 'x')),
+        dy: Math.abs(center(token, 'y') - center(box, 'y')),
+        corner: center(trails, 'x') > center(box, 'x') && center(trails, 'y') < center(box, 'y'),
+        overlap
+      };
+    });
+    expect(geometry.dx).toBeLessThan(1);
+    expect(geometry.dy).toBeLessThan(1);
+    expect(geometry.corner).toBe(true);
+    expect(geometry.overlap).toBe(false);
   });
 
   test('the turn cap freezes the match', async ({ page }) => {

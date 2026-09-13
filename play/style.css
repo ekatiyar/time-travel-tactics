@@ -63,10 +63,15 @@
   }
   /* Borders preserve square cells. */
   .cell{border:1px solid var(--surface-2);border-radius:3px;min-width:0;min-height:0;
-    container-type:size;display:flex;align-items:center;justify-content:center;
+    container-type:size;display:flex;align-items:center;justify-content:center;position:relative;
     gap:4cqmin;overflow:hidden;}
   .tok{display:flex;align-items:center;justify-content:center;font-family:var(--mono);
-    white-space:nowrap;font-weight:500;height:70cqmin;flex:none;font-size:26cqmin;}
+    white-space:nowrap;font-weight:500;height:70cqmin;flex:none;font-size:26cqmin;
+    box-sizing:border-box;overflow:hidden;}
+  .tok-single{width:70cqmin;border-radius:50%;}
+  .tok-many{width:88cqmin;border-radius:9999px;padding:0 5cqmin;text-overflow:ellipsis;}
+  .trail-cluster{display:flex;align-items:center;justify-content:center;gap:4cqmin;}
+  .trail-cluster.corner{position:absolute;right:4cqmin;top:4cqmin;gap:3cqmin;}
   .trail{border-radius:50%;flex:none;width:11cqmin;height:11cqmin;min-width:3px;min-height:3px;}
   .legend{display:flex;flex-wrap:wrap;gap:6px 14px;margin-top:12px;font-size:12px;color:var(--text-secondary);}
   .legend span{display:inline-flex;align-items:center;gap:5px;}
