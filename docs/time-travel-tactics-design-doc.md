@@ -30,6 +30,8 @@ Forward players can extend the timeline. Inverted players move through known his
 
 A player may view world turns up to the furthest turn they have reached. A client can hide later turns but cannot keep a modified client from reading exchanged moves. Enforcing this rule requires an authoritative server.
 
+Recorded opponents beyond the horizon do not block move selection. If a blind move reaches an occupied tile, the recorded body holds it.
+
 ### Board rules
 
 Walls block movement. At a world turn:

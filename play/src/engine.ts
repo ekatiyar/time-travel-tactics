@@ -288,8 +288,7 @@ class Match {
     if (tg.x < 0 || tg.y < 0 || tg.x >= cfg.w || tg.y >= cfg.h) return 'off the board';
     if (this._walls.has(tileKey(tg.x, tg.y))) return 'wall';
     const who = occ.get(cellKey(tg.t, tg.x, tg.y));
-    // Hover text cannot reveal information beyond the viewer's horizon.
-    if (who && (who !== pl.color || tg.move)) return 'occupied';
+    if (tg.t <= pl.horizon && who && (who !== pl.color || tg.move)) return 'occupied';
     return null;
   }
 
@@ -373,6 +372,10 @@ class Match {
           if (frozen.has(c) || holds.has(c)) continue;
           const pl = playerOf(players, c), tg = targetOf(pl, acts[c]);
           const k = cellKey(tg.t, tg.x, tg.y);
+          const recorded = occBase.get(k);
+          if (recorded !== undefined && recorded !== c) {
+            holds.add(c); bounceBy.set(c, recorded); changed = true; continue;
+          }
           const taken = claim.get(k);
           if (taken !== undefined) { holds.add(c); bounceBy.set(c, taken); changed = true; continue; }
           claim.set(k, c);

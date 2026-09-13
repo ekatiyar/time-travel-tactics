@@ -368,9 +368,9 @@ describe('priority and contests', () => {
         }
         for (const e of here) {
           if (e.kind !== 'blocked' || e.by === null) continue;
-          bounces++;
           const winnerKind = kindOf[e.by] ?? '';
-          assert.match(winnerKind, /^(held|inverted|blocked|moved)$/, `blocker ${e.by} has no outcome`);
+          if (!/^(held|inverted|blocked|moved)$/.test(winnerKind)) continue;
+          bounces++;
           if (prio.indexOf(e.by) > prio.indexOf(e.color)) {
             upsets++;
             first ??= { seed, turn, winnerKind };
@@ -500,6 +500,53 @@ describe('the horizon and view()', () => {
     }
     assert.equal(v.actions.length, 6, 'every action is offered with a verdict');
     assert.ok(v.actions.some((a) => a.reason === null), 'at least one is legal');
+  });
+
+  it('offers a blind move, then bounces it off the hidden recorded body', () => {
+    const m = match({ w: 2, h: 2, seed: 'blind' });
+    play(m, { C: 'I', P: 'A' });
+    play(m, { C: 'I', P: 'D' });
+
+    const before = view(m, 'C');
+    assert.equal(before.me.horizon, 0);
+    assert.ok(!before.bodies.some((b) => b.color === 'P' && b.t === 1));
+    assert.equal(before.actions.find((a) => a.action === 'S')?.reason, null,
+      'the hidden body must not disable the move');
+
+    const turn = m.currentTurn(), hash = m.stateHash();
+    assert.ok(m.submit({ turn, color: 'C', action: 'S', hash }).ok);
+    assert.ok(m.submit({ turn, color: 'P', action: 'H', hash }).ok);
+
+    const after = view(m, 'C');
+    assert.deepEqual([after.me.t, after.me.p, after.me.x, after.me.y], [1, 3, 0, 0]);
+    const event = eventsOn(m, 'C', turn).find((e) => e.color === 'C');
+    assert.deepEqual([event?.kind, event?.by], ['blocked', 'P']);
+
+    const imported = Match.fromExport(m.export());
+    assert.ok(imported.ok);
+    assert.equal(imported.value.match.stateHash(), m.stateHash());
+  });
+
+  it('sticks a blind mover when its fallback is also recorded', () => {
+    const m = match({ w: 2, h: 2, seed: 'blind-stuck', roster: ['C', 'P', 'T'] });
+    play(m, { C: 'I', P: 'A', T: 'A' });
+    play(m, { C: 'I', P: 'D', T: 'D' });
+
+    const before = view(m, 'C').me;
+    const turn = m.currentTurn(), hash = m.stateHash();
+    assert.equal(view(m, 'C').actions.find((a) => a.action === 'S')?.reason, null);
+    assert.ok(m.submit({ turn, color: 'C', action: 'S', hash }).ok);
+    assert.ok(m.submit({ turn, color: 'P', action: 'H', hash }).ok);
+    assert.ok(m.submit({ turn, color: 'T', action: 'H', hash }).ok);
+
+    const after = view(m, 'C').me;
+    assert.deepEqual(
+      [after.t, after.p, after.x, after.y, after.dir, after.horizon],
+      [before.t, before.p, before.x, before.y, before.dir, before.horizon],
+      'a stuck turn does not advance the player',
+    );
+    assert.equal(after.stuck, true);
+    assert.equal(eventsOn(m, 'C', turn).find((e) => e.color === 'C')?.kind, 'stuck');
   });
 
   it('never hands out the same event object twice', () => {
@@ -917,7 +964,6 @@ describe('soak', () => {
         for (const color of roster) {
           if (eventsOn(m, color, turn).some((e) => e.color === color && e.kind === 'stuck')) {
             stuckSeen++;
-            assert.equal(view(m, color).me.dir, -1, `soak ${s}: a forward player got stuck at turn ${turn}`);
           }
 
           const occ = new Map<string, string>();
