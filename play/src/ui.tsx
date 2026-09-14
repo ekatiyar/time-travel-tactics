@@ -5,7 +5,7 @@ import type { JSX } from 'preact';
 import { COLORS, Match, Wire } from './engine.js';
 import type { Action, ActionOffer, Color, ConfigInput, TurnEvent, ViewBody } from './engine.js';
 import { Code, PeerChannel, Session, trimUnresolved } from './transport.js';
-import type { Channel, RoomLoader, SessionView } from './transport.js';
+import type { RoomLoader, SessionView } from './transport.js';
 
 type Names = Partial<Record<Color, string>>;
 
@@ -19,6 +19,12 @@ function push<K, V>(m: Map<K, V[]>, k: K, v: V): void {
   const list = m.get(k);
   if (list) list.push(v);
   else m.set(k, [v]);
+}
+
+type RelativeDirection = 'matching' | 'opposing';
+
+function relativeDirection(view: SessionView, b: ViewBody): RelativeDirection {
+  return b.dir === view.me.dir ? 'matching' : 'opposing';
 }
 
 // Spread trail opacity across visible turns, not raw distance.
@@ -37,7 +43,11 @@ function shade(bodies: readonly ViewBody[], focusT: number, lookBack: number): M
 }
 
 function describe(view: SessionView, b: ViewBody): string {
-  return nameOf(view, b.color) + ', index ' + b.p + ', world turn ' + b.t + (b.live ? ', current' : '');
+  const relation = relativeDirection(view, b) === 'matching'
+    ? 'same direction as you' : 'opposite direction from you';
+  return nameOf(view, b.color) + ', index ' + b.p + ', world turn ' + b.t +
+    ', walking ' + (b.dir === 1 ? 'forward' : 'backward') + ', ' + relation +
+    (b.live ? ', current' : '');
 }
 
 function eventText(view: SessionView, e: TurnEvent): string {
@@ -157,8 +167,10 @@ function Cell({ view, wall, target, picked, onPick, here, past, op }: CellProps)
             <div
               key={b.color + ':' + b.p}
               class="trail"
-              style={{ background: COLORS[b.color].hex, opacity: op.get(b.t) }}
+              data-direction={relativeDirection(view, b)}
+              style={{ '--body-color': COLORS[b.color].hex, opacity: op.get(b.t) }}
               title={describe(view, b)}
+              aria-label={describe(view, b)}
             />
           ))}
         </div>
@@ -174,14 +186,20 @@ function Token({ view, bodies }: { view: SessionView; bodies: ViewBody[] }) {
   const c = COLORS[first.color];
   const many = sorted.length > 1;
   const description = sorted.map((b) => describe(view, b)).join('\n');
+  const relative = new Set(sorted.map((b) => relativeDirection(view, b)));
+  const direction = relative.size > 1 ? 'mixed' : relative.values().next().value ?? 'matching';
+  const indices = sorted.length > 2
+    ? sorted[0]!.p + ' … ' + sorted[sorted.length - 1]!.p
+    : sorted.map((b) => b.p).join('·');
   return (
     <div
       class={'tok ' + (many ? 'tok-many' : 'tok-single')}
-      style={{ background: c.hex, color: c.ink }}
+      data-direction={direction}
+      style={{ '--body-color': c.hex, '--body-ink': c.ink }}
       title={description}
       aria-label={description}
     >
-      {sorted.map((b) => b.p).join('·')}
+      <span class="tok-label">{indices}</span>
     </div>
   );
 }
@@ -191,8 +209,8 @@ const FLEX_ROW = 'display:flex;gap:2px;';
 function Strip({ view, focusT, lookBack }: { view: SessionView; focusT: number; lookBack: number }) {
   const lo = Math.max(0, focusT - lookBack);
   const span = Math.max(view.me.horizon + 1, 1);
-  const heads = new Map<number, Color[]>();
-  for (const b of view.bodies) if (b.live) push(heads, b.t, b.color);
+  const heads = new Map<number, ViewBody[]>();
+  for (const b of view.bodies) if (b.live) push(heads, b.t, b);
 
   const cols = [];
   for (let t = 0; t < span; t++) cols.push(t);
@@ -203,13 +221,14 @@ function Strip({ view, focusT, lookBack }: { view: SessionView; focusT: number; 
       <div style={FLEX_ROW + 'margin-bottom:2px;'}>
         {cols.map((t) => (
           <div key={t} style="flex:1;min-width:3px;height:7px;text-align:center;line-height:0;">
-            {(heads.get(t) ?? []).map((c) => (
+            {(heads.get(t) ?? []).map((b) => (
               <i
-                key={c}
-                style={{
-                  display: 'inline-block', width: '5px', height: '5px',
-                  borderRadius: '50%', background: COLORS[c].hex
-                }}
+                key={b.color}
+                class="time-head"
+                data-direction={relativeDirection(view, b)}
+                style={{ '--body-color': COLORS[b.color].hex }}
+                title={describe(view, b)}
+                aria-label={describe(view, b)}
               />
             ))}
           </div>
@@ -263,6 +282,9 @@ function Legend({ view }: { view: SessionView }) {
         <i class="sw" style="width:6px;height:6px;background:var(--text-muted);opacity:.4" />
         earlier turns
       </span>
+      <span><i class="direction-key matching" />your direction</span>
+      <span><i class="direction-key opposing" />opposite direction</span>
+      <span><i class="direction-key mixed" />mixed directions</span>
       <span>number is personal index</span>
     </div>
   );
@@ -327,7 +349,6 @@ function messageOf(e: unknown): string {
   return e instanceof Error && e.message ? e.message : String(e);
 }
 
-type Tab = 'new' | 'join' | 'import';
 type Form = { w: string; h: string; wallPct: string; seed: string; cap: string; roster: string };
 
 function initialForm(): Form {
@@ -337,14 +358,9 @@ function initialForm(): Form {
   };
 }
 
-function SetupCard({ onMatch }: { onMatch: (m: Match, names?: Names) => void }) {
-  const [tab, setTab] = useState<Tab>('new');
+function SetupCard({ onMatch, initialError }: { onMatch: (m: Match) => void; initialError: string }) {
   const [form, setForm] = useState<Form>(initialForm);
-  const [joinCode, setJoinCode] = useState('');
-  const [exported, setExported] = useState('');
-  const [error, setError] = useState('');
-
-  const pick = (t: Tab) => () => { setTab(t); setError(''); };
+  const [error, setError] = useState(initialError);
 
   // Board size resets the suggested cap.
   const size = (key: 'w' | 'h') => (e: { currentTarget: HTMLInputElement }) => {
@@ -372,34 +388,10 @@ function SetupCard({ onMatch }: { onMatch: (m: Match, names?: Names) => void }) 
     }
   }
 
-  function join() {
-    const r = Wire.decodeMatchCode(joinCode);
-    if (!r.ok) { setError(r.error); return; }
-    try {
-      onMatch(Match.fromConfig(r.value));
-      setError('');
-    } catch (e) {
-      setError(messageOf(e));
-    }
-  }
-
-  function load() {
-    const r = Match.fromExport(trimUnresolved(exported));
-    if (!r.ok) { setError(r.error); return; }
-    onMatch(r.value.match, r.value.names);
-    setError('');
-  }
-
   return (
     <div class="card">
-      <div class="tabs">
-        <button id="tabNew" class={tab === 'new' ? 'on' : ''} onClick={pick('new')}>New match</button>
-        <button id="tabJoin" class={tab === 'join' ? 'on' : ''} onClick={pick('join')}>Join with a code</button>
-        <button id="tabImport" class={tab === 'import' ? 'on' : ''} onClick={pick('import')}>Import a match</button>
-      </div>
-
-      <div id="paneNew" class={tab === 'new' ? '' : 'hide'}>
-        <h2>Set the board, then share the code.</h2>
+      <div id="paneNew">
+        <h2>Set the board, then share the link.</h2>
         <div class="grid2">
           <div>
             <label class="f">Width <input id="fW" type="number" min="2" max="64" value={form.w} onInput={size('w')} /></label>
@@ -420,74 +412,61 @@ function SetupCard({ onMatch }: { onMatch: (m: Match, names?: Names) => void }) 
         </div>
         <button id="btnMake" style="width:100%;margin-top:6px;" onClick={make}>Create match</button>
       </div>
-
-      <div id="paneJoin" class={tab === 'join' ? '' : 'hide'}>
-        <h2>Paste a match code.</h2>
-        <textarea
-          id="fCode" rows={2} placeholder="M1:16x9:11:19f4:43:CPTA"
-          value={joinCode} onInput={(e) => { setJoinCode(e.currentTarget.value); }}
-        />
-        <button id="btnJoin" style="width:100%;margin-top:8px;" onClick={join}>Join</button>
-      </div>
-
-      <div id="paneImport" class={tab === 'import' ? '' : 'hide'}>
-        <h2>Paste an export to resume a match.</h2>
-        <textarea
-          id="fExport" rows={4} placeholder="X1:M1:16x9:11:19f4:43:CPTA|CDPATWAD,...|C~Rook,P~Vale"
-          value={exported} onInput={(e) => { setExported(e.currentTarget.value); }}
-        />
-        <button id="btnImport" style="width:100%;margin-top:8px;" onClick={load}>Import</button>
-      </div>
-
       <div id="setupErr" class="err">{error}</div>
     </div>
   );
 }
 
 function CopyButton(
-  { id, area, label, style }:
-  { id: string; area: { current: HTMLTextAreaElement | null }; label: string; style?: string }
+  { id, value, label, style }:
+  { id: string; value: string; label: string; style?: string }
 ) {
-  const [copied, setCopied] = useState(false);
+  const [state, setState] = useState<'idle' | 'copied' | 'failed'>('idle');
   return (
-    <button
-      id={id}
-      style={style}
-      onClick={() => {
-        const el = area.current;
-        if (!el) return;
-        el.select();
-        navigator.clipboard.writeText(el.value).catch(() => { document.execCommand('copy'); });
-        setCopied(true);
-        setTimeout(() => { setCopied(false); }, 1200);
-      }}
-    >
-      {copied ? 'Copied' : label}
-    </button>
+    <>
+      <button
+        id={id}
+        style={style}
+        onClick={async () => {
+          setState('idle');
+          try {
+            await navigator.clipboard.writeText(value);
+            setState('copied');
+            setTimeout(() => { setState('idle'); }, 1200);
+          } catch {
+            setState('failed');
+          }
+        }}
+      >
+        {state === 'copied' ? 'Copied' : state === 'failed' ? 'Copy failed' : label}
+      </button>
+      {state === 'failed' && (
+        <div id="copyErr" class="err">Could not copy the link. Copy it from the address bar.</div>
+      )}
+    </>
   );
 }
 
 const NAME_RE = /^[A-Za-z0-9_-]{1,12}$/;
 
 type PickerProps = {
-  code: string;
+  link: string;
   view: SessionView;
-  names: Names;
-  setNames: (f: (n: Names) => Names) => void;
+  name: string;
+  setName: (name: string) => void;
   chosen: Color | null;
   setChosen: (c: Color) => void;
   onSit: () => void;
+  onNew: () => void;
 };
 
 function PickCard(p: PickerProps) {
-  const codeArea = useRef<HTMLTextAreaElement>(null);
   const seatOf = (c: Color) => p.view.seats.find((seat) => seat.color === c)!;
 
-  // Trim pasted whitespace before validation.
   const chosenSeat = p.chosen ? seatOf(p.chosen) : null;
-  const typed = (p.chosen
-    ? chosenSeat?.locked ? chosenSeat.name ?? '' : p.names[p.chosen] ?? ''
-    : '').trim();
+  const fixed = Boolean(chosenSeat && (chosenSeat.locked || chosenSeat.state === 'taken'));
+  const fieldValue = fixed ? chosenSeat?.name ?? '' : p.name;
+  const typed = fieldValue.trim();
   const badName = typed.length > 0 && !NAME_RE.test(typed);
   const live = p.view.status === 'live';
   const canPlay = Boolean(live && p.chosen && chosenSeat?.state !== 'taken' && typed && !badName);
@@ -504,46 +483,41 @@ function PickCard(p: PickerProps) {
   return (
     <div id="pickCard">
       <div class="card">
-        <h2>Share this code with every player.</h2>
-        <textarea id="outCode" rows={2} readOnly ref={codeArea} value={p.code} />
-        <CopyButton id="btnCopyCode" area={codeArea} label="Copy match code" style="margin-top:8px;" />
-      </div>
-
-      <div class="card">
-        <h2>Choose a color and a name.</h2>
+        <div class="lobby-head">
+          <h2>Choose a color and a name.</h2>
+          <div class="lobby-actions">
+            <CopyButton id="btnCopyJoin" value={p.link} label="Copy join link" />
+            <button id="btnNewLobby" onClick={p.onNew}>New match</button>
+          </div>
+        </div>
         <div id="pickRows">
           {p.view.roster.map((c) => {
             const seat = seatOf(c);
             const taken = seat.state === 'taken';
-            const fixed = seat.locked || taken;
-            const value = fixed ? seat.name ?? '' : p.names[c] ?? '';
             return (
               <div
                 key={c}
                 class={'pickrow' + (p.chosen === c ? ' on' : '') + (taken ? ' taken' : '')}
                 data-color={c}
-                onClick={(e) => {
+                onClick={() => {
                   p.setChosen(c);
-                  e.currentTarget.querySelector('input')?.focus();
                 }}
               >
                 <Swatch color={c} />
-                <span class="sec" style="width:56px;flex:none;">{COLORS[c].name}</span>
-                <input
-                  type="text" maxLength={12} placeholder="Name"
-                  value={value}
-                  readOnly={fixed}
-                  onInput={(e) => {
-                    if (fixed) return;
-                    const value = e.currentTarget.value;
-                    p.setNames((n) => ({ ...n, [c]: value }));
-                  }}
-                  onKeyDown={(e) => { if (e.key === 'Enter') sit(); }}
-                />
+                <span class="sec">{COLORS[c].name}</span>
               </div>
             );
           })}
         </div>
+        <label class="pickname sec" for="pickName">
+          Name
+          <input
+            id="pickName" type="text" maxLength={12} placeholder={p.chosen ? 'Name' : 'Choose a color first'}
+            value={fieldValue} disabled={!p.chosen || fixed}
+            onInput={(e) => { if (!fixed) p.setName(e.currentTarget.value); }}
+            onKeyDown={(e) => { if (e.key === 'Enter') sit(); }}
+          />
+        </label>
         <div id="nameErr" class="err">
           {badName ? 'Use letters, digits, hyphens, or underscores. Max 12 characters.' : ''}
         </div>
@@ -564,7 +538,7 @@ const KEYS: Record<string, Action> = {
 };
 const NET_LABEL: Record<string, string> = {
   offline: 'Offline', connecting: 'Connecting', live: 'Connected',
-  failed: 'Connection failed. Use an export to rejoin.'
+  failed: 'Connection failed. Reload the match link to try again.'
 };
 
 function committed(v: SessionView): boolean {
@@ -580,9 +554,8 @@ function reasonsOf(v: SessionView): Partial<Record<Action, string | null>> {
   return out;
 }
 
-function PlayScreen({ session, view }: { session: Session; view: SessionView }) {
+function PlayScreen({ session, view, onNew }: { session: Session; view: SessionView; onNew: () => void }) {
   const v = view;
-  const exportArea = useRef<HTMLTextAreaElement>(null);
 
   const [pick, setPick] = useState<Action | null>(null);
   const [busy, setBusy] = useState(false);
@@ -627,10 +600,12 @@ function PlayScreen({ session, view }: { session: Session; view: SessionView }) 
   useEffect(() => {
     function onKey(e: KeyboardEvent): void {
       const target = e.target;
-      if (target instanceof HTMLElement && /^(INPUT|TEXTAREA|SELECT)$/.test(target.tagName)) return;
+      if (target instanceof HTMLElement && target.closest(
+        'input, textarea, select, button, a, [contenteditable="true"], [role="button"], [role="slider"]'
+      )) return;
       if (e.metaKey || e.ctrlKey || e.altKey) return;
 
-      if (e.key === 'Enter') {
+      if (e.key === 'Enter' || e.key === ' ') {
         if (active && !busy) { void commit(); e.preventDefault(); }
         return;
       }
@@ -678,15 +653,10 @@ function PlayScreen({ session, view }: { session: Session; view: SessionView }) 
   return (
     <div class="cols">
       <div>
+        <button id="btnNewPlay" style="width:100%;margin-bottom:14px;" onClick={onNew}>New match</button>
         <div class="card">
           <h2>Log</h2>
           <Log view={v} />
-        </div>
-        <div class="card">
-          <h2>Export</h2>
-          <div class="muted" style="font-size:12.5px;margin-bottom:8px;">Matches are not saved. Copy this before reloading or if a player drops.</div>
-          <textarea id="outExport" rows={3} readOnly ref={exportArea} value={session.export()} />
-          <CopyButton id="btnCopyExport" area={exportArea} label="Copy export" style="margin-top:8px;" />
         </div>
       </div>
 
@@ -743,6 +713,13 @@ function PlayScreen({ session, view }: { session: Session; view: SessionView }) 
               + (v.detail ? ' · ' + v.detail : '')}
           </div>
           <div class="err" id="netErr">{v.error || v.notice || ''}</div>
+          {!v.over && (
+            <div id="pending" class="mono muted" style="margin-bottom:10px;">
+              {v.uncommitted.length
+                ? 'Still choosing: ' + v.uncommitted.map((x) => x === v.me.color ? 'You' : nameOf(v, x)).join(', ')
+                : 'All actions are in.'}
+            </div>
+          )}
 
           <div id="phasePick" class={v.over || done ? 'hide' : ''}>
             <h2>Your move</h2>
@@ -761,18 +738,13 @@ function PlayScreen({ session, view }: { session: Session; view: SessionView }) 
             <button id="btnCommit" style="width:100%;margin-top:10px;" disabled={!active || busy} onClick={() => { void commit(); }}>
               {active ? 'Commit ' + LABEL[active] : 'Commit'}
             </button>
-            <div class="keyhint">Arrows or WASD: choose. Enter: commit. Esc: clear. Turn around has no shortcut.</div>
+            <div class="keyhint">Arrows or WASD: choose. Enter or Space: commit. Esc: clear. Turn around has no shortcut.</div>
             <div class="muted" style="font-size:12.5px;margin-top:8px;" id="pickWhy">{why}</div>
             <div id="pickMsg">{pickMsg && <div class="err">{pickMsg}</div>}</div>
           </div>
 
           <div id="phaseShare" class={v.over || !done ? 'hide' : ''}>
             <h2>Action locked in</h2>
-            <div id="pending" class="mono muted" style="margin-bottom:8px;">
-              {v.waiting.length
-                ? 'Waiting for ' + v.waiting.map((x) => nameOf(v, x)).join(', ')
-                : 'All actions are in.'}
-            </div>
             <div style="display:flex;gap:8px;margin:0 0 6px;">
               <button id="btnUndo" class={v.canChange ? '' : 'hide'} onClick={undo}>Change my action</button>
             </div>
@@ -803,41 +775,125 @@ function PlayScreen({ session, view }: { session: Session; view: SessionView }) 
   );
 }
 
-type Live = { match: Match; session: Session; channel: Channel; code: string };
+type LinkKind = 'join' | 'resume';
+type Live = {
+  session: Session; link: string; resumeTurn: number | null;
+};
+
+type Startup = {
+  match: Match | null;
+  names: Names;
+  kind: LinkKind | null;
+  error: string;
+};
+
+function replaceLink(kind: LinkKind, payload: string): string {
+  const url = new URL(window.location.href);
+  url.hash = kind + '=' + encodeURIComponent(payload);
+  history.replaceState(null, '', url.href);
+  return url.href;
+}
+
+function clearLink(): void {
+  const url = new URL(window.location.href);
+  url.hash = '';
+  history.replaceState(null, '', url.href);
+}
+
+function startupFromLink(): Startup {
+  const raw = window.location.hash.slice(1);
+  const kind: LinkKind | null = raw.startsWith('join=') ? 'join'
+    : raw.startsWith('resume=') ? 'resume' : null;
+  if (!kind) return { match: null, names: {}, kind: null, error: '' };
+
+  let payload: string;
+  try {
+    payload = decodeURIComponent(raw.slice(kind.length + 1));
+  } catch {
+    return { match: null, names: {}, kind: null, error: 'The match link is malformed.' };
+  }
+
+  if (kind === 'join') {
+    const decoded = Wire.decodeMatchCode(payload);
+    if (!decoded.ok) return { match: null, names: {}, kind: null, error: decoded.error };
+    try {
+      return { match: Match.fromConfig(decoded.value), names: {}, kind, error: '' };
+    } catch (e) {
+      return { match: null, names: {}, kind: null, error: messageOf(e) };
+    }
+  }
+
+  const imported = Match.fromExport(trimUnresolved(payload));
+  if (!imported.ok) return { match: null, names: {}, kind: null, error: imported.error };
+  return { match: imported.value.match, names: imported.value.names, kind, error: '' };
+}
 
 export function App({ loadRoom }: { loadRoom: RoomLoader }) {
   const [theme, setTheme] = useState<Theme>(readTheme);
+  const [startup] = useState<Startup>(startupFromLink);
+  const [setupError, setSetupError] = useState(startup.error);
+  const [setupKey, setSetupKey] = useState(0);
   const [live, setLive] = useState<Live | null>(null);
-  const [names, setNames] = useState<Names>({});
+  const liveRef = useRef<Live | null>(null);
+  const [name, setName] = useState('');
   const [chosen, setChosen] = useState<Color | null>(null);
   const [playing, setPlaying] = useState(false);
   // Session mutates in place, so messages need an explicit redraw.
   const [, setTick] = useState(0);
   const redraw = useCallback(() => { setTick((n) => n + 1); }, []);
 
-  const openMatch = useCallback((m: Match, imported?: Names) => {
+  const openMatch = useCallback((m: Match, imported: Names = {}, kind: LinkKind = 'join') => {
     const code = Wire.encodeMatchCode(m.config());
-    if (live) live.session.close();
+    if (liveRef.current) liveRef.current.session.close();
     const channel = PeerChannel(Code.roomId(code), loadRoom);
     const session = Session.open({ match: m, channel, names: imported, onChange: redraw });
-    setLive({ match: m, channel, code, session });
-    setNames(imported ?? {});
+    const payload = kind === 'join' ? code : trimUnresolved(session.export());
+    const next = {
+      session, link: replaceLink(kind, payload), resumeTurn: null
+    };
+    liveRef.current = next;
+    setLive(next);
+    setName('');
     setChosen(null);
     setPlaying(false);
-  }, [live, loadRoom, redraw]);
+    setSetupError('');
+  }, [loadRoom, redraw]);
+
+  useEffect(() => {
+    if (startup.match && startup.kind) openMatch(startup.match, startup.names, startup.kind);
+  }, [startup, openMatch]);
 
   const seated = live ? live.session.color() !== null : false;
   const showPlay = playing && seated;
   const view = live ? live.session.view() : null;
   useEffect(() => {
-    if (playing && !seated) { setPlaying(false); setChosen(null); }
+    if (playing && !seated) setPlaying(false);
   }, [playing, seated]);
+
+  useEffect(() => {
+    if (!showPlay || !live || !view || live.resumeTurn === view.turn) return;
+    live.link = replaceLink('resume', trimUnresolved(live.session.export()));
+    live.resumeTurn = view.turn;
+  }, [showPlay, live, view?.turn]);
 
   function sit() {
     if (!live || !chosen) return;
-    const r = live.session.claim(chosen, (names[chosen] ?? '').trim());
+    const r = live.session.claim(chosen, name.trim());
     if (!r.ok) { redraw(); return; }
     setPlaying(true);
+  }
+
+  function newMatch(): void {
+    if (showPlay && !window.confirm('Start a new match? The current match will be left.')) return;
+    liveRef.current?.session.close();
+    liveRef.current = null;
+    setLive(null);
+    setName('');
+    setChosen(null);
+    setPlaying(false);
+    setSetupError('');
+    setSetupKey((n) => n + 1);
+    clearLink();
   }
 
   return (
@@ -860,18 +916,18 @@ export function App({ loadRoom }: { loadRoom: RoomLoader }) {
       </div>
 
       <div id="setup" class={showPlay ? 'narrow hide' : 'narrow'}>
-        <SetupCard onMatch={openMatch} />
+        {!live && <SetupCard key={setupKey} initialError={setupError} onMatch={(m) => { openMatch(m); }} />}
         {live && view && !showPlay && (
           <PickCard
-            code={live.code} view={view}
-            names={names} setNames={setNames}
-            chosen={chosen} setChosen={setChosen} onSit={sit}
+            link={live.link} view={view}
+            name={name} setName={setName}
+            chosen={chosen} setChosen={setChosen} onSit={sit} onNew={newMatch}
           />
         )}
       </div>
 
       <div id="play" class={showPlay ? '' : 'hide'}>
-        {showPlay && live && view && <PlayScreen session={live.session} view={view} />}
+        {showPlay && live && view && <PlayScreen session={live.session} view={view} onNew={newMatch} />}
       </div>
     </div>
   );

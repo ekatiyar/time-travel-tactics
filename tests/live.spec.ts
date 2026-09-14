@@ -51,7 +51,7 @@ test.afterEach(async () => {
   expect(errors).toEqual([]);
 });
 
-async function open(browser: Browser, label: string): Promise<Page> {
+async function open(browser: Browser, label: string, fragment = ''): Promise<Page> {
   const context = await browser.newContext();
   contexts.push(context);
   const page = await context.newPage();
@@ -65,7 +65,7 @@ async function open(browser: Browser, label: string): Promise<Page> {
     const file = url.pathname.split('/').pop() ?? '';
     return route.fulfill({ contentType: 'text/javascript', body: wireTap(file) });
   });
-  await page.goto('/index.html');
+  await page.goto('/index.html' + (fragment ? '#' + fragment : ''));
   return page;
 }
 
@@ -80,7 +80,7 @@ function wireOf(page: Page): Promise<string[]> {
 async function sitDown(page: Page, label: string, color: string, name: string) {
   const row = page.locator(`#pickRows .pickrow[data-color="${color}"]`);
   await row.click();
-  await row.locator('input').fill(name);
+  await page.locator('#pickName').fill(name);
   await expect(
     page.locator('#btnPlay'),
     `page ${label}: the channel never reported live, so the relays or the peer connection never came up`
@@ -99,7 +99,7 @@ async function playTurn(a: Page, b: Page, turn: number) {
   await a.locator('#btnCommit').click();
   await expect(a.locator('#phaseShare'), `turn ${turn}: page A's commitment did not go in`)
     .toBeVisible();
-  await expect(a.locator('#pending')).toHaveText('Waiting for Vale');
+  await expect(a.locator('#pending')).toHaveText('Still choosing: Vale');
 
   const held = await wireOf(a);
   expect(held.filter((t) => COMMIT.test(t)).some((t) => t.startsWith(`#${turn}C:`)),
@@ -128,7 +128,6 @@ async function playTurn(a: Page, b: Page, turn: number) {
 test('two players resolve two turns over real relays', async ({ browser }) => {
   const seed = randomBytes(6).toString('hex');
   const a = await open(browser, 'A');
-  const b = await open(browser, 'B');
 
   await a.locator('#fW').fill('4');
   await a.locator('#fH').fill('4');
@@ -138,12 +137,9 @@ test('two players resolve two turns over real relays', async ({ browser }) => {
   await a.locator('#fCap').fill('8');
   await a.locator('#btnMake').click();
 
-  const code = await a.locator('#outCode').inputValue();
-  expect(code).toBe(`M1:4x4:0:${seed}:8:CP`);
-
-  await b.locator('#tabJoin').click();
-  await b.locator('#fCode').fill(code);
-  await b.locator('#btnJoin').click();
+  const code = `M1:4x4:0:${seed}:8:CP`;
+  const b = await open(browser, 'B', 'join=' + encodeURIComponent(code));
+  await expect(b.locator('#pickRows .pickrow')).toHaveCount(2);
 
   await Promise.all([sitDown(a, 'A', 'C', 'Rook'), sitDown(b, 'B', 'P', 'Vale')]);
 

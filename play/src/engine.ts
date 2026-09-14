@@ -56,7 +56,7 @@ type Players = Partial<Record<Color, Player>>;
 type Target = { t: WorldTurn; x: number; y: number; move: boolean };
 
 export type Body = {
-  color: Color; p: PersonalIndex; t: WorldTurn; x: number; y: number;
+  color: Color; p: PersonalIndex; t: WorldTurn; x: number; y: number; dir: Dir;
 };
 export type TurnEvent = {
   turn: MetaTurn; color: Color; kind: EventKind;
@@ -208,7 +208,7 @@ function priorityFor(seed: string, turn: MetaTurn, roster: readonly Color[]): Co
 function hashState(bodies: readonly Body[], players: Players, roster: readonly Color[]): string {
   const b = bodies.slice().sort(function (x, y) {
     return x.color === y.color ? x.p - y.p : (x.color < y.color ? -1 : 1);
-  }).map((o) => o.color + o.p + ':' + o.t + ':' + o.x + ':' + o.y).join(';');
+  }).map((o) => o.color + o.p + ':' + o.t + ':' + o.x + ':' + o.y + ':' + o.dir).join(';');
   const p = roster.slice().sort().map((c) => {
     const pl = playerOf(players, c);
     return c + pl.dir + ':' + pl.t + ':' + pl.p;
@@ -313,13 +313,13 @@ class Match {
 
     const bodies: Body[] = [];
     const occ = new Map<string, Color>();
-    function place(color: Color, p: PersonalIndex, t: WorldTurn, x: number, y: number): void {
-      bodies.push({ color: color, p: p, t: t, x: x, y: y });
+    function place(color: Color, p: PersonalIndex, t: WorldTurn, x: number, y: number, dir: Dir): void {
+      bodies.push({ color: color, p: p, t: t, x: x, y: y, dir: dir });
       occ.set(cellKey(t, x, y), color);
     }
     for (const c of roster) {
       const pl = playerOf(players, c);
-      place(c, pl.p, pl.t, pl.x, pl.y);
+      place(c, pl.p, pl.t, pl.x, pl.y, pl.dir);
     }
 
     const byTurn = new Map<number, Partial<Record<Color, Action>>>();
@@ -399,7 +399,7 @@ class Match {
         if (by === null) { pl.x = tg.x; pl.y = tg.y; }
         pl.p = personalIndex(pl.p + 1);
         if (pl.t > pl.horizon) pl.horizon = worldTurn(pl.t);
-        place(color, pl.p, pl.t, pl.x, pl.y);
+        place(color, pl.p, pl.t, pl.x, pl.y, pl.dir);
         events.push({
           turn: turn,
           color: color,
@@ -505,7 +505,7 @@ class Match {
       },
       // Filter here so renderers cannot reveal future positions.
       bodies: d.bodies.filter((b) => b.t <= hz).map((b) => ({
-        color: b.color, p: b.p, t: b.t, x: b.x, y: b.y,
+        color: b.color, p: b.p, t: b.t, x: b.x, y: b.y, dir: b.dir,
         live: playerOf(d.players, b.color).p === b.p
       })),
       events: d.events.filter((e) => e.t <= hz).map((e) => ({

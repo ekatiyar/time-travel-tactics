@@ -6,16 +6,23 @@ Run `npm run dev` and open the printed address, or use the [published game](http
 
 ## Start a match
 
-One player creates a match and shares its code. Each player chooses a colour and a name. Play opens when every colour in the roster has a player.
+Create a match, then use **Copy join link** in the lobby to share it. Opening the link goes straight to that match's lobby.
 
-Copy the export before reloading or leaving. Import it to resume the match elsewhere.
-Exported names stay fixed. Choose your saved seat to rejoin; enter a name only for an unnamed seat. A seat frees when its player disconnects; connected seats stay taken.
+Choose a colour and enter a name in the shared Name field. Your draft follows you between free colours. Selecting a saved or occupied colour shows its fixed name. If two players claim one colour, the loser returns to the lobby and sees the winner's name. Disconnected seats become free again.
+
+After you click Play, the browser address becomes a resume link and updates after each completed turn. Use it to reopen or share the current match.
+
+**New match** starts over with a new seed. It asks for confirmation during play.
 
 ## Take a turn
 
-Choose an action with the D-pad, arrow keys, or `W` `A` `S` `D`, then commit it with Enter. Your choice stays private until every player commits. You can change it until the turn opens.
+Choose an action with the D-pad, arrow keys, or `W` `A` `S` `D`, then commit with Enter or Space. Shortcuts do nothing while a control has focus. Your choice stays private until every player commits, and you can change it until the turn opens.
 
-Hold advances through world time without moving. Invert changes your direction without advancing world time. The board shows your current action and which players are still deciding.
+Hold advances through world time without moving. Invert changes your direction without advancing world time. **Still choosing** lists everyone who has not committed, including you.
+
+Body markers are filled when moving in your direction and outlined when moving in the opposite direction. A half-filled stack contains both directions. Trail and timeline dots use the same filled or outlined style.
+
+Stacks show up to two personal indices. Larger stacks show the first and last, such as `16 … 18`; hover text lists them all.
 
 The world-turn and look-back controls change what history you see. They do not change the match.
 

@@ -271,17 +271,34 @@ describe('a turn over a loopback pair', () => {
     assert.equal(sa.view().canChange, false, 'the turn resolved, so there is nothing to change');
   });
 
-  it('stops waiting on a colour the moment its commitment lands', async () => {
-    const { sa, sb } = mkPair();
+  it('reports every uncommitted player through commit, withdrawal, and turn resolution', async () => {
+    const { sa, peer } = mkSolo();
     seat(sa, 'C', 'Rook');
-    seat(sb, 'P', 'Vale');
-    assert.deepEqual(sa.view().waiting, ['P'], 'purple is owed before it commits');
+    peerClaim(peer, 'P', 'Vale');
+    assert.deepEqual(sa.view().uncommitted, ['C', 'P'], 'the local player is included before committing');
 
-    await sb.commit('A');
+    await sa.commit('D');
+    await settle();
+    assert.deepEqual(sa.view().uncommitted, ['P'], 'the local commitment lands immediately');
+
+    assert.deepEqual(sa.withdraw(), { ok: true, error: null });
+    assert.deepEqual(sa.view().uncommitted, ['C', 'P'], 'withdrawal restores the local player');
+
+    const purple = await twoPhase({ turn: 0, color: 'P', action: 'A', hash: sa.view().hash });
+    peer.send(purple.commitment);
+    await settle();
+    assert.deepEqual(sa.view().uncommitted, ['C'], 'a remote commitment removes its player');
+
+    await sa.commit('D');
+    await settle();
+    assert.deepEqual(sa.view().uncommitted, [], 'all commitments are visible before actions open');
+    assert.equal(sa.view().turn, 0, 'commitments alone do not resolve the turn');
+
+    peer.send(purple.reveal);
     await settle();
 
-    assert.deepEqual(sa.view().waiting, [], 'everyone else is in, coral is just deciding');
-    assert.equal(sa.view().turn, 0, 'and still nothing has resolved');
+    assert.equal(sa.view().turn, 1, 'the opened actions resolve the turn');
+    assert.deepEqual(sa.view().uncommitted, ['C', 'P'], 'the next turn starts with everyone uncommitted');
   });
 });
 
@@ -545,7 +562,7 @@ describe('arrival order', () => {
 
     assert.equal(sa.view().turn, 0);
     assert.equal(sa.view().hash, before);
-    assert.deepEqual(sa.view().waiting, ['P'], 'purple is still owed a commitment');
+    assert.deepEqual(sa.view().uncommitted, ['C', 'P'], 'both players are still owed a commitment');
     assert.equal(sa.view().error, null, 'noise on a public room is not the match\'s problem');
     assert.equal(sa.view().notice, null);
     assert.deepEqual(sa.view().seats.filter((seat) => seat.state !== 'free').map((seat) => seat.color).sort(),
@@ -953,7 +970,7 @@ describe('the divergence check', () => {
 
     matches(sa.view().error, /^Turn 0 is for state dead\b/);
     matches(sa.view().error, new RegExp('this match is on ' + hash));
-    matches(sa.view().error, /Export, then re-import/, 'and says what the player can do');
+    matches(sa.view().error, /shared resume link/, 'and says what the player can do');
   });
 
   it('does not apply the action that failed the check', async () => {
@@ -997,7 +1014,7 @@ describe('the divergence check', () => {
 
     await sa.commit('D');
     await settle();
-    matches(sa.view().error, /Export, then re-import/, 'committing flushes it, and it fails there');
+    matches(sa.view().error, /shared resume link/, 'committing flushes it, and it fails there');
     assert.equal(sa.view().turn, 0);
   });
 

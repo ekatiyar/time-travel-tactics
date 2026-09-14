@@ -198,7 +198,7 @@ export type SessionView = View & {
   detail: string | null;
   peersNeeded: number;
   status: ChannelState;
-  waiting: Color[];
+  uncommitted: Color[];
   canChange: boolean;
   error: string | null;
   notice: string | null;
@@ -340,7 +340,7 @@ class Session {
     if (!isColor(color)) return;
     const held = this._claims[color];
     if (held && held.clientId <= id) return;
-    this._claims[color] = { name: this._logNames[color] ?? name, clientId: id, peerId: peerId };
+    this._claims[color] = { name: name, clientId: id, peerId: peerId };
     if (this._me === color && id < this._ch.id) {
       this._dropSeat(color);
       this._me = null;
@@ -444,7 +444,7 @@ class Session {
       if (this._match.pendingColors().indexOf(d.value.color) < 0) continue;
       if (d.value.hash !== this._match.stateHash()) {
         this._error = 'Turn ' + d.value.turn + ' is for state ' + d.value.hash +
-          '; this match is on ' + this._match.stateHash() + '. Export, then re-import.';
+          '; this match is on ' + this._match.stateHash() + '. Reload from a shared resume link.';
         continue;
       }
       const r = this._match.submit(d.value);
@@ -513,11 +513,11 @@ class Session {
     for (const c of roster) {
       const held = this._claims[c];
       const saved = this._logNames[c];
-      const n = saved || (held && held.name);
-      if (n) names[c] = n;
+      const logName = saved || (held && held.name);
+      if (logName) names[c] = logName;
       seats.push({
         color: c,
-        name: n ?? null,
+        name: held?.name ?? saved ?? null,
         locked: saved !== undefined,
         state: !held ? 'free' : held.clientId === this._ch.id ? 'mine' : 'taken'
       });
@@ -530,7 +530,7 @@ class Session {
       detail: this._status.detail,
       peersNeeded: peersNeeded,
       status: status,
-      waiting: v.pending.filter((c) => c !== color && !this._hasCommitment(v.turn, c)),
+      uncommitted: v.over ? [] : roster.filter((c) => !this._hasCommitment(v.turn, c)),
       canChange: !!(this._mine && !this._mine.revealed && this._mine.turn === v.turn),
       error: this._error,
       notice: this._notice

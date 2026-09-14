@@ -110,6 +110,18 @@ describe('clocks', () => {
 });
 
 describe('inversion', () => {
+  it('records the direction of the initial and forward bodies when they are placed', () => {
+    const m = match({ w: 8, h: 2 });
+    play(m, { C: 'D', P: 'A' });
+
+    assert.deepEqual(
+      view(m, 'C').bodies
+        .sort((a, b) => a.color.localeCompare(b.color) || a.p - b.p)
+        .map((b) => [b.color, b.p, b.dir]),
+      [['C', 0, 1], ['C', 1, 1], ['P', 0, 1], ['P', 1, 1]],
+    );
+  });
+
   it('flips direction and spends no world turn', () => {
     const m = match({ w: 8, h: 2 });
     play(m, { C: 'D', P: 'A' });
@@ -131,6 +143,11 @@ describe('inversion', () => {
     const stack = bodiesAt(m, 'C', 3).filter((b) => b.x === 3 && b.y === 0);
     assert.equal(stack.length, 2, 'the turnstile: both instances share one (t,x,y)');
     assert.deepEqual(stack.map((b) => b.p).sort((a, b) => a - b), [3, 4]);
+    assert.deepEqual(
+      stack.sort((a, b) => a.p - b.p).map((b) => b.dir),
+      [1, -1],
+      'each body keeps the direction at the moment it was placed',
+    );
   });
 
   it('stacks three bodies when done twice, and is a legal stall', () => {
@@ -146,6 +163,11 @@ describe('inversion', () => {
     assert.equal(
       bodiesAt(m, 'C', 1).filter((b) => b.x === 1 && b.y === 0).length, 3,
       'p1, p2 and p3 all sit on (1,0) at t1',
+    );
+    assert.deepEqual(
+      bodiesAt(m, 'C', 1).sort((a, b) => a.p - b.p).map((b) => [b.p, b.dir]),
+      [[1, 1], [2, -1], [3, 1]],
+      'repeated inversions leave a mixed-direction stack',
     );
   });
 
@@ -440,6 +462,11 @@ describe('the horizon and view()', () => {
     assert.ok(v.bodies.every((b) => b.t <= 3), 'nothing past the coral horizon');
     assert.ok(v.bodies.some((b) => b.color === 'P'), 'the purple trail inside the horizon is visible');
     assert.ok(!v.bodies.some((b) => b.color === 'P' && b.t > 3), 'purple past the horizon is hidden');
+    assert.deepEqual(
+      v.bodies.filter((b) => b.color === 'C').sort((a, b) => a.p - b.p).map((b) => b.dir),
+      [1, 1, 1, 1, -1, -1, -1],
+      'visible bodies retain their recorded directions while later bodies stay filtered',
+    );
 
     const vp = view(m, 'P');
     assert.ok(vp.bodies.some((b) => b.color === 'P' && b.t > 3), 'purple sees its own later turns');
@@ -858,6 +885,41 @@ describe('withdraw', () => {
 });
 
 describe('export and import', () => {
+  it('keeps recorded directions and their stable hash through replay and export/import', () => {
+    const config = cfg({ w: 8, h: 2, seed: 'dirhash' });
+    const actions = [
+      { C: 'D', P: 'H' },
+      { C: 'I', P: 'H' },
+      { C: 'I', P: 'H' },
+    ];
+    const m = Match.fromConfig(config);
+    for (const turn of actions) play(m, turn);
+
+    assert.equal(
+      m.stateHash(),
+      '4ad6',
+      'the stable hash includes the direction recorded on every body',
+    );
+    assert.deepEqual(
+      bodiesAt(m, 'C', 1).sort((a, b) => a.p - b.p).map((b) => b.dir),
+      [1, -1, 1],
+    );
+
+    const replay = Match.fromConfig(config);
+    for (const turn of actions) play(replay, turn);
+    assert.equal(replay.stateHash(), m.stateHash(), 'an action replay produces the same hash');
+    assert.deepEqual(replay.view('C').bodies, m.view('C').bodies, 'and the same recorded directions');
+
+    const imported = Match.fromExport(m.export());
+    assert.ok(imported.value, errorText(imported));
+    assert.equal(imported.value.match.stateHash(), m.stateHash(), 'the hash survives export/import');
+    assert.deepEqual(
+      imported.value.match.view('C').bodies,
+      m.view('C').bodies,
+      'recorded directions survive export/import replay',
+    );
+  });
+
   it('round-trips a played match', () => {
     const m = match({ w: 8, h: 2, seed: 'exp' });
     play(m, { C: 'D', P: 'A' });
