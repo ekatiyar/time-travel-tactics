@@ -89,6 +89,40 @@ async function sitDown(page: Page, label: string, color: string, name: string) {
   await expect(page.locator('#play'), `page ${label}: never reached the play screen`).toBeVisible();
 }
 
+async function createMatch(page: Page, cfg: { mode: string; seed: string; cap: string }) {
+  await page.locator('#fMode').selectOption(cfg.mode);
+  await page.locator('#fW').fill('5');
+  await page.locator('#fH').fill('5');
+  await page.locator('#fWall').fill('0');
+  await page.locator('#fSeed').fill(cfg.seed);
+  await page.locator('#fRoster').selectOption('CP');
+  await page.locator('#fCap').fill(cfg.cap);
+  await page.locator('#btnMake').click();
+  return `M1:${cfg.mode}:5x5:0:${cfg.seed}:${cfg.cap}:CP`;
+}
+
+// Both pages commit the given actions; the turn is done when both leave the share phase.
+async function playActions(a: Page, b: Page, turn: number, actA: string, actB: string) {
+  const before = await turnInfo(a);
+  expect(before).toContain(`turn ${turn} / `);
+  expect(await turnInfo(b), `turn ${turn}: the two pages did not open the turn on the same state`)
+    .toBe(before);
+  await a.locator(`#turnCard [data-act="${actA}"]`).click();
+  await a.locator('#btnCommit').click();
+  await b.locator(`#turnCard [data-act="${actB}"]`).click();
+  await b.locator('#btnCommit').click();
+  for (const [label, page] of [['A', a], ['B', b]] as const) {
+    await expect(page.locator('#turnInfo'), `turn ${turn}: page ${label} never resolved the turn`)
+      .not.toHaveText(before, { timeout: RESOLVE });
+    await expect(page.locator('#phaseShare')).toBeHidden();
+  }
+  // A finished match reads "You won" on one side, so only compare while it is running.
+  const after = await turnInfo(a);
+  if (after.includes('state ')) {
+    expect(after, `turn ${turn}: the two pages disagree on the state hash`).toBe(await turnInfo(b));
+  }
+}
+
 async function playTurn(a: Page, b: Page, turn: number) {
   const before = await turnInfo(a);
   expect(before).toContain(`turn ${turn} / `);
@@ -129,15 +163,7 @@ test('two players resolve two turns over real relays', async ({ browser }) => {
   const seed = randomBytes(6).toString('hex');
   const a = await open(browser, 'A');
 
-  await a.locator('#fW').fill('4');
-  await a.locator('#fH').fill('4');
-  await a.locator('#fWall').fill('0');
-  await a.locator('#fSeed').fill(seed);
-  await a.locator('#fRoster').selectOption('CP');
-  await a.locator('#fCap').fill('8');
-  await a.locator('#btnMake').click();
-
-  const code = `M1:4x4:0:${seed}:8:CP`;
+  const code = await createMatch(a, { mode: 'bootstrap', seed, cap: '8' });
   const b = await open(browser, 'B', 'join=' + encodeURIComponent(code));
   await expect(b.locator('#pickRows .pickrow')).toHaveCount(2);
 
@@ -163,4 +189,25 @@ test('two players resolve two turns over real relays', async ({ browser }) => {
     expect(wire.filter((t) => REVEAL.test(t)).length, `page ${label} sent under two reveals`)
       .toBeGreaterThanOrEqual(2);
   }
+});
+
+test('a bootstrap win is reported on both sides over real relays', async ({ browser }) => {
+  const seed = randomBytes(6).toString('hex');
+  const a = await open(browser, 'A');
+  const code = await createMatch(a, { mode: 'bootstrap', seed, cap: '12' });
+  const b = await open(browser, 'B', 'join=' + encodeURIComponent(code));
+  await expect(b.locator('#pickRows .pickrow')).toHaveCount(2);
+
+  await Promise.all([sitDown(a, 'A', 'C', 'Rook'), sitDown(b, 'B', 'P', 'Vale')]);
+
+  // Coral steps beside the center, picks up the key, turns around, and holds home at t0.
+  await playActions(a, b, 0, 'D', 'H');
+  await expect(a.locator('#log')).toContainText('Rook picked up the key at (2,1) t1');
+  await playActions(a, b, 1, 'I', 'H');
+  await playActions(a, b, 2, 'H', 'H');
+
+  await expect(a.locator('#phaseOver'), 'page A never saw the match end').toBeVisible({ timeout: RESOLVE });
+  await expect(a.locator('#phaseOver h2')).toHaveText('You won');
+  await expect(b.locator('#phaseOver'), 'page B never saw the match end').toBeVisible({ timeout: RESOLVE });
+  await expect(b.locator('#phaseOver h2')).toHaveText('Rook won');
 });

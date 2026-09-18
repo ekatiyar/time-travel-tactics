@@ -81,10 +81,11 @@ async function open(page: Page, opts: Options = {}) {
   await page.goto('/index.html' + (opts.fragment ? '#' + opts.fragment : ''));
 }
 
-const MATCH = { w: '4', h: '4', wall: '0', seed: 'tst', cap: '8', roster: 'CP' };
+const MATCH = { mode: 'sandbox', w: '5', h: '5', wall: '0', seed: 'tst', cap: '8', roster: 'CP' };
 
 async function createMatch(page: Page, cfg: Partial<typeof MATCH> = {}) {
   const c = { ...MATCH, ...cfg };
+  await page.locator('#fMode').selectOption(c.mode);
   await page.locator('#fW').fill(c.w);
   await page.locator('#fH').fill(c.h);
   await page.locator('#fWall').fill(c.wall);
@@ -186,7 +187,7 @@ test.describe('setup screen', () => {
   test('an oversized board is refused', async ({ page }) => {
     await open(page);
     await createMatch(page, { w: '999' });
-    await expect(page.locator('#setupErr')).toHaveText('board must be between 2x2 and 64x64');
+    await expect(page.locator('#setupErr')).toHaveText('board must be between 5x5 and 64x64');
     await expect(page.locator('#pickCard')).toBeHidden();
   });
 
@@ -209,14 +210,14 @@ test.describe('setup screen', () => {
   });
 
   test('opens a valid join deep link directly in the picker', async ({ page }) => {
-    await open(page, { fragment: 'join=' + encodeURIComponent('M1:4x4:0:tst:8:CP') });
+    await open(page, { fragment: 'join=' + encodeURIComponent('M1:sandbox:5x5:0:tst:8:CP') });
     await expect(page.locator('#pickRows .pickrow')).toHaveCount(2);
     await expect(page.locator('#setupErr')).toHaveCount(0);
     await expect(page.locator('#paneJoin')).toHaveCount(0);
   });
 
   test('opens a valid resume deep link with saved names', async ({ page }) => {
-    const exported = 'X1:M1:4x4:0:tst:8:CP||C~Rook,P~Vale';
+    const exported = 'X1:M1:sandbox:5x5:0:tst:8:CP||C~Rook,P~Vale';
     await open(page, { fragment: 'resume=' + encodeURIComponent(exported) });
     await expect(page.locator('#pickRows .pickrow')).toHaveCount(2);
     await page.locator('#pickRows .pickrow[data-color="C"]').click();
@@ -245,7 +246,7 @@ test.describe('setup screen', () => {
     const historyLength = await page.evaluate(() => history.length);
     await createMatch(page);
     await expect.poll(() => page.evaluate(() => location.hash))
-      .toBe('#join=' + encodeURIComponent('M1:4x4:0:tst:8:CP'));
+      .toBe('#join=' + encodeURIComponent('M1:sandbox:5x5:0:tst:8:CP'));
     await expect.poll(() => page.evaluate(() => window.__historyCalls?.length ?? 0)).toBe(1);
 
     await sitDown(page);
@@ -256,7 +257,7 @@ test.describe('setup screen', () => {
     await resolveTurn(page, 0, 'H', 'H', 'Vale');
     await expect.poll(() => page.evaluate(() => window.__historyCalls?.length ?? 0)).toBe(3);
     await expect.poll(() => page.evaluate(() => decodeURIComponent(location.hash.slice('#resume='.length))))
-      .toBe('X1:M1:4x4:0:tst:8:CP|CHPH|C~Rook,P~Vale');
+      .toBe('X1:M1:sandbox:5x5:0:tst:8:CP|CHPH|C~Rook,P~Vale');
     expect(await page.evaluate(() => history.length)).toBe(historyLength);
   });
 
@@ -439,9 +440,9 @@ test.describe('play screen', () => {
   test('draws the board and names the seat', async ({ page }) => {
     await startMatch(page);
     await expect(page.locator('#setup')).toBeHidden();
-    await expect(page.locator('#board .cell')).toHaveCount(16);
+    await expect(page.locator('#board .cell')).toHaveCount(25);
     await expect(page.locator('#youAre')).toHaveText('Rook');
-    await expect(page.locator('#youAt')).toHaveText('index 0 · t0 · forward · (0,0)');
+    await expect(page.locator('#youAt')).toHaveText('index 0 · t0 · forward · (1,1)');
     await expect(page.locator('#turnInfo')).toContainText('turn 0 / 8');
     await expect(page.locator('#netInfo')).toHaveText('Connected · 1 other player');
     await expect(page.locator('#rdNote')).toHaveText('up to 2 turns of history');
@@ -467,6 +468,9 @@ test.describe('play screen', () => {
 
   test('disables a move off the board', async ({ page }) => {
     await startMatch(page);
+    // Spawn is inset from the corner now, so walk to (0,0) first.
+    await resolveTurn(page, 0, 'A', 'H', 'Rival');
+    await resolveTurn(page, 1, 'W', 'H');
     await expect(page.locator('#turnCard [data-act="W"]')).toBeDisabled();
     await expect(page.locator('#turnCard [data-act="A"]')).toBeDisabled();
     await expect(page.locator('#turnCard [data-act="D"]')).toBeEnabled();
@@ -550,9 +554,9 @@ test.describe('play screen', () => {
     await deliver(page, revealOf(0, 'P', 'H', hash, nonce, 'Rival'));
 
     await expect(page.locator('#turnInfo')).toContainText('turn 1 / 8');
-    await expect(page.locator('#youAt')).toHaveText('index 1 · t1 · forward · (1,0)');
+    await expect(page.locator('#youAt')).toHaveText('index 1 · t1 · forward · (2,1)');
     await expect(page.locator('#log li')).toHaveCount(2);
-    await expect(page.locator('#log')).toContainText('Rook moved to (1,0) at t1');
+    await expect(page.locator('#log')).toContainText('Rook moved to (2,1) at t1');
     await expect(page.locator('#log')).toContainText('Rival held (3,3)');
     await expect(page.locator('#legend')).toContainText('Rival');
     await expect(page.locator('#phasePick')).toBeVisible();
@@ -652,7 +656,7 @@ test.describe('play screen', () => {
 
   test('keeps a repeated-inversion token inside a fixed oval', async ({ page }) => {
     await open(page, { fragment: 'resume=' + encodeURIComponent(
-      'X1:M1:4x4:0:tst:8:CP|CIPH,CIPH,CIPH,CIPH|C~Rook,P~Vale'
+      'X1:M1:sandbox:5x5:0:tst:8:CP|CIPH,CIPH,CIPH,CIPH|C~Rook,P~Vale'
     ) });
     await page.locator('#pickRows .pickrow[data-color="C"]').click();
     await page.locator('#btnPlay').click();
@@ -679,7 +683,7 @@ test.describe('play screen', () => {
 
   test('marks matching, opposing, and mixed relative directions', async ({ page }) => {
     await open(page, { fragment: 'resume=' + encodeURIComponent(
-      'X1:M1:4x4:0:tst:8:CP|CDPH,CIPH|C~Rook,P~Vale'
+      'X1:M1:sandbox:5x5:0:tst:8:CP|CDPH,CIPH|C~Rook,P~Vale'
     ) });
     await page.locator('#pickRows .pickrow[data-color="C"]').click();
     await page.locator('#btnPlay').click();
@@ -731,7 +735,7 @@ test.describe('play screen', () => {
 
   test('shows both indices in a two-body label', async ({ page }) => {
     await open(page, { fragment: 'resume=' + encodeURIComponent(
-      'X1:M1:4x4:0:tst:8:CP|CIPH|C~Rook,P~Vale'
+      'X1:M1:sandbox:5x5:0:tst:8:CP|CIPH|C~Rook,P~Vale'
     ) });
     await page.locator('#pickRows .pickrow[data-color="C"]').click();
     await page.locator('#btnPlay').click();
@@ -759,7 +763,7 @@ test.describe('play screen', () => {
 
   test('keeps every index in the full token descriptions', async ({ page }) => {
     await open(page, { fragment: 'resume=' + encodeURIComponent(
-      'X1:M1:4x4:0:tst:8:CP|CIPH,CIPH,CIPH,CIPH|C~Rook,P~Vale'
+      'X1:M1:sandbox:5x5:0:tst:8:CP|CIPH,CIPH,CIPH,CIPH|C~Rook,P~Vale'
     ) });
     await page.locator('#pickRows .pickrow[data-color="C"]').click();
     await page.locator('#btnPlay').click();
@@ -793,8 +797,10 @@ test.describe('play screen', () => {
   });
 
   test('pins trails in the corner without offsetting a focused token', async ({ page }) => {
+    // Coral's spawn is inset from the corner now, so walk it to (0,0) first
+    // (left, then up) before holding to leave a trail there.
     await open(page, { fragment: 'resume=' + encodeURIComponent(
-      'X1:M1:4x4:0:tst:8:CP|CHPH|C~Rook,P~Vale'
+      'X1:M1:sandbox:5x5:0:tst:8:CP|CAPH,CWPH,CHPH|C~Rook,P~Vale'
     ) });
     await page.locator('#pickRows .pickrow[data-color="C"]').click();
     await page.locator('#btnPlay').click();
@@ -832,9 +838,9 @@ test.describe('play screen', () => {
     await expect(page.locator('#phaseOver')).toBeVisible();
     await expect(page.locator('#phasePick')).toBeHidden();
     await expect(page.locator('#phaseShare')).toBeHidden();
-    await expect(page.locator('#turnInfo')).toHaveText('match over at turn 2');
+    await expect(page.locator('#turnInfo')).toHaveText('Draw at turn 2');
     await expect(page.locator('#prioInfo')).toHaveText('match over');
-    await expect(page.locator('#board .cell')).toHaveCount(16);
+    await expect(page.locator('#board .cell')).toHaveCount(25);
   });
 
   test('the history slider caps its range', async ({ page }) => {
@@ -844,5 +850,86 @@ test.describe('play screen', () => {
     await expect(page.locator('#rdNote')).toHaveText('up to 10 turns of history');
     await expect(page.locator('#rdo')).toHaveText('10');
     await expect(page.locator('#rd')).toHaveAttribute('max', '10');
+  });
+});
+
+test.describe('bootstrap', () => {
+  async function startBootstrap(page: Page) {
+    await open(page);
+    await createMatch(page, { mode: 'bootstrap', cap: '12' });
+    await sitDown(page);
+  }
+
+  test('a key carried home at t0 wins the match', async ({ page }) => {
+    await startBootstrap(page);
+    await resolveTurn(page, 0, 'D', 'H', 'Bishop');
+    await expect(page.locator('#log')).toContainText('Rook picked up the key at (2,1) t1');
+    const keyMark = page.locator('#board .key-mark');
+    await expect(keyMark).toHaveCount(1);
+    await expect(keyMark).toHaveAttribute('data-side', '0,1');
+
+    await resolveTurn(page, 1, 'I', 'H');
+    await resolveTurn(page, 2, 'H', 'H');
+
+    await expect(page.locator('#phaseOver')).toBeVisible();
+    await expect(page.locator('#phaseOver h2')).toHaveText('You won');
+    await expect(page.locator('#turnInfo')).toContainText('You won at turn 3');
+    await expect(page.locator('#phasePick')).toBeHidden();
+    await expect(page.locator('#phaseShare')).toBeHidden();
+    await expect(page.locator('#prioInfo')).toHaveText('match over');
+    await expect(page.locator('#turnCard [data-act="D"]')).toBeHidden();
+    await expect(page.locator('#btnCommit')).toBeHidden();
+  });
+
+  test('a steal from a recorded body shows a front until it reaches the holder', async ({ page }) => {
+    await startBootstrap(page);
+    const mine = ['D', 'H', 'H', 'H', 'H', 'H'];
+    const theirs = ['H', 'H', 'H', 'I', 'A', 'W'];
+    for (let turn = 0; turn < mine.length; turn++) {
+      await resolveTurn(page, turn, mine[turn]!, theirs[turn]!, turn === 0 ? 'Bishop' : undefined);
+    }
+
+    await expect(page.locator('#log')).toContainText('Bishop took the key from Rook at (2,2) t1');
+    const title = 'reaches you in 3 turns';
+    const cells = page.locator('#board .cell');
+    const front = cells.nth(1 * 5 + 2).locator('.front-mark');
+    await expect(front).toHaveCount(1);
+    await expect(front).toHaveAttribute('title', title);
+    await expect(page.locator('#board .front-mark')).toHaveCount(1);
+    const tick = page.locator('#strip .front-tick');
+    await expect(tick).toHaveCount(1);
+    await expect(tick).toHaveAttribute('title', title);
+    const purple = await page.evaluate(() => getComputedStyle(document.querySelector('#strip .front-tick')!).borderBottomColor);
+    const rook = await page.evaluate(() => getComputedStyle(document.querySelector('#board .tok')!).borderColor);
+    expect(purple).not.toBe(rook);
+
+    const keyMark = page.locator('#board .key-mark');
+    await expect(keyMark).toHaveCount(1);
+    await expect(keyMark).toHaveAttribute('data-side', '0,1');
+  });
+
+  test('the legend lists the key and fronts only in bootstrap', async ({ page }) => {
+    await startBootstrap(page);
+    const legend = page.locator('#legend');
+    await expect(legend.locator('.key-key')).toHaveCount(1);
+    await expect(legend.locator('.front-key')).toHaveCount(1);
+    await expect(legend.locator('.spawn-key')).toHaveCount(1);
+  });
+
+  test('the sandbox legend has no key entry', async ({ page }) => {
+    await startMatch(page);
+    await expect(page.locator('#legend .key-key')).toHaveCount(0);
+    await expect(page.locator('#legend .spawn-key')).toHaveCount(1);
+    await expect(page.locator('#board .key-mark')).toHaveCount(0);
+  });
+
+  test('outlines each spawn in its colour and shows the key at the center', async ({ page }) => {
+    await startBootstrap(page);
+    const cells = page.locator('#board .cell');
+    const at = (x: number, y: number) => cells.nth(y * 5 + x);
+    await expect(at(2, 2).locator('.key-mark.center')).toHaveCount(1);
+    await expect(at(1, 1)).toHaveAttribute('data-spawn', 'C');
+    await expect(at(3, 3)).toHaveAttribute('data-spawn', 'P');
+    await expect(page.locator('#board .cell[data-spawn]')).toHaveCount(2);
   });
 });

@@ -2,8 +2,8 @@ import { useCallback, useEffect, useRef, useState } from 'preact/hooks';
 import { Fragment } from 'preact';
 import type { JSX } from 'preact';
 
-import { COLORS, Match, Wire } from './engine.js';
-import type { Action, ActionOffer, Color, ConfigInput, TurnEvent, ViewBody } from './engine.js';
+import { COLORS, Match, Wire } from './engine/index.js';
+import type { Action, ActionOffer, Color, ConfigInput, TurnEvent, Vec, View, ViewBody } from './engine/index.js';
 import { Code, PeerChannel, Session, trimUnresolved } from './transport.js';
 import type { RoomLoader, SessionView } from './transport.js';
 
@@ -61,7 +61,30 @@ function eventText(view: SessionView, e: TurnEvent): string {
   if (e.kind === 'blocked') {
     return 'was blocked by ' + (e.by ? nameOf(view, e.by) : 'someone') + ' and stayed at ' + at;
   }
+  if (e.kind === 'grab') {
+    return e.by
+      ? 'took the key from ' + nameOf(view, e.by) + ' at ' + at + ' t' + e.t
+      : 'picked up the key at ' + at + ' t' + e.t;
+  }
+  if (e.kind === 'lost') {
+    return 'lost the key' + (e.by ? ' to ' + nameOf(view, e.by) : '') + ' at ' + at + ' t' + e.t;
+  }
   return 'was stuck';
+}
+
+type Front = View['fronts'][number];
+
+function frontText(view: SessionView, f: Front): string {
+  if (f.target === null) return 'key at the center';
+  if (f.target === view.me.color) return 'reaches you in ' + plural(f.gap, 'turn');
+  const who = nameOf(view, f.target) + "'s last visible body";
+  return f.gap === 0 ? 'reached ' + who : 'reaches ' + who + ' in ' + plural(f.gap, 'turn');
+}
+
+function keyHolders(view: SessionView): Map<string, Vec> {
+  const out = new Map<string, Vec>();
+  for (const k of view.keys) out.set(k.color + ':' + k.p, k.side);
+  return out;
 }
 
 function Swatch({ color }: { color: Color }) {
@@ -80,6 +103,16 @@ function Board({ view, focusT, lookBack, picked, onPick }: BoardProps) {
   const lo = Math.max(0, focusT - lookBack);
   const walls = new Set(view.walls.map((p) => p[0] + ',' + p[1]));
   const op = shade(view.bodies, focusT, lookBack);
+  const held = keyHolders(view);
+  const centerKey = view.center[0] + ',' + view.center[1];
+  const spawnAt = new Map<string, Color>();
+  for (const c of view.roster) {
+    const s = view.spawns[c];
+    if (s) spawnAt.set(s[0] + ',' + s[1], c);
+  }
+  const keyAtCenter = view.keyAtCenter.some((t) => t === focusT);
+  const fronts = new Map<string, Front[]>();
+  for (const f of view.fronts) if (f.t >= lo && f.t <= focusT) push(fronts, f.x + ',' + f.y, f);
 
   const atFocus = new Map<string, ViewBody[]>();
   const history = new Map<string, ViewBody[]>();
@@ -110,6 +143,10 @@ function Board({ view, focusT, lookBack, picked, onPick }: BoardProps) {
           here={atFocus.get(k)}
           past={history.get(k)}
           op={op}
+          held={held}
+          spawn={spawnAt.get(k)}
+          keyHere={k === centerKey && keyAtCenter}
+          fronts={fronts.get(k)}
         />
       );
     }
@@ -126,9 +163,13 @@ type CellProps = {
   here: ViewBody[] | undefined;
   past: ViewBody[] | undefined;
   op: Map<number, number>;
+  held: Map<string, Vec>;
+  spawn: Color | undefined;
+  keyHere: boolean;
+  fronts: Front[] | undefined;
 };
 
-function Cell({ view, wall, target, picked, onPick, here, past, op }: CellProps) {
+function Cell({ view, wall, target, picked, onPick, here, past, op, held, spawn, keyHere, fronts }: CellProps) {
   let style: JSX.CSSProperties = { background: 'var(--surface-1)' };
   let title: string | undefined;
   let click: (() => void) | undefined;
@@ -157,10 +198,30 @@ function Cell({ view, wall, target, picked, onPick, here, past, op }: CellProps)
   const dots = trail
     ? [...trail].sort((a, b) => b.t - a.t).slice(0, focused ? 2 : 4)
     : [];
+  const sides = new Map<string, Vec>();
+  for (const b of focused ?? []) {
+    const side = held.get(b.color + ':' + b.p);
+    if (side) sides.set(side.join(','), side);
+  }
+
+  if (spawn) style = { ...style, border: '2px dashed ' + COLORS[spawn].hex };
 
   return (
-    <div class="cell" style={style} title={title} onClick={click}>
+    <div class="cell" style={style} title={title} onClick={click} data-spawn={spawn}>
       {focused && focused.length > 0 && <Token view={view} bodies={focused} />}
+      {keyHere && !focused?.length && <i class="key-mark center" />}
+      {[...sides.values()].map((side) => (
+        <i key={side.join(',')} class="key-mark" data-side={side.join(',')} />
+      ))}
+      {fronts?.map((f, i) => (
+        <i
+          key={i}
+          class="front-mark"
+          style={{ '--front-color': COLORS[f.color].hex }}
+          title={frontText(view, f)}
+          aria-label={frontText(view, f)}
+        />
+      ))}
       {dots.length > 0 && (
         <div class={'trail-cluster' + (focused ? ' corner' : '')}>
           {dots.map((b) => (
@@ -211,13 +272,32 @@ function Strip({ view, focusT, lookBack }: { view: SessionView; focusT: number; 
   const span = Math.max(view.me.horizon + 1, 1);
   const heads = new Map<number, ViewBody[]>();
   for (const b of view.bodies) if (b.live) push(heads, b.t, b);
+  const fronts = new Map<number, Front[]>();
+  for (const f of view.fronts) push(fronts, f.t, f);
 
   const cols = [];
   for (let t = 0; t < span; t++) cols.push(t);
-  const beyond = !view.over && view.me.horizon < view.cap;
+  const beyond = view.outcome.status === 'running' && view.me.horizon < view.cap;
 
   return (
     <div id="strip" style="margin-top:12px;">
+      {fronts.size > 0 && (
+        <div style={FLEX_ROW + 'margin-bottom:2px;'}>
+          {cols.map((t) => (
+            <div key={t} style="flex:1;min-width:3px;height:7px;text-align:center;line-height:0;">
+              {(fronts.get(t) ?? []).map((f, i) => (
+                <i
+                  key={i}
+                  class="front-tick"
+                  style={{ '--front-color': COLORS[f.color].hex }}
+                  title={frontText(view, f)}
+                  aria-label={frontText(view, f)}
+                />
+              ))}
+            </div>
+          ))}
+        </div>
+      )}
       <div style={FLEX_ROW + 'margin-bottom:2px;'}>
         {cols.map((t) => (
           <div key={t} style="flex:1;min-width:3px;height:7px;text-align:center;line-height:0;">
@@ -286,6 +366,13 @@ function Legend({ view }: { view: SessionView }) {
       <span><i class="direction-key opposing" />opposite direction</span>
       <span><i class="direction-key mixed" />mixed directions</span>
       <span>number is personal index</span>
+      <span><i class="spawn-key" />spawn</span>
+      {view.mode === 'bootstrap' && (
+        <Fragment>
+          <span><i class="key-key" />key</span>
+          <span><i class="front-key" />front</span>
+        </Fragment>
+      )}
     </div>
   );
 }
@@ -345,15 +432,20 @@ function randomSeed(): string {
 function suggestCap(w: number, h: number): number {
   return Math.ceil(1.7 * (w + h));
 }
+function outcomeText(v: SessionView): string {
+  const o = v.outcome;
+  if (o.status === 'won') return (o.color === v.me.color ? 'You' : nameOf(v, o.color)) + ' won';
+  return 'Draw';
+}
 function messageOf(e: unknown): string {
   return e instanceof Error && e.message ? e.message : String(e);
 }
 
-type Form = { w: string; h: string; wallPct: string; seed: string; cap: string; roster: string };
+type Form = { mode: string; w: string; h: string; wallPct: string; seed: string; cap: string; roster: string };
 
 function initialForm(): Form {
   return {
-    w: '16', h: '9', wallPct: '11',
+    mode: 'bootstrap', w: '16', h: '9', wallPct: '11',
     seed: randomSeed(), cap: String(suggestCap(16, 9)), roster: 'CPTA'
   };
 }
@@ -377,7 +469,7 @@ function SetupCard({ onMatch, initialError }: { onMatch: (m: Match) => void; ini
 
   function make() {
     const cfg: ConfigInput = {
-      w: +form.w, h: +form.h, wallPct: +form.wallPct,
+      mode: form.mode, w: +form.w, h: +form.h, wallPct: +form.wallPct,
       seed: form.seed.trim(), cap: +form.cap, roster: form.roster.split('')
     };
     try {
@@ -394,11 +486,17 @@ function SetupCard({ onMatch, initialError }: { onMatch: (m: Match) => void; ini
         <h2>Set the board, then share the link.</h2>
         <div class="grid2">
           <div>
-            <label class="f">Width <input id="fW" type="number" min="2" max="64" value={form.w} onInput={size('w')} /></label>
-            <label class="f">Height <input id="fH" type="number" min="2" max="64" value={form.h} onInput={size('h')} /></label>
+            <label class="f">Width <input id="fW" type="number" min="5" max="64" value={form.w} onInput={size('w')} /></label>
+            <label class="f">Height <input id="fH" type="number" min="5" max="64" value={form.h} onInput={size('h')} /></label>
             <label class="f">Walls (%) <input id="fWall" type="number" min="0" max="45" value={form.wallPct} onInput={field('wallPct')} /></label>
           </div>
           <div>
+            <label class="f">Mode
+              <select id="fMode" value={form.mode} onChange={field('mode')}>
+                <option value="bootstrap">Bootstrap: bring the key home</option>
+                <option value="sandbox">Sandbox: no winner</option>
+              </select>
+            </label>
             <label class="f">Seed <input id="fSeed" type="text" value={form.seed} onInput={field('seed')} /></label>
             <label class="f">Turn cap <input id="fCap" type="number" min="2" max="400" value={form.cap} onInput={field('cap')} /></label>
             <label class="f">Players
@@ -568,15 +666,16 @@ function PlayScreen({ session, view, onNew }: { session: Session; view: SessionV
   const back = lookBack ?? maxBack;
   const focusT = Math.min(scrub && scrub.turn === v.turn ? scrub.t : v.me.t, v.me.horizon);
   const done = committed(v);
+  const over = v.outcome.status !== 'running';
   const reasons = reasonsOf(v);
 
   // Prefer hold, then invert, so Commit always names a legal action.
-  const active: Action | null = v.over || done ? null
+  const active: Action | null = over || done ? null
     : pick && legalNow(v, pick) ? pick
       : legalNow(v, 'H') ? 'H' : legalNow(v, 'I') ? 'I' : null;
 
   const aim = useCallback((a: Action) => {
-    if (v.over || done || !legalNow(v, a)) return;
+    if (over || done || !legalNow(v, a)) return;
     setPick(a);
   }, [v, done]);
 
@@ -614,7 +713,7 @@ function PlayScreen({ session, view, onNew }: { session: Session; view: SessionV
         e.preventDefault();
         return;
       }
-      if (done || v.over) return;
+      if (done || over) return;
       const k = KEYS[e.key];
       if (k) { aim(k); e.preventDefault(); }
     }
@@ -672,12 +771,12 @@ function PlayScreen({ session, view, onNew }: { session: Session; view: SessionV
               </span>
             </div>
             <div class="mono muted" id="turnInfo">
-              {v.over ? 'match over at turn ' + v.cap : 'turn ' + v.turn + ' / ' + v.cap + ' · state ' + v.hash}
+              {over ? outcomeText(v) + ' at turn ' + v.turn : 'turn ' + v.turn + ' / ' + v.cap + ' · state ' + v.hash}
             </div>
           </div>
 
           <div class="boardframe">
-            <Board view={v} focusT={focusT} lookBack={back} picked={active} onPick={v.over || done ? null : aim} />
+            <Board view={v} focusT={focusT} lookBack={back} picked={active} onPick={over || done ? null : aim} />
           </div>
 
           <div class="row">
@@ -713,7 +812,7 @@ function PlayScreen({ session, view, onNew }: { session: Session; view: SessionV
               + (v.detail ? ' · ' + v.detail : '')}
           </div>
           <div class="err" id="netErr">{v.error || v.notice || ''}</div>
-          {!v.over && (
+          {!over && (
             <div id="pending" class="mono muted" style="margin-bottom:10px;">
               {v.uncommitted.length
                 ? 'Still choosing: ' + v.uncommitted.map((x) => x === v.me.color ? 'You' : nameOf(v, x)).join(', ')
@@ -721,7 +820,12 @@ function PlayScreen({ session, view, onNew }: { session: Session; view: SessionV
             </div>
           )}
 
-          <div id="phasePick" class={v.over || done ? 'hide' : ''}>
+          {v.mode === 'bootstrap' && !over && (
+            <div class="muted" id="modeHint" style="font-size:12.5px;margin-bottom:10px;">
+              Grab the key from beside the center. Win at t0 next to your spawn.
+            </div>
+          )}
+          <div id="phasePick" class={over || done ? 'hide' : ''}>
             <h2>Your move</h2>
             <div class="dpad" id="dpad">
               <div class="blank" />
@@ -743,7 +847,7 @@ function PlayScreen({ session, view, onNew }: { session: Session; view: SessionV
             <div id="pickMsg">{pickMsg && <div class="err">{pickMsg}</div>}</div>
           </div>
 
-          <div id="phaseShare" class={v.over || !done ? 'hide' : ''}>
+          <div id="phaseShare" class={over || !done ? 'hide' : ''}>
             <h2>Action locked in</h2>
             <div style="display:flex;gap:8px;margin:0 0 6px;">
               <button id="btnUndo" class={v.canChange ? '' : 'hide'} onClick={undo}>Change my action</button>
@@ -752,8 +856,8 @@ function PlayScreen({ session, view, onNew }: { session: Session; view: SessionV
             <div id="shareMsg">{shareMsg && <div class="err">{shareMsg}</div>}</div>
           </div>
 
-          <div id="phaseOver" class={v.over ? '' : 'hide'}>
-            <h2>Match over</h2>
+          <div id="phaseOver" class={over ? '' : 'hide'}>
+            <h2>{outcomeText(v)}</h2>
             <div class="muted" style="font-size:13px;">Use World turn to review the match.</div>
           </div>
         </div>
@@ -761,7 +865,7 @@ function PlayScreen({ session, view, onNew }: { session: Session; view: SessionV
         <div class="card">
           <h2>Priority this turn</h2>
           <div class="mono sec" id="prioInfo">
-            {v.over ? 'match over' : v.priority.map((x, i) => (
+            {over ? 'match over' : v.priority.map((x, i) => (
               <Fragment key={x}>
                 {i > 0 && ' › '}
                 <span style="display:inline-flex;align-items:center;gap:5px;"><Swatch color={x} />{nameOf(v, x)}</span>

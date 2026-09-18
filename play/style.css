@@ -6,6 +6,7 @@
     --accent-bg:#1B2B3B; --accent-br:#5A8FC4;
     --bad-br:#EE8A63; --good:#5FBF92;
     --wall:#6E6B73; --dot-floor:0.22;
+    --key:#F2C94C;
     --mono:ui-monospace,SFMono-Regular,Menlo,monospace;
   }
   :root[data-theme="light"]{
@@ -16,6 +17,7 @@
     --accent-bg:#E6F1FB; --accent-br:#85B7EB;
     --bad-br:#D85A30; --good:#2E7D5B;
     --wall:#888780; --dot-floor:0.14;
+    --key:#D9A400;
   }
   *{box-sizing:border-box;}
   body{margin:0;padding:14px 18px 40px;background:var(--surface-0);color:var(--text-primary);
@@ -86,6 +88,21 @@
   .time-head{display:inline-block;width:5px;height:5px;border-radius:50%;
     background:var(--body-color);border:1px solid var(--body-color);}
   .time-head[data-direction="opposing"]{background:transparent;}
+  .key-mark{position:absolute;width:16cqmin;height:16cqmin;min-width:4px;min-height:4px;
+    background:var(--key);border:1px solid var(--surface-0);border-radius:2cqmin;pointer-events:none;}
+  .key-mark[data-side="0,-1"]{top:4cqmin;left:50%;transform:translateX(-50%);}
+  .key-mark[data-side="0,1"]{bottom:4cqmin;left:50%;transform:translateX(-50%);}
+  .key-mark[data-side="-1,0"]{left:4cqmin;top:50%;transform:translateY(-50%);}
+  .key-mark[data-side="1,0"]{right:4cqmin;top:50%;transform:translateY(-50%);}
+  .key-mark.center{position:static;transform:none;width:30cqmin;height:30cqmin;pointer-events:auto;}
+  .front-mark{position:absolute;left:4cqmin;bottom:4cqmin;width:0;height:0;
+    border-left:7cqmin solid transparent;border-right:7cqmin solid transparent;border-bottom:12cqmin solid var(--front-color);}
+  .front-tick{display:inline-block;width:0;height:0;border-left:4px solid transparent;
+    border-right:4px solid transparent;border-bottom:7px solid var(--front-color);}
+  .key-key{width:11px;height:11px;background:var(--key);border-radius:2px;flex:none;}
+  .front-key{width:0;height:0;border-left:6px solid transparent;border-right:6px solid transparent;
+    border-bottom:11px solid var(--text-secondary);flex:none;}
+  .spawn-key{width:11px;height:11px;border:2px dashed var(--text-secondary);border-radius:2px;flex:none;}
   .legend{display:flex;flex-wrap:wrap;gap:6px 14px;margin-top:12px;font-size:12px;color:var(--text-secondary);}
   .legend span{display:inline-flex;align-items:center;gap:5px;}
   .sw{width:11px;height:11px;border-radius:50%;flex:none;}
