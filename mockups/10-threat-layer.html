@@ -1,0 +1,499 @@
+<!doctype html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
+<title>10 Threat &amp; urgency layer · tbtt mockups</title><link rel="stylesheet" href="shared/mock.css">
+<style>
+#p10{--hot:#FF2E88;--cool:#3FC9E8;--unk:#8F8A94;--cool-ink:#3FC9E8}
+html[data-theme="light"] #p10{--cool-ink:#0B7A96}
+#p10 b.cool-ink{color:var(--cool-ink)}
+#p10 .frame{background:var(--surface-0)}
+#p10 .ctl{display:flex;gap:8px;align-items:center;flex-wrap:wrap;padding:0 2px 10px}
+#p10 .ctl .lab{font-size:12px;color:var(--text-muted);font-family:var(--mono)}
+#p10 .ctl .btn{font-size:12.5px;padding:4px 11px;font-family:var(--mono)}
+#p10 .ctl .btn.sel{background:color-mix(in srgb,var(--hot) 18%,transparent);border-color:var(--hot);color:var(--text-primary)}
+#p10 .ctl .state{font-size:12.5px;color:var(--text-secondary);margin-left:4px}
+#p10 .lvl-off [data-th]{display:none}
+#p10 .lvl-low [data-th="heat"]{display:none}
+#p10 .lvl-low [data-th="mark"]{opacity:.55}
+#p10 .lgd{display:flex;flex-wrap:wrap;gap:7px 20px;font-size:12px;color:var(--text-secondary);padding:9px 2px 0}
+#p10 .lgd span{display:inline-flex;align-items:center;gap:7px}
+#p10 .chip{width:14px;height:14px;border-radius:3px;flex:none;display:inline-block}
+#p10 .c-hot{background:var(--hot)} #p10 .c-cool{background:var(--cool)}
+#p10 .c-unk{background:repeating-linear-gradient(45deg,var(--unk) 0 2.5px,transparent 2.5px 6px);border:1px solid var(--border)}
+#p10 .rings{display:grid;grid-template-columns:repeat(4,1fr);gap:14px}
+@media(max-width:880px){#p10 .rings{grid-template-columns:repeat(2,1fr)}}
+#p10 .rings .rc{background:var(--surface-1);border:1px solid var(--border);border-radius:10px;padding:14px 10px 12px;text-align:center}
+#p10 .rings .rc h4{margin:0 0 9px;font:500 12px/1.3 var(--mono);color:var(--text-secondary)}
+#p10 .rings .rc p{margin:9px 0 0;font-size:12px;line-height:1.45;color:var(--text-muted)}
+#p10 .rings .rc p b{color:var(--text-primary);font-weight:500}
+#p10 .pal{margin-top:14px}
+#p10 .pal td b{color:var(--text-primary);font-weight:500}
+#p10 .pulse{animation:p10p 2.4s ease-in-out infinite}
+@keyframes p10p{0%,100%{opacity:.45}50%{opacity:1}}
+#p10 .spin{animation:p10s 1.4s linear infinite}
+@keyframes p10s{to{stroke-dashoffset:-20}}
+#p10 .hd{font-size:12.5px;color:var(--text-secondary);font-family:var(--mono);padding:0 2px 8px}
+#p10 .hd b{color:var(--hot);font-weight:500}
+</style></head>
+<body><main class="mk-page" id="p10">
+<h1>Threat &amp; urgency layer</h1>
+<p class="mk-lede">One optional layer over the board that answers two questions: which tiles an opponent can stand on at a
+world turn that matters to you, and how many meta-turns are left before a front lands. It is drawn in a palette no player
+owns, and it has an off / low / full control so a 16x9 board does not drown in it.</p>
+<div class="mk-meta">
+  <span class="req">UI req: the personal-index gap for an inbound front</span>
+  <span class="req">UI req: a countdown on bodies inside a cycle</span>
+  <span>Open q: what distinguishes urgent threats without overloading player colours</span>
+  <span>Open q: how fronts read on the board and strip</span>
+</div>
+
+<figure class="fig">
+  <div class="frame lvl-full" id="f1frame">
+    <div class="ctl" id="f1ctl">
+      <span class="lab">threat layer</span>
+      <button class="btn" data-lvl="off">Off</button><button class="btn" data-lvl="low">Low</button><button class="btn sel" data-lvl="full">Full</button>
+      <span class="state" id="f1state">Full: tile heat, countdown rings, and the steal tile.</span>
+    </div>
+    <div class="hd">Rook, t8, index 17, holding the key &middot; <b>Juno's front reaches your present on meta-turn 20, in 4 actions</b> &middot; you need 8 actions to stand at t0 beside your spawn</div>
+    <div id="f1"></div>
+    <div class="lgd">
+      <span><i class="chip c-hot"></i>danger: something can take a key or a body</span>
+      <span><i class="chip c-cool"></i>checked and clear, for now</span>
+      <span><i class="chip c-unk"></i>unknown: past your horizon, or waiting on a choice you cannot see</span>
+    </div>
+    <i class="callout">1</i><i class="callout">2</i><i class="callout">3</i>
+    <i class="callout">4</i><i class="callout">5</i><i class="callout">6</i>
+  </div>
+  <ul class="callouts">
+    <li><b>1</b>The steal tile, (9,2). It is the one tile beyond your key side, so it is the only square anyone can rob you from at t8. Hot fill, hot ring, and an arrow pointing at what it takes.</li>
+    <li><b>2</b>Juno's live body, at t7 and therefore not really on this board. The layer borrows it as a dashed ghost because it is the only body that can step into t8 next turn. Its cool ring means the opposite of yours: no front is aimed at Juno's key.</li>
+    <li><b>3</b>Your countdown ring: 4 of 12 segments lit. Juno's front is at key index 10 and moves two indices a turn while you move one, so the gap falls by one a turn and closes on meta-turn 20. The front has no tile at this focus, only a clock, which is exactly why it needs a ring and not a triangle.</li>
+    <li><b>4</b>Off / low / full. Low keeps the rings and the steal tile and drops every tile tint. Off leaves the board exactly as it is today.</li>
+    <li><b>5</b>The center tile, empty since t6. No heat here: Juno is two steps away and gains only one step per world turn, so nobody can be here at t8. The absence of a tint is information too.</li>
+    <li><b>6</b>The heat block is Juno's whole next turn: five tiles, because every action except inversion spends one world turn and at most one step. None of them is (9,2), so your key is safe this turn.</li>
+  </ul>
+  <figcaption>Focus t8, your present. Heat is a reachability set over (tile, world turn) pairs, not a distance ring: Juno
+  stands at (7,3) at t7 going forward, so its options at t8 are the four neighbours plus a hold. The layer never uses a
+  player colour to say "danger", so a hot square next to a coral body still reads as a threat to the coral body.</figcaption>
+</figure>
+
+<h2>The turn you step into, and the turn the steal opens</h2>
+<p class="mk-prose">You are walking backward: next turn you are at t7, while Juno and Ash walk forward into t8. The layer has to
+answer for both, because your recorded bodies are targets even after you leave them.</p>
+<div class="variants">
+  <figure class="fig">
+    <div class="frame"><div id="f2"></div></div>
+    <figcaption><strong>t7, the turn you step into.</strong> Your five options are ringed cool: all of them are clear. Juno
+    and Ash are at t7 now, but to still be here next turn either has to invert, which is a choice you cannot see, so both are
+    hatched rather than tinted. Even if Juno inverts and stays at (7,3), the tile beyond your key side is never where it is
+    standing, so it cannot rob you at t7.</figcaption>
+  </figure>
+  <figure class="fig">
+    <div class="frame"><div id="f3"></div></div>
+    <figcaption><strong>t9, two turns out, where the steal really opens.</strong> Juno reaches eleven tiles in two forward
+    actions, and one of them is (8,2), the tile beyond the key side of your recorded body p16 at (7,2). Standing there at t9
+    takes the key from p16 onward and starts a second front. This is the threat the board cannot show you at t8, and it is
+    one turn sooner than the front you are already watching.</figcaption>
+  </figure>
+</div>
+
+<h2>Countdown rings and the palette</h2>
+<figure class="fig">
+  <div class="frame">
+    <div class="rings" id="f4">
+      <div class="rc"><h4>your present &middot; p17</h4><div class="dial" data-lit="4" data-tot="12" data-kind="hot" data-mid="4"></div>
+        <p><b>4 meta-turns.</b> The front lands on m20 and the key goes with it.</p></div>
+      <div class="rc"><h4>your body p14 &middot; t11</h4><div class="dial" data-lit="1" data-tot="12" data-kind="hot" data-mid="1" data-alarm="1"></div>
+        <p><b>One meta-turn.</b> The front passes key index 11 as turn 17 resolves, so your grab breaks and p14 and p15 drop the key.</p></div>
+      <div class="rc"><h4>Juno p17 &middot; t7</h4><div class="dial" data-lit="0" data-tot="12" data-kind="cool" data-mid="tick"></div>
+        <p><b>Clear.</b> Juno holds key indices 6 and 7 and no front is pointed at them. Nothing to count.</p></div>
+      <div class="rc"><h4>anything past t12</h4><div class="dial" data-lit="0" data-tot="12" data-kind="unk" data-mid="?"></div>
+        <p><b>Unknown.</b> Your horizon ends at t12. A ring you cannot fill is drawn hatched instead of empty.</p></div>
+    </div>
+    <table class="cmp pal">
+      <tr><th style="width:120px">Role</th><th style="width:150px">Treatment</th><th>Rule</th></tr>
+      <tr><td><b style="color:#FF2E88">Danger</b></td><td>one hot magenta, <span class="mono">#FF2E88</span></td>
+        <td>Used for tile heat, steal tiles, countdown segments and front badges. One hue for every kind of urgency, so the layer has a single meaning to learn. No player owns it: the roster is red-orange, gold, green and violet.</td></tr>
+      <tr><td><b class="cool-ink">Safety</b></td><td>one cool cyan, <span class="mono">#3FC9E8</span></td>
+        <td>Only ever means "we checked and it is clear this turn". Cyan and not green, because Ash is green and a green ring on a body would read as Ash's mark.</td></tr>
+      <tr><td><b style="color:#8F8A94">Unknown</b></td><td>45&deg; grey hatch</td>
+        <td>Past your horizon, or waiting on a choice nobody has committed. Never a colour, because the whole point is that there is no value to show.</td></tr>
+      <tr><td>Intensity</td><td>alpha and pattern</td>
+        <td>Certainty rides on fill: solid means it happens, a tint means it can happen, a hatch means it might. Hue never encodes certainty, so a colour-blind player still gets the ordering.</td></tr>
+    </table>
+    <i class="callout">1</i><i class="callout">2</i><i class="callout">3</i><i class="callout">4</i>
+  </div>
+  <ul class="callouts">
+    <li><b>1</b>Twelve segments is one full front cycle at two indices a turn, so a full ring is the longest warning the game can give and a quarter ring is a quarter of it. The number in the middle is the meta-turn count, the thing the design doc asks the UI to show.</li>
+    <li><b>2</b>Down to its last segment the ring gains a halo and pulses: it resolves as this turn resolves. Recorded bodies get rings too, because in bootstrap they are what a front actually eats.</li>
+    <li><b>3</b>Cool is a finished check, not a mood. Juno gets it because a real query returned nothing, not because Juno looks comfortable.</li>
+    <li><b>4</b>Hatch instead of an empty ring. An empty ring reads as zero; the horizon case is not zero, it is unmeasured, and the two must not look alike.</li>
+  </ul>
+  <figcaption>Three roles, three treatments, and nothing borrowed from the four player colours. Bodies keep their identity
+  colour and their personal index; the layer only adds a ring, a tint or a hatch around them.</figcaption>
+</figure>
+
+<h2>When things land</h2>
+<figure class="fig">
+  <div class="frame"><div id="f5"></div>
+    <i class="callout">1</i><i class="callout">2</i><i class="callout">3</i><i class="callout">4</i>
+  </div>
+  <ul class="callouts">
+    <li><b>1</b>Meta-turn 20: Juno's front reaches your present and the key is gone. Every turn before it strips two of your recorded bodies.</li>
+    <li><b>2</b>Past meta-turn 24 the forecast stops. It assumes nobody inverts, nobody is blocked and nobody steals, and none of those hold for long. Hatch, not a colour.</li>
+    <li><b>3</b>Your walk home goes grey at t4. You reach t4 on meta-turn 20, the same turn the key leaves, so every tile after it is a walk with nothing to deliver.</li>
+    <li><b>4</b>World turns past t12 are outside your horizon. The rail hatches them for the same reason the rings do: there is nothing to count, not zero to count.</li>
+  </ul>
+  <figcaption>Two rails, one for meta-turns and one for world turns, with your projected walk on the lower one. This is the
+  layer's whole argument in one picture: you need eight actions to stand at t0 beside your spawn, and the key is gone after
+  four. Carrying it home is not a plan. Stealing it back at t9, or blocking Juno, is.</figcaption>
+</figure>
+
+<h2>Trade-offs</h2>
+<div class="mk-pc">
+  <div class="pro"><h3>Pros</h3><ul>
+    <li>Threat stops being a colour problem. Hot magenta, cool cyan and a grey hatch are three marks nobody on the roster can be confused with.</li>
+    <li>Certainty is carried by fill and pattern rather than hue, so the ordering survives colour blindness and a monochrome screenshot.</li>
+    <li>The off / low / full control makes the layer honest about its own cost. Low is three marks; off is today's board exactly.</li>
+    <li>Reachability over (tile, world turn) pairs teaches the rule that every action but inversion spends a world turn. The five-tile block at t8 is the rule made visible.</li>
+    <li>It surfaces the one fact that decides this match: the key cannot be walked home in time.</li>
+  </ul></div>
+  <div class="con"><h3>Cons</h3><ul>
+    <li>Hot magenta on a warm palette is loud, and on a small board almost every tile near the action ends up tinted.</li>
+    <li>Reach sets grow fast. Two turns of one opponent is eleven tiles; three opponents at three turns would tint most of the board and mean nothing.</li>
+    <li>Rings sit on top of bodies that already carry a colour, an outline style, a personal index and sometimes a key mark. That is five channels on one 32px token.</li>
+    <li>A forecast that assumes nobody inverts is wrong most turns, and a wrong countdown is worse than no countdown.</li>
+    <li>Three states is one more setting to explain, and a player who leaves it off never learns the rules the layer teaches.</li>
+  </ul></div>
+</div>
+
+<h2>What it answers</h2>
+<div class="mk-prose">
+<p>Takes a position on the open question of <strong>what visual treatment distinguishes urgent threats without overloading
+player colours</strong>: give urgency its own two-hue palette plus a hatch, keep it off the identity colours entirely, and
+let fill and pattern carry certainty so hue only ever means the role. Because it is a separate layer with an intensity
+control, the answer does not cost anything on boards where it is not wanted.</p>
+<p>It satisfies the requirement to show the personal-index gap for an inbound front, on the board rather than in hover
+text, and sketches the cycle countdown the doc asks for with the same ring. It also proposes an answer to how fronts read
+when the front has no tile at the focused turn: a ring on the body it will take, plus a mark on a meta-turn rail.</p>
+<p>It leaves open whether an opponent's front readout should count to their present or to their last visible body, since
+every number here is computed from what your horizon shows. It does not solve crowding on a 5x5 board, and it says nothing
+about touch: the rings are decoration, not hit targets, so page 09's inspector still has to carry inspection.</p>
+</div>
+
+<h2>Cost</h2>
+<div class="mk-prose">
+<p><strong>Palette, rings and steal tiles: S.</strong> Three CSS custom properties, a twelve-segment ring component, and the
+tile beyond a key side, which is one vector add on <code>view.keys</code>. The gap is already in <code>view.fronts</code>.
+The intensity control is a three-state button plus a <code>localStorage</code> key in <code>ui.tsx</code>.</p>
+<p><strong>Heat tiles: M.</strong> A breadth-first flood over (tile, world turn) pairs from each opponent's live playhead,
+bounded by a small step count, skipping walls and tiles already recorded to another player at that turn. The client has
+bodies, walls and playheads already, so this is a new computation rather than new state, but it belongs in a helper module
+and not in <code>ui.tsx</code>.</p>
+<p><strong>The rail: M, and it needs a small view addition.</strong> Marking which meta-turn each body drops the key needs
+the key index each holder sits at and each front's origin. <code>ModeView</code> in <code>bootstrap.ts</code> exposes
+holders and front positions but not those indices. It is the same addition page 06's custody ladder asks for, so the two
+should land together.</p>
+</div>
+</main>
+<script src="shared/fixture.js"></script><script src="shared/board.js"></script><script src="shared/nav.js"></script>
+<script>
+(function () {
+  var F = MK.F, C = MK.C, el = MK.el;
+  var HOT = '#FF2E88', COOL = '#3FC9E8', UNK = '#8F8A94';
+
+  /* --- helpers --- */
+  function hatchDef(svg, id, color) {
+    svg.insertBefore(el('defs', {}, [el('pattern', {
+      id: id, width: 7, height: 7, patternUnits: 'userSpaceOnUse', patternTransform: 'rotate(45)'
+    }, [el('line', { x1: 0, y1: 0, x2: 0, y2: 7, stroke: color, 'stroke-width': 2.6, opacity: 0.55 })])]), svg.firstChild);
+  }
+  function findCallout(frame, n) {
+    var all = frame.querySelectorAll('.callout');
+    for (var i = 0; i < all.length; i++) if (all[i].textContent === n) return all[i];
+    return null;
+  }
+  // Place callouts at viewBox coordinates of an svg inside a .frame.
+  function place(frame, svg, map) {
+    var fr = frame.getBoundingClientRect(), sv = svg.getBoundingClientRect(), vb = svg.viewBox.baseVal;
+    var kx = sv.width / vb.width, ky = sv.height / vb.height;
+    for (var n in map) {
+      var c = findCallout(frame, n); if (!c) continue;
+      c.style.left = (sv.left - fr.left + (map[n][0] + (map[n][2] || 0)) * kx - 10) + 'px';
+      c.style.top = (sv.top - fr.top + (map[n][1] + (map[n][3] || 0)) * ky - 10) + 'px';
+    }
+  }
+  // Place a callout on an HTML element inside a .frame.
+  function placeOn(frame, target, n, dx, dy) {
+    var fr = frame.getBoundingClientRect(), tr = target.getBoundingClientRect(), c = findCallout(frame, n);
+    if (!c) return;
+    c.style.left = (tr.left - fr.left + tr.width / 2 - 10 + (dx || 0)) + 'px';
+    c.style.top = (tr.top - fr.top + tr.height / 2 - 10 + (dy || 0)) + 'px';
+  }
+  function pol(x, y, r, deg) { var a = deg * Math.PI / 180; return [x + r * Math.cos(a), y + r * Math.sin(a)]; }
+  function arcPath(x, y, r, d0, d1) {
+    var p0 = pol(x, y, r, d0), p1 = pol(x, y, r, d1);
+    return 'M' + p0[0].toFixed(2) + ',' + p0[1].toFixed(2) + ' A' + r + ',' + r + ' 0 ' + ((d1 - d0) > 180 ? 1 : 0) + ' 1 ' + p1[0].toFixed(2) + ',' + p1[1].toFixed(2);
+  }
+  // A countdown dial: `lit` of `tot` segments in `color`, the rest on a dim track.
+  function dial(x, y, r, lit, tot, color, hatchId) {
+    var g = el('g', {});
+    var step = 360 / tot, pad = step * 0.16;
+    for (var i = 0; i < tot; i++) {
+      var on = i < lit;
+      g.appendChild(el('path', {
+        d: arcPath(x, y, r, -90 + i * step + pad, -90 + (i + 1) * step - pad),
+        fill: 'none', stroke: on ? color : (hatchId ? UNK : 'var(--btn-border)'),
+        'stroke-width': r * 0.24, 'stroke-linecap': 'round',
+        opacity: on ? 1 : (hatchId ? 0.4 : 0.95),
+        'stroke-dasharray': hatchId && !on ? '2 3' : null
+      }));
+    }
+    return g;
+  }
+
+  /* ================= figure 1: the layer on the board at t8 ================= */
+  var frame1 = document.getElementById('f1frame');
+  var f1 = MK.board(document.getElementById('f1'), {
+    focusT: 8, lookBack: 2, cell: 46, keys: true, fronts: false, trails: true, labels: true
+  });
+  var s = f1.s, cx = f1.cx, cy = f1.cy, tg = f1.layers.targets, tp = f1.layers.top;
+  hatchDef(f1.svg, 'p10hatch', UNK);
+
+  // Heat: every tile Juno's live body can occupy at t8, one forward action from (7,3) at t7.
+  var REACH8 = [[7, 3], [7, 2], [7, 4], [6, 3], [8, 3]];
+  REACH8.forEach(function (p) {
+    var g = el('g', { 'data-th': 'heat', title: 'Juno can stand here at t8' });
+    g.appendChild(el('rect', { x: p[0] * s + 1, y: p[1] * s + 1, width: s - 2, height: s - 2, rx: 3, fill: HOT, opacity: 0.15 }));
+    g.appendChild(el('rect', { x: p[0] * s + 1.5, y: p[1] * s + 1.5, width: s - 3, height: s - 3, rx: 3, fill: 'none', stroke: HOT, 'stroke-width': 1, 'stroke-dasharray': '3 4', opacity: 0.55 }));
+    tg.appendChild(g);
+  });
+  tp.appendChild(el('text', {
+    x: 5.3 * s, y: 5 * s + 16, 'font-size': 8.6, 'font-family': 'var(--mono)', fill: HOT, opacity: 0.9,
+    'data-th': 'heat', text: "Juno's next turn · 5 tiles"
+  }));
+
+  // The steal tile: hot fill, ring, and an arrow at the key it would take.
+  var stg = el('g', { 'data-th': 'heat' });
+  stg.appendChild(el('rect', { x: 9 * s + 1, y: 2 * s + 1, width: s - 2, height: s - 2, rx: 3, fill: HOT, opacity: 0.3 }));
+  tg.appendChild(stg);
+  var sr = el('g', { 'data-th': 'mark', title: 'steal tile: standing here at t8 takes your key' });
+  sr.appendChild(el('circle', { cx: cx(9), cy: cy(2), r: s * 0.27, fill: 'none', stroke: HOT, 'stroke-width': 2.2, 'stroke-dasharray': '6 4', class: 'spin' }));
+  sr.appendChild(el('path', { d: 'M' + (cx(9) - s * 0.16) + ',' + cy(2) + ' h' + (-s * 0.28) + ' m' + (s * 0.09) + ',' + (-s * 0.07) + ' l' + (-s * 0.09) + ',' + (s * 0.07) + ' l' + (s * 0.09) + ',' + (s * 0.07), fill: 'none', stroke: HOT, 'stroke-width': 2.2, 'stroke-linecap': 'round', 'stroke-linejoin': 'round' }));
+  sr.appendChild(el('rect', { x: cx(9) + s * 0.04, y: cy(2) - s * 0.09, width: s * 0.18, height: s * 0.18, rx: 2, fill: 'none', stroke: HOT, 'stroke-width': 1.8 }));
+  sr.appendChild(el('text', { x: cx(9), y: 2 * s + s - 3, 'text-anchor': 'middle', 'font-size': 8.4, 'font-family': 'var(--mono)', fill: HOT, text: 'steal' }));
+  tp.appendChild(sr);
+
+  // Your countdown ring: 4 of 12, plus the meta-turn badge.
+  var dg = dial(cx(8), cy(2), s * 0.46, 4, 12, HOT, null);
+  dg.setAttribute('data-th', 'mark');
+  dg.appendChild(el('title', { text: "Juno's front reaches your present in 4 meta-turns" }));
+  tp.appendChild(dg);
+  var bg = el('g', { 'data-th': 'mark' });
+  bg.appendChild(el('rect', { x: cx(8) + s * 0.24, y: cy(2) - s * 0.84, width: s * 0.62, height: s * 0.30, rx: 5, fill: HOT }));
+  bg.appendChild(el('text', { x: cx(8) + s * 0.55, y: cy(2) - s * 0.62, 'text-anchor': 'middle', 'font-size': s * 0.21, 'font-weight': 600, 'font-family': 'var(--mono)', fill: '#1A0010', text: 'm20' }));
+  tp.appendChild(bg);
+
+  // Juno's live body, borrowed from t7 as a ghost, with a cool "no front aimed here" ring.
+  var jg = el('g', { 'data-th': 'mark', title: 'Juno · index 17 · t7 · holds the key · no front inbound' });
+  jg.appendChild(el('circle', { cx: cx(7), cy: cy(3), r: s * 0.30, fill: 'var(--surface-0)', stroke: C.A.hex, 'stroke-width': 2, 'stroke-dasharray': '4 3' }));
+  jg.appendChild(el('text', { x: cx(7), y: cy(3) + s * 0.1, 'text-anchor': 'middle', 'font-size': s * 0.26, 'font-family': 'var(--mono)', fill: C.A.hex, text: '17' }));
+  jg.appendChild(el('text', { x: 7 * s + 4, y: 3 * s + 11, 'font-size': 8.4, 'font-family': 'var(--mono)', fill: 'var(--text-muted)', text: 't7' }));
+  jg.appendChild(el('circle', { cx: cx(7), cy: cy(3), r: s * 0.44, fill: 'none', stroke: COOL, 'stroke-width': 2.4, opacity: 0.9 }));
+  jg.appendChild(el('circle', { cx: cx(7) + s * 0.33, cy: cy(3) - s * 0.31, r: s * 0.15, fill: COOL }));
+  jg.appendChild(el('path', { d: 'M' + (cx(7) + s * 0.26) + ',' + (cy(3) - s * 0.31) + ' l' + (s * 0.05) + ',' + (s * 0.06) + ' l' + (s * 0.11) + ',' + (-s * 0.12), fill: 'none', stroke: '#032027', 'stroke-width': 2, 'stroke-linecap': 'round', 'stroke-linejoin': 'round' }));
+  tp.appendChild(jg);
+
+  // The center tile: no heat, and that is the point.
+  tp.appendChild(el('rect', {
+    'data-th': 'mark', x: cx(8) - s * 0.17, y: cy(4) - s * 0.17, width: s * 0.34, height: s * 0.34, rx: 3,
+    fill: 'none', stroke: 'var(--key)', 'stroke-width': 1.5, 'stroke-dasharray': '3 3', opacity: 0.5
+  }));
+  tp.appendChild(el('text', {
+    'data-th': 'mark', x: cx(8), y: 4 * s + s - 6, 'text-anchor': 'middle', 'font-size': 8.2,
+    'font-family': 'var(--mono)', fill: 'var(--text-muted)', text: 'key home'
+  }));
+
+  // Intensity control.
+  var state = document.getElementById('f1state');
+  var TEXT = {
+    off: 'Off: the board exactly as it is today.',
+    low: 'Low: rings and the steal tile only, no tile tint.',
+    full: 'Full: tile heat, countdown rings, and the steal tile.'
+  };
+  var btns = document.getElementById('f1ctl').querySelectorAll('.btn');
+  [].forEach.call(btns, function (b) {
+    b.onclick = function () {
+      var lvl = b.getAttribute('data-lvl');
+      frame1.className = 'frame lvl-' + lvl;
+      [].forEach.call(btns, function (o) { o.classList.toggle('sel', o === b); });
+      state.textContent = TEXT[lvl];
+    };
+  });
+
+  /* ================= figure 2: t7, the turn you step into ================= */
+  var f2 = MK.board(document.getElementById('f2'), { focusT: 7, lookBack: 0, cell: 34, keys: true, fronts: false, trails: false, labels: true });
+  (function () {
+    var s = f2.s, cx = f2.cx, cy = f2.cy;
+    hatchDef(f2.svg, 'p10h2', UNK);
+    // Your five legal actions land here, and all five are clear.
+    [[8, 1], [7, 2], [8, 3], [9, 2], [8, 2]].forEach(function (p) {
+      f2.layers.targets.appendChild(el('rect', {
+        x: p[0] * s + 2, y: p[1] * s + 2, width: s - 4, height: s - 4, rx: 3, fill: 'none',
+        stroke: COOL, 'stroke-width': 1.8, 'stroke-dasharray': '4 3', opacity: 0.85,
+        title: 'one of your five options at t7 · clear'
+      }));
+    });
+    f2.layers.top.appendChild(el('text', { x: 5.2 * s, y: 15, 'font-size': 8.4, 'font-family': 'var(--mono)', style: 'fill:var(--cool-ink)', text: 'your 5 options · all clear' }));
+    // Juno and Ash can only still be at t7 by inverting, which you cannot see.
+    [[7, 3, 'A', 'Juno'], [14, 0, 'T', 'Ash']].forEach(function (p) {
+      var g = el('g', { title: p[3] + ' is at t7 now; it stays only if it inverts' });
+      g.appendChild(el('rect', { x: p[0] * s + 2, y: p[1] * s + 2, width: s - 4, height: s - 4, rx: 3, fill: 'url(#p10h2)' }));
+      g.appendChild(el('rect', { x: p[0] * s + 2, y: p[1] * s + 2, width: s - 4, height: s - 4, rx: 3, fill: 'none', stroke: UNK, 'stroke-width': 1.4, opacity: 0.8 }));
+      g.appendChild(el('text', { x: cx(p[0]), y: (p[1] + 1) * s + 10, 'text-anchor': 'middle', 'font-size': 8.2, 'font-family': 'var(--mono)', fill: UNK, text: 'invert?' }));
+      f2.layers.top.appendChild(g);
+    });
+  })();
+
+  /* ================= figure 3: t9, where the steal opens ================= */
+  var f3 = MK.board(document.getElementById('f3'), { focusT: 9, lookBack: 0, cell: 34, keys: true, fronts: false, trails: false, labels: true });
+  (function () {
+    var s = f3.s, cx = f3.cx, cy = f3.cy;
+    var REACH9 = [[7, 3], [6, 3], [8, 3], [7, 4], [5, 3], [7, 1], [7, 5], [6, 2], [6, 4], [8, 4]];
+    REACH9.forEach(function (p) {
+      f3.layers.targets.appendChild(el('rect', {
+        x: p[0] * s + 1, y: p[1] * s + 1, width: s - 2, height: s - 2, rx: 3, fill: HOT, opacity: 0.14,
+        title: 'Juno can stand here at t9, two forward actions from now'
+      }));
+    });
+    // (8,2) is the steal tile against your recorded body p16 at (7,2).
+    f3.layers.targets.appendChild(el('rect', { x: 8 * s + 1, y: 2 * s + 1, width: s - 2, height: s - 2, rx: 3, fill: HOT, opacity: 0.42 }));
+    var g = f3.layers.top;
+    g.appendChild(el('circle', { cx: cx(8), cy: cy(2), r: s * 0.32, fill: 'none', stroke: HOT, 'stroke-width': 2.2, 'stroke-dasharray': '6 4', class: 'spin', title: 'steal tile at t9' }));
+    g.appendChild(el('text', { x: cx(8), y: 2 * s + s - 4, 'text-anchor': 'middle', 'font-size': 8.4, 'font-family': 'var(--mono)', fill: HOT, text: 'steal' }));
+    g.appendChild(el('circle', { cx: cx(7), cy: cy(2), r: s * 0.44, fill: 'none', stroke: HOT, 'stroke-width': 2, opacity: 0.9, class: 'pulse', title: 'your body p16 holds the key here' }));
+    g.appendChild(el('text', { x: 4.4 * s, y: 6 * s, 'font-size': 8.4, 'font-family': 'var(--mono)', fill: HOT, text: "Juno's reach in 2 actions · 11 tiles" }));
+    g.appendChild(el('text', { x: 9.45 * s, y: cy(2) + 3, 'font-size': 8.4, 'font-family': 'var(--mono)', fill: HOT, text: 'takes from p16' }));
+  })();
+
+  /* ================= figure 4: the ring sheet ================= */
+  [].forEach.call(document.querySelectorAll('#f4 .dial'), function (host) {
+    var lit = +host.getAttribute('data-lit'), tot = +host.getAttribute('data-tot');
+    var kind = host.getAttribute('data-kind'), mid = host.getAttribute('data-mid');
+    var col = kind === 'hot' ? HOT : kind === 'cool' ? COOL : UNK;
+    var svg = el('svg', { viewBox: '0 0 108 108', width: '108', height: '108', style: 'display:block;margin:0 auto' });
+    if (kind === 'cool') {
+      svg.appendChild(el('circle', { cx: 54, cy: 54, r: 40, fill: 'none', stroke: COOL, 'stroke-width': 9 }));
+    } else {
+      svg.appendChild(dial(54, 54, 40, lit, tot, col, kind === 'unk' ? 1 : null));
+    }
+    if (host.getAttribute('data-alarm')) {
+      svg.insertBefore(el('circle', { cx: 54, cy: 54, r: 48, fill: 'none', stroke: HOT, 'stroke-width': 3, class: 'pulse' }), svg.firstChild);
+    }
+    svg.appendChild(el('circle', { cx: 54, cy: 54, r: 27, fill: 'var(--surface-2)', stroke: 'var(--border)' }));
+    if (mid === 'tick') {
+      svg.appendChild(el('path', { d: 'M43,54 l7,8 l16,-18', fill: 'none', stroke: COOL, 'stroke-width': 4.5, 'stroke-linecap': 'round', 'stroke-linejoin': 'round' }));
+    } else {
+      svg.appendChild(el('text', { x: 54, y: 63, 'text-anchor': 'middle', 'font-size': 26, 'font-weight': 600, 'font-family': 'var(--mono)', fill: col, text: mid }));
+    }
+    host.appendChild(svg);
+  });
+
+  /* ================= figure 5: the landing rail ================= */
+  (function () {
+    var W = 1160, H = 246;
+    var svg = el('svg', { viewBox: '0 0 ' + W + ' ' + H, width: '100%', style: 'display:block;max-width:100%;height:auto' });
+    hatchDef(svg, 'p10h5', UNK);
+    var L = 104, R = W - 18;
+
+    // Row A: meta-turns 17 to 24, then a hatched forecast tail.
+    var aw = 74, aTop = 26;
+    var AX = function (m) { return L + (m - 17) * aw + aw / 2; };
+    svg.appendChild(el('text', { x: 8, y: aTop + 24, 'font-size': 12, 'font-family': 'var(--mono)', fill: 'var(--text-secondary)', text: 'meta-turns' }));
+    svg.appendChild(el('rect', { x: L, y: aTop + 10, width: aw * 8, height: 18, rx: 3, fill: 'var(--surface-2)' }));
+    var aTail = L + aw * 8;
+    svg.appendChild(el('rect', { x: aTail, y: aTop + 10, width: R - aTail, height: 18, rx: 3, fill: 'url(#p10h5)', stroke: 'var(--border)' }));
+    svg.appendChild(el('rect', { x: aTail + (R - aTail) / 2 - 95, y: aTop + 11, width: 190, height: 16, rx: 2, fill: 'var(--surface-0)' }));
+    svg.appendChild(el('text', { x: aTail + (R - aTail) / 2, y: aTop + 23, 'text-anchor': 'middle', 'font-size': 10.5, 'font-family': 'var(--mono)', fill: 'var(--text-muted)', text: 'm25 … cap m43 · forecast ends' }));
+    var AMARK = {
+      17: ['grab breaks', 'p14, p15 drop the key', 1],
+      18: ['', 'p16, p17 drop', 1],
+      19: ['', '', 0],
+      20: ['key gone', 'front reaches your present', 2],
+      21: ['', '', 0], 22: ['', '', 0], 23: ['', '', 0],
+      24: ['home', 'earliest you stand at t0', 3]
+    };
+    for (var m = 17; m <= 24; m++) {
+      var x = AX(m), k = AMARK[m], big = k[2];
+      var col = big === 3 ? 'var(--text-secondary)' : big ? HOT : 'var(--text-muted)';
+      svg.appendChild(el('text', { x: x, y: aTop + 44, 'text-anchor': 'middle', 'font-size': 11, 'font-family': 'var(--mono)', fill: big ? col : 'var(--text-muted)', text: 'm' + m }));
+      svg.appendChild(el('circle', { cx: x, cy: aTop + 19, r: big === 2 ? 8 : big ? 5.5 : 3, fill: big ? col : 'var(--text-muted)', opacity: big ? 1 : 0.6, class: big === 2 ? 'pulse' : null }));
+      if (k[0]) svg.appendChild(el('text', { x: x, y: aTop + 4, 'text-anchor': 'middle', 'font-size': 11, 'font-weight': 600, 'font-family': 'var(--mono)', fill: col, text: k[0] }));
+      if (k[1]) svg.appendChild(el('text', { x: x, y: aTop + (m % 2 ? 58 : 73), 'text-anchor': 'middle', 'font-size': 10, fill: 'var(--text-secondary)', text: k[1] }));
+    }
+
+    // Row B: world turns 0 to 12, then beyond the horizon.
+    var bTop = 148, bw = 58;
+    var BX = function (t) { return L + t * bw + bw / 2; };
+    svg.appendChild(el('text', { x: 8, y: bTop + 24, 'font-size': 12, 'font-family': 'var(--mono)', fill: 'var(--text-secondary)', text: 'world turns' }));
+    svg.appendChild(el('rect', { x: L, y: bTop + 10, width: bw * 13, height: 18, rx: 3, fill: 'var(--surface-2)' }));
+    var bTail = L + bw * 13;
+    svg.appendChild(el('rect', { x: bTail, y: bTop + 10, width: R - bTail, height: 18, rx: 3, fill: 'url(#p10h5)', stroke: 'var(--border)' }));
+    svg.appendChild(el('rect', { x: bTail + (R - bTail) / 2 - 92, y: bTop + 11, width: 184, height: 16, rx: 2, fill: 'var(--surface-0)' }));
+    svg.appendChild(el('text', { x: bTail + (R - bTail) / 2, y: bTop + 23, 'text-anchor': 'middle', 'font-size': 10.5, 'font-family': 'var(--mono)', fill: 'var(--text-muted)', text: 't13 … t43 · past your horizon' }));
+    for (var t = 0; t <= 12; t++) {
+      svg.appendChild(el('text', { x: BX(t), y: bTop + 42, 'text-anchor': 'middle', 'font-size': 10.5, 'font-family': 'var(--mono)', fill: t === 8 ? 'var(--text-primary)' : 'var(--text-muted)', text: t }));
+    }
+    // Your projected walk back, one world turn per action, greying where the key runs out.
+    svg.appendChild(el('circle', { cx: BX(8), cy: bTop + 19, r: 7, fill: C.C.hex }));
+    svg.appendChild(el('text', { x: BX(8), y: bTop - 6, 'text-anchor': 'middle', 'font-size': 10.5, 'font-family': 'var(--mono)', fill: C.C.hex, text: 'you, now' }));
+    for (var k2 = 1; k2 <= 8; k2++) {
+      var tt = 8 - k2, mm = 16 + k2, gone = mm >= 20;
+      var xx = BX(tt);
+      svg.appendChild(el('path', {
+        d: 'M' + (xx + 15) + ',' + (bTop + 19) + ' L' + (xx + 6) + ',' + (bTop + 19),
+        stroke: gone ? UNK : C.C.hex, 'stroke-width': 2, opacity: gone ? 0.55 : 0.9,
+        'marker-end': null
+      }));
+      svg.appendChild(el('path', {
+        d: 'M' + (xx + 11) + ',' + (bTop + 14) + ' l-5,5 l5,5', fill: 'none',
+        stroke: gone ? UNK : C.C.hex, 'stroke-width': 2, 'stroke-linecap': 'round', 'stroke-linejoin': 'round', opacity: gone ? 0.55 : 0.9
+      }));
+      svg.appendChild(el('circle', { cx: xx, cy: bTop + 19, r: 4.5, fill: gone ? 'none' : C.C.hex, stroke: gone ? UNK : C.C.hex, 'stroke-width': 1.6, opacity: gone ? 0.7 : 1 }));
+      svg.appendChild(el('text', { x: xx, y: bTop - 6, 'text-anchor': 'middle', 'font-size': 10, 'font-family': 'var(--mono)', fill: gone ? UNK : 'var(--text-secondary)', text: 'm' + mm }));
+    }
+    svg.appendChild(el('path', {
+      d: 'M' + (BX(0) - 16) + ',' + (bTop + 54) + ' v6 H' + (BX(4) + 16) + ' v-6',
+      fill: 'none', stroke: UNK, 'stroke-width': 1.4, opacity: 0.8
+    }));
+    svg.appendChild(el('text', { x: (BX(0) + BX(4)) / 2, y: bTop + 76, 'text-anchor': 'middle', 'font-size': 10.5, 'font-family': 'var(--mono)', fill: UNK, text: 'the key is already gone across all of this' }));
+    svg.appendChild(el('text', { x: BX(0), y: bTop - 22, 'text-anchor': 'middle', 'font-size': 10.5, 'font-family': 'var(--mono)', fill: 'var(--text-muted)', text: 'spawn side' }));
+
+    var host = document.getElementById('f5');
+    host.appendChild(svg);
+    place(host.parentNode, svg, {
+      '1': [AX(20) + 38, aTop + 8], '2': [aTail + 46, aTop + 19],
+      '3': [BX(4) + 30, bTop + 60], '4': [bTail + 24, bTop + 19]
+    });
+  })();
+
+  /* --- callout placement --- */
+  function layout() {
+    var q = f1.s;
+    place(frame1, f1.svg, {
+      '1': [f1.cx(9), f1.cy(2), 0, q * 0.86],
+      '2': [f1.cx(7), f1.cy(3), -q * 0.48, q * 0.48],
+      '3': [f1.cx(8), f1.cy(2), -q * 0.62, -q * 0.62],
+      '5': [f1.cx(8), f1.cy(4), q * 0.42, -q * 0.34],
+      '6': [f1.cx(6), f1.cy(3), -q * 0.40, -q * 0.36]
+    });
+    placeOn(frame1, document.getElementById('f1ctl').querySelector('[data-lvl="low"]'), '4', 0, -18);
+    var f4 = document.getElementById('f4'), cards = f4.querySelectorAll('.rc');
+    ['1', '2', '3', '4'].forEach(function (n, i) {
+      var r = cards[i].getBoundingClientRect();
+      placeOn(f4.parentNode, cards[i], n, -r.width / 2 + 16, -r.height / 2 + 16);
+    });
+  }
+  layout();
+  window.addEventListener('resize', layout);
+})();
+</script>
+</body></html>

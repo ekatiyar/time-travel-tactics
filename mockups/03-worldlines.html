@@ -1,0 +1,289 @@
+<!doctype html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
+<title>03 Worldlines on the board · tbtt mockups</title><link rel="stylesheet" href="shared/mock.css">
+<style>
+#p03 .hold{position:relative;line-height:0}
+#p03 .bar{display:flex;gap:8px;align-items:center;flex-wrap:wrap;margin:0 0 10px;font-size:13px;color:var(--text-secondary)}
+#p03 .bar .btn{font-size:12.5px;padding:5px 10px}
+#p03 .leg{display:flex;gap:16px;flex-wrap:wrap;font-size:12px;color:var(--text-secondary);margin-top:9px;align-items:center}
+#p03 .leg span{display:inline-flex;gap:6px;align-items:center}
+#p03 .leg svg{display:block}
+#p03 .notchPulse{animation:p03pulse 1.6s ease-in-out infinite}
+@keyframes p03pulse{0%,100%{opacity:1}50%{opacity:.35}}
+#p03 .beadPulse{animation:p03bead 2.4s ease-in-out infinite}
+@keyframes p03bead{0%,100%{r:4.6px}50%{r:6.2px}}
+#p03 figure.fig{margin-bottom:26px}
+#p03 .pairhead{font-size:12.5px;color:var(--text-muted);font-family:var(--mono);margin:0 0 6px}
+@media(prefers-reduced-motion:reduce){#p03 .notchPulse,#p03 .beadPulse{animation:none}}
+</style></head>
+<body><main class="mk-page" id="p03">
+<h1>Worldlines on the board</h1>
+<p class="mk-lede">Today history is a cluster of 6px corner dots per tile: you can see that something was here, not who went where. This direction draws each player's recorded path as one continuous ribbon through tile centres, ordered by personal index, so a worldline reads as a route with a direction, a key riding on it, and a front cutting it.</p>
+<div class="mk-meta"><span class="req">UI req: one combined board for present and history</span><span class="req">UI req: identity and personal index on every body</span><span class="req">UI req: personal-index gap for an inbound front</span><span>Open question: how touch users inspect a history body</span></div>
+
+<figure class="fig">
+  <div class="bar">
+    <span>Worldlines:</span>
+    <button class="btn sel" data-mode="all">All four</button>
+    <button class="btn" data-mode="mine">Mine only</button>
+    <button class="btn" data-mode="dots">Today: corner dots</button>
+    <span class="muted" style="margin-left:6px">meta-turn 17 · focus t8 · look-back 4</span>
+  </div>
+  <div class="frame"><div class="hold" id="f1"></div></div>
+  <div class="leg" id="leg1"></div>
+  <figcaption>Fixture board, 16&times;9, focus world turn 8. Ribbon width 6px, round joins, opacity falling with distance from t8 down to a 0.16 floor. Retraced edges are offset 3.8px apart so a there-and-back leg shows as two lanes.</figcaption>
+  <ul class="callouts">
+    <li><b>1</b>Coral's inversion at t12, tile (7,3): the U-turn loop replaces two bodies stacked on one tile. Index 12 walks in, index 13 walks back out.</li>
+    <li><b>2</b>Coral's ribbon crosses its own earlier body here. Tile (7,3) carries indices 12, 13 and 15; the ribbon passes through three times and the loop marks where the direction flipped.</li>
+    <li><b>3</b>Key bead: a yellow bead rides Coral's ribbon on indices 14 to 17, the four bodies that read as holders. The bead starts where Coral grabbed, at t11, on meta-turn 13.</li>
+    <li><b>4</b>Amber's front notch sits on Coral index 14, the body it will strike. The label is the personal-index gap, 4 turns. When it lands, Coral's grab breaks and indices 14 to 17 drop the key.</li>
+    <li><b>5</b>Amber's bead covers only indices 16 and 17: a two-body claim, grabbed at t6 on meta-turn 15.</li>
+    <li><b>6</b>Teal inverted three times on one tile at t9. One loop with a &times;3 count instead of four overlapping bodies.</li>
+    <li><b>7</b>Onion skin: bodies at t7, t6 and t5 are rings under the focus bodies, shrinking and fading with age, instead of corner dots.</li>
+    <li><b>8</b>Purple's ribbon doubles back on itself twice near its spawn. The offset lanes keep the outbound and return legs separable.</li>
+  </ul>
+</figure>
+
+<h2>Onion skin against today's dots</h2>
+<div class="mk-cols">
+  <figure class="fig">
+    <p class="pairhead">today · corner dot cluster</p>
+    <div class="frame"><div class="hold" id="f2a"></div></div>
+    <figcaption>Tiles (2,1) to (9,6) at focus t8. History is up to four 5px dots pinned to a tile corner. A dot carries colour and fill, nothing else: not the index, not the order, not which way the body was walking.</figcaption>
+  </figure>
+  <figure class="fig">
+    <p class="pairhead">onion skin · rings at t7, t6, t5</p>
+    <div class="frame"><div class="hold" id="f2b"></div></div>
+    <figcaption>Same tiles. Each earlier world turn is a ring under the focus body: radius 0.32, 0.26 and 0.20 of a cell, opacity 0.55, 0.36, 0.22. Three rings on one tile read as three separate turns, which three dots in a corner do not.</figcaption>
+  </figure>
+</div>
+
+<figure class="fig">
+  <div class="frame"><div class="hold" id="f3"></div></div>
+  <figcaption>"Mine only" variant. Coral keeps the full ribbon, beads, loops and arrows. The other three collapse to 1.6px dashed lines at 0.3 opacity, still enough to see that Teal never leaves its corner and that Amber's line runs into yours at t6. This is the state to default to on a phone.</figcaption>
+</figure>
+
+<h2>Trade-offs</h2>
+<div class="mk-pc">
+  <div class="pro"><h3>Pros</h3><ul>
+    <li>Order is visible. A ribbon is read in index order, so you can see that Coral reached t12 before turning around, which a dot cluster cannot show.</li>
+    <li>Inversions get one glyph instead of a stack. Teal's four bodies at (14,1) t9 become one loop and a count.</li>
+    <li>The key becomes a thing that travels. A bead on indices 14 to 17 shows custody as a stretch of path, matching how fronts actually eat it.</li>
+    <li>The front reads as a cut at a place, not a number in a side panel. The notch sits on the exact body it will hit.</li>
+    <li>It answers "how did that body get there" without a click, which helps touch users who have no hover.</li>
+  </ul></div>
+  <div class="con"><h3>Cons</h3><ul>
+    <li>Four full ribbons on a 16&times;9 board is a lot of ink. The all-four view above is already near the limit; a longer match makes it worse.</li>
+    <li>Ribbons cross tiles they never occupied at the focus turn, so a line over a tile can be misread as presence there.</li>
+    <li>Retraced edges need offset lanes, and offset lanes drift off tile centres. At 18px cells the lanes merge.</li>
+    <li>The ribbon mixes two clocks. It is ordered by personal index but drawn in space, so a long ribbon segment can be one world turn or none at all, as at an inversion.</li>
+    <li>Onion rings and ribbons overlap on busy tiles. Tile (4,4) carries Coral 6 and 8, Amber 7 and 8, plus two ribbons.</li>
+  </ul></div>
+</div>
+
+<h2>What it answers</h2>
+<div class="mk-prose">
+<p>It serves <strong>one combined board for present and history</strong> directly: the focus turn stays the bright layer and everything else is path, not a second board. It serves <strong>identity and personal index on every body</strong> partly, because the ribbon carries identity continuously while the index still needs a label or hover. It serves <strong>the personal-index gap for an inbound front</strong> well: the notch on Coral index 14 with "4" puts the gap on the body instead of in a list.</p>
+<p>It gives a real answer to <strong>how touch users inspect a history body</strong>, since the common question, where did this come from, is answered without any inspection at all. It leaves open <strong>erasure and restoration fronts</strong>, which are two travelling cuts plus a hole between them and would need a second ribbon treatment, and it does nothing for <strong>the personal-index colour ramp</strong> question, which page 17 takes up.</p>
+</div>
+
+<h2>Cost</h2>
+<div class="mk-prose">
+<p><strong>M.</strong> The data is already there. <code>view.bodies</code> carries colour, index, world turn and direction, and <code>view.keys</code> and <code>view.fronts</code> carry the rest, so nothing changes in the engine view. The work is all in the board renderer in <code>ui.tsx</code>: sort per colour by index, build a segment list, compute the offset lanes for retraced edges, and emit paths instead of the current dot clusters. Roughly 150 lines replacing the trail block, plus the loop and bead glyphs.</p>
+<p>The real cost is the "mine only" default and its toggle, because the all-four view is not usable on a small board. Add one control beside the world-turn and look-back sliders, and the styling in <code>style.css</code> for ribbon opacity and dash. No engine change.</p>
+</div>
+</main>
+<script src="shared/fixture.js"></script><script src="shared/board.js"></script><script src="shared/nav.js"></script>
+<script>
+(function(){
+  const F = MK.F, C = MK.C, ME = F.me.color, focusT = F.me.t;
+  const NS='http://www.w3.org/2000/svg';
+
+  function segList(list){
+    const use=new Map(), out=[];
+    for(let i=0;i<list.length-1;i++){
+      const a=list[i], b=list[i+1];
+      if(a.x===b.x && a.y===b.y){ out.push(0); continue; }
+      const k1=a.x*100+a.y, k2=b.x*100+b.y;
+      const k=Math.min(k1,k2)+'-'+Math.max(k1,k2);
+      const n=use.get(k)||0; use.set(k,n+1);
+      out.push(n===0?0:(n%2?1:-1)*Math.ceil(n/2)*3.8);
+    }
+    return out;
+  }
+  function fade(t){ return 0.30 + 0.70*Math.max(0, 1 - Math.abs(t-focusT)/8); }
+
+  // Ribbon for one colour. style: 'full' | 'thin'
+  function ribbon(api, color, style, opts){
+    opts = opts||{};
+    const g = api.layers.trails, list = MK.path(color), offs = segList(list);
+    const hue = C[color].hex, W = style==='full' ? 6 : 1.6;
+    const nodes = list.map(b=>({x:api.cx(b.x), y:api.cy(b.y)}));
+    const segs=[];
+    for(let i=0;i<list.length-1;i++){
+      const a=nodes[i], b=nodes[i+1], A=list[i], B=list[i+1];
+      const dx=b.x-a.x, dy=b.y-a.y, L=Math.hypot(dx,dy);
+      if(L<0.5) continue;
+      const off=offs[i], nx=-dy/L*off, ny=dx/L*off;
+      segs.push({i:i,a:a,b:b,A:A,B:B,dx:dx,dy:dy,L:L,nx:nx,ny:ny,
+        op: style==='full' ? fade((A.t+B.t)/2) : 0.3,
+        d:'M'+(a.x+nx)+','+(a.y+ny)+'L'+(b.x+nx)+','+(b.y+ny)});
+    }
+    // Casing keeps crossing ribbons separable.
+    if(style==='full') for(const sg of segs) g.appendChild(api.el('path',{
+      d:sg.d, stroke:'var(--surface-1)','stroke-width':W+3.4,'stroke-linecap':'round',fill:'none',opacity:0.92}));
+    for(const sg of segs){
+      const a=sg.a, b=sg.b, A=sg.A, B=sg.B, dx=sg.dx, dy=sg.dy, L=sg.L, nx=sg.nx, ny=sg.ny, i=sg.i, op=sg.op;
+      g.appendChild(api.el('path',{
+        d:sg.d,
+        stroke:hue,'stroke-width':W,'stroke-linecap':'round','stroke-linejoin':'round',
+        fill:'none',opacity:op, 'stroke-dasharray': style==='full'?null:'5 4',
+        title:F.names[color]+' · index '+A.p+'→'+B.p+' · t'+A.t+'→t'+B.t
+      }));
+      if(style==='full' && opts.arrows!==false && i%2===0 && L>14){
+        const ux=dx/L, uy=dy/L, px=-uy, py=ux;
+        const mx=a.x+nx+dx*0.58, my=a.y+ny+dy*0.58, h=5.4, w=4.4;
+        const d='M'+(mx+ux*h)+','+(my+uy*h)+'L'+(mx-ux*h+px*w)+','+(my-uy*h+py*w)+'L'+(mx-ux*h-px*w)+','+(my-uy*h-py*w)+'Z';
+        const same = B.dir===F.me.dir;
+        g.appendChild(api.el('path',{d:d, fill: same?hue:'var(--surface-1)', stroke:hue,'stroke-width':1.2, opacity:Math.min(1,op+0.2)}));
+      }
+    }
+    if(style!=='full' || opts.loops===false) return;
+    // U-turn loops, grouped per tile
+    const flips=new Map();
+    for(let i=0;i<list.length-1;i++){
+      if(list[i].dir===list[i+1].dir) continue;
+      const k=list[i].x+','+list[i].y;
+      const e=flips.get(k)||{x:list[i].x,y:list[i].y,n:0,t:list[i].t};
+      e.n++; flips.set(k,e);
+    }
+    for(const e of flips.values()){
+      const X=api.cx(e.x), Y=api.cy(e.y)-api.s*0.04, r=api.s*0.25, op=Math.min(1,fade(e.t)+0.2);
+      const gg=api.el('g',{opacity:op,title:F.names[color]+' turned around at t'+e.t+(e.n>1?' ('+e.n+' times)':'')});
+      gg.appendChild(api.el('path',{d:'M'+(X-r)+','+Y+'A'+r+','+r+' 0 1 1 '+(X+r)+','+Y,
+        fill:'none',stroke:hue,'stroke-width':3.2,'stroke-linecap':'round'}));
+      gg.appendChild(api.el('path',{d:'M'+(X+r)+','+(Y+5.6)+'l4.6,-6.4l-9.2,0Z',fill:hue}));
+      if(e.n>1) gg.appendChild(api.el('text',{x:X+r+8,y:Y-4,'font-family':'var(--mono)','font-size':11,fill:hue,text:'×'+e.n}));
+      api.layers.overlay.appendChild(gg);
+    }
+  }
+
+  function beads(api, color){
+    const list=MK.path(color), offs=segList(list), hue=C[color].hex;
+    for(const k of F.keys){
+      if(k.color!==color) continue;
+      const i=list.findIndex(b=>b.p===k.p); if(i<0) continue;
+      const b=list[i]; let ox=0, oy=0;
+      if(i<list.length-1){
+        const n=list[i+1], dx=n.x-b.x, dy=n.y-b.y, L=Math.hypot(dx,dy);
+        if(L>0){ ox=-dy/L*(offs[i]||0); oy=dx/L*(offs[i]||0); }
+      }
+      const g=api.el('g',{title:F.names[color]+' holds the key at index '+k.p+' · t'+b.t});
+      g.appendChild(api.el('circle',{cx:api.cx(b.x)+ox,cy:api.cy(b.y)+oy,r:api.s*0.115,fill:'var(--key)',stroke:hue,'stroke-width':1.6}));
+      api.layers.keys.appendChild(g);
+    }
+  }
+
+  function notch(api){
+    const f=F.fronts[0]; if(!f) return;
+    const hit=F.bodies.find(b=>b.color===f.target && b.t===f.t && b.x===f.x && b.y===f.y);
+    if(!hit) return;
+    const X=api.cx(f.x), Y=api.cy(f.y), hue=C[f.color].hex, len=api.s*0.30;
+    const g=api.el('g',{title:F.names[f.color]+"'s front reaches "+F.names[f.target]+' index '+hit.p+' in '+f.gap+' turns'});
+    g.appendChild(api.el('path',{d:'M'+(X-len)+','+Y+'L'+(X+len)+','+Y,stroke:hue,'stroke-width':5,'stroke-linecap':'round',class:'notchPulse'}));
+    g.appendChild(api.el('path',{d:'M'+(X-len)+','+Y+'L'+(X+len)+','+Y,stroke:'var(--surface-0)','stroke-width':1.4}));
+    const bx=X+len+6, by=Y-api.s*0.34;
+    g.appendChild(api.el('rect',{x:bx,y:by,width:40,height:19,rx:9,fill:hue}));
+    g.appendChild(api.el('text',{x:bx+8,y:by+13.5,'font-family':'var(--mono)','font-size':12,'font-weight':600,fill:C[f.color].ink,text:'▲ 4'}));
+    g.appendChild(api.el('path',{d:'M'+(bx+4)+','+(by+19)+'L'+(X+len*0.6)+','+(Y-4),stroke:hue,'stroke-width':1.2,opacity:.8}));
+    api.layers.top.appendChild(g);
+  }
+
+  function onion(api, turns){
+    const R=[0.32,0.26,0.20], O=[0.55,0.36,0.22];
+    for(let k=0;k<turns;k++){
+      const t=focusT-1-k; if(t<0) break;
+      const seen=new Map();
+      for(const b of F.bodies){
+        if(b.t!==t) continue;
+        const key=b.color+':'+b.x+','+b.y; if(seen.has(key)) continue; seen.set(key,1);
+        const n=seen.size;
+        api.layers.targets.appendChild(api.el('circle',{
+          cx:api.cx(b.x), cy:api.cy(b.y), r:api.s*R[k], fill:'none',
+          stroke:C[b.color].hex,'stroke-width':api.s*0.055, opacity:O[k],
+          title:F.names[b.color]+' · index '+b.p+' · t'+b.t
+        }));
+      }
+    }
+  }
+
+  function mark(host, api, n, x, y, dx, dy){
+    const i=document.createElement('i'); i.className='callout'; i.textContent=n;
+    i.style.left=(100*(api.cx(x)+(dx||0))/(F.w*api.s))+'%';
+    i.style.top=(100*(api.cy(y)+(dy||0))/(F.h*api.s))+'%';
+    i.style.transform='translate(-50%,-50%)';
+    host.appendChild(i);
+  }
+
+  // Figure 1
+  const f1=document.getElementById('f1');
+  function render(mode){
+    const api=MK.board(f1,{focusT:focusT,lookBack:4,cell:52,trails:mode==='dots',labels:true,fronts:mode==='dots'});
+    if(mode!=='dots'){
+      onion(api,3);
+      const order=F.roster.filter(c=>c!==ME).concat([ME]);
+      for(const c of order){
+        if(c===ME || mode==='all') ribbon(api,c,'full');
+        else ribbon(api,c,'thin');
+      }
+      for(const c of F.roster) if(mode==='all'||c===ME) beads(api,c);
+      notch(api);
+    }
+    if(mode==='all'){
+      mark(f1,api,1,7,3,-32,-26);
+      mark(f1,api,2,7,3,-32,30);
+      mark(f1,api,3,8,2,26,-26);
+      mark(f1,api,4,7,4,58,-44);
+      mark(f1,api,5,7,4,-32,32);
+      mark(f1,api,6,14,1,34,-36);
+      mark(f1,api,7,4,4,-30,-28);
+      mark(f1,api,8,12,6,-30,-26);
+    }
+    return api;
+  }
+  render('all');
+  document.querySelectorAll('#p03 .bar .btn').forEach(b=>{
+    b.onclick=()=>{
+      document.querySelectorAll('#p03 .bar .btn').forEach(o=>o.classList.remove('sel'));
+      b.classList.add('sel'); render(b.dataset.mode);
+    };
+  });
+
+  // Legend
+  (function(){
+    const L=document.getElementById('leg1');
+    function chip(html,label){ const s=document.createElement('span'); s.innerHTML=html+'<em style="font-style:normal">'+label+'</em>'; L.appendChild(s); }
+    chip('<svg width="34" height="12"><path d="M2,6 L32,6" stroke="'+C.C.hex+'" stroke-width="6" stroke-linecap="round"/></svg>','worldline, bright near t8');
+    chip('<svg width="20" height="12"><path d="M4,2 L16,6 L4,10 Z" fill="'+C.C.hex+'"/></svg>','walking your direction');
+    chip('<svg width="20" height="12"><path d="M4,2 L16,6 L4,10 Z" fill="none" stroke="'+C.A.hex+'" stroke-width="1.4"/></svg>','walking the other way');
+    chip('<svg width="20" height="16"><path d="M4,10 A6,6 0 1 1 16,10" fill="none" stroke="'+C.T.hex+'" stroke-width="2.4"/><path d="M16,12 l3,-4 l-6,0 Z" fill="'+C.T.hex+'"/></svg>','inversion');
+    chip('<svg width="16" height="12"><circle cx="8" cy="6" r="5" fill="var(--key)" stroke="'+C.C.hex+'" stroke-width="1.4"/></svg>','key on this index');
+    chip('<svg width="20" height="12"><path d="M3,6 L17,6" stroke="'+C.A.hex+'" stroke-width="5" stroke-linecap="round"/><path d="M3,6 L17,6" stroke="var(--surface-2)" stroke-width="1.2"/></svg>','front notch, index gap');
+    chip('<svg width="20" height="16"><circle cx="10" cy="8" r="6" fill="none" stroke="'+C.A.hex+'" stroke-width="2" opacity=".55"/></svg>','onion ring, earlier turn');
+  })();
+
+  // Figure 2: today's dots vs onion rings, cropped to (2,1)-(9,6)
+  function crop(api){ api.svg.setAttribute('viewBox', (2*api.s)+' '+(1*api.s)+' '+(8*api.s)+' '+(6*api.s)); }
+  crop(MK.board(document.getElementById('f2a'),{focusT:focusT,lookBack:4,cell:52,trails:true,labels:true}));
+  const b2=MK.board(document.getElementById('f2b'),{focusT:focusT,lookBack:4,cell:52,trails:false,labels:true});
+  onion(b2,3); crop(b2);
+
+  // Figure 3: mine only
+  const f3=document.getElementById('f3');
+  const a3=MK.board(f3,{focusT:focusT,lookBack:4,cell:52,trails:false,labels:true,fronts:false});
+  onion(a3,3);
+  for(const c of F.roster) if(c!==ME) ribbon(a3,c,'thin');
+  ribbon(a3,ME,'full');
+  beads(a3,ME); notch(a3);
+})();
+</script>
+</body></html>

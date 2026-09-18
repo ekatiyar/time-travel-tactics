@@ -1,0 +1,628 @@
+<!doctype html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
+<title>16 Art direction · tbtt mockups</title><link rel="stylesheet" href="shared/mock.css">
+<style>
+/* Scoped to #p16 so nothing leaks into the shared chrome. */
+#p16 .styles{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:20px}
+@media(max-width:860px){#p16 .styles{grid-template-columns:1fr}}
+#p16 .styles .fig{margin:0}
+#p16 .panelwrap{position:relative;display:flex;justify-content:center;line-height:0}
+#p16 .fig .frame{padding:10px;width:max-content;max-width:100%;margin:0 auto}
+#p16 .styname{display:flex;align-items:baseline;gap:9px;margin:0 0 8px}
+#p16 .styname b{font-size:15px;font-weight:500;color:var(--text-primary)}
+#p16 .styname span{font-family:var(--mono);font-size:11.5px;color:var(--text-muted)}
+#p16 .spec{margin:10px 0 0;font-size:12.5px}
+#p16 .spec div{display:flex;gap:9px;padding:3px 0;border-top:1px solid var(--border)}
+#p16 .spec .lb{flex:none;width:92px;font-family:var(--mono);font-size:11px;color:var(--text-muted);padding-top:2px}
+#p16 .spec .vl{color:var(--text-secondary)}
+#p16 .spec .vl b{color:var(--text-primary);font-weight:500}
+#p16 .ref{max-width:392px}
+#p16 .ref .fig{margin:0}
+#p16 .refrow{display:grid;grid-template-columns:392px minmax(0,1fr);gap:20px;align-items:start}
+@media(max-width:860px){#p16 .refrow{grid-template-columns:1fr}#p16 .ref{max-width:none}}
+#p16 table.cmp td.tok{font-family:var(--mono);font-size:11.5px;color:var(--text-primary);white-space:nowrap}
+#p16 table.cmp td{font-size:12.5px}
+#p16 table.cmp .hex{font-family:var(--mono);font-size:11px}
+#p16 .chipswatch{display:inline-block;width:10px;height:10px;border-radius:2px;margin-right:5px;
+  vertical-align:middle;border:1px solid rgba(255,255,255,.18)}
+#p16 .rec{max-width:880px}
+#p16 figure.fig{margin-bottom:24px}
+#p16 .sweep{animation:p16sweep 3.2s linear infinite}
+@keyframes p16sweep{0%{opacity:.25}45%{opacity:1}100%{opacity:.25}}
+@media(prefers-reduced-motion:reduce){#p16 .sweep{animation:none}}
+</style></head>
+<body><main class="mk-page" id="p16">
+<h1>Art direction</h1>
+<p class="mk-lede">The prototype is deliberately neutral: two dark greys, one light grey, four hues and a yellow, all flat. That is a placeholder, not a decision. This page draws the same six-by-five crop of the fixture five times, once in the current tokens and once in each of four directions, and judges each on the three things this game is hard to read at a glance: which way a body is walking, what its personal index is, and where the key and the fronts are.</p>
+<div class="mk-meta"><span class="req">UI req: identity and personal index on every body</span><span class="req">UI req: the personal-index gap for an inbound front</span><span>Open question: what distinguishes urgent threats without overloading player colours</span></div>
+
+<h2>The crop, and the reference drawing</h2>
+<div class="refrow">
+  <div class="ref">
+    <figure class="fig">
+      <p class="styname"><b>0 · today</b><span>current tokens</span></p>
+      <div class="frame"><div class="panelwrap" id="pan-0"></div></div>
+      <figcaption>Tiles x6 to x11, y2 to y6, the middle of the board where the match is being decided. Both live bodies, both key-holding chains, Juno's front and the centre tile are inside it.</figcaption>
+    </figure>
+  </div>
+  <div>
+    <figure class="fig">
+      <p class="styname"><b>1 · Blueprint</b><span>engineering drawing, mono, one hue</span></p>
+      <div class="frame"><div class="panelwrap" id="pan-1"></div></div>
+      <ul class="callouts" style="columns:2">
+        <li><b>1</b>Rook 17, your live body at (8,2), t8, walking backward. It holds the key on its right side.</li>
+        <li><b>2</b>Juno 17, Amber's live body at (7,3), t7, walking forward, also holding a key. Two real keys exist at once.</li>
+        <li><b>3</b>(7,4) carries three marks: your Rook 14 at t11 with the key, Juno 16 at t6 with the key, and Juno's front. This is the tile every style has to survive.</li>
+        <li><b>4</b>The centre tile (8,4), drawn with the loose key as it looks at t0 to t5 before anyone picks it up. Every style has to draw the key twice, loose and held.</li>
+        <li><b>5</b>Wall at (9,3). The other wall in the crop is (6,6), bottom left.</li>
+        <li><b>6</b>Your chain 14 to 17 runs up the column x7 then steps right; Juno's chain 14 to 17 comes up x6 and turns in. They cross at (7,3) and (7,4) four and five world turns apart.</li>
+      </ul>
+      <figcaption>Dark navy, cyan rules, everything annotated. Direction is a chevron on the token rim plus a signed annotation; the front is a dimension line from the front tile to the body it will reach, labelled with the gap.</figcaption>
+      <div class="spec">
+        <div><span class="lb">direction</span><span class="vl"><b>Weak.</b> Line drawings have no fill, so the filled-versus-outlined rule is gone and direction lives on a 10px chevron.</span></div>
+        <div><span class="lb">index</span><span class="vl"><b>Strong.</b> Mono numerals on a flat field are the most legible thing on the page, and annotations can carry the index gap in words.</span></div>
+        <div><span class="lb">key, front</span><span class="vl"><b>Strong for fronts, weak for keys.</b> Dimension lines state "gap 4" exactly. The key is another small cyan-outlined square among many squares.</span></div>
+        <div><span class="lb">24&times;13 board</span><span class="vl"><b>No.</b> At 15px cells the annotations have nowhere to live and 1px cyan rules on navy lose contrast on a phone outdoors.</span></div>
+        <div><span class="lb">theme cost</span><span class="vl"><b>High.</b> The look is one hue, so the four player colours become foreign objects and need re-picking against navy. Light theme is a second full palette.</span></div>
+      </div>
+    </figure>
+  </div>
+</div>
+
+<h2>Three more directions</h2>
+<div class="styles">
+  <figure class="fig">
+    <p class="styname"><b>2 · Pixel</b><span>8px unit, dithered shadow</span></p>
+    <div class="frame"><div class="panelwrap" id="pan-2"></div></div>
+    <figcaption>Everything snaps to an 8px unit: a 56px tile is 7 units, a body is 5, the key is 2, the direction pip is 1. Shadows are 4px checkerboard dither rather than alpha.</figcaption>
+    <div class="spec">
+      <div><span class="lb">direction</span><span class="vl"><b>Strong.</b> Fill versus outline survives, and the 8px pip on the leading edge is a second, redundant channel that reads at arm's length.</span></div>
+      <div><span class="lb">index</span><span class="vl"><b>Adequate.</b> Numerals are crisp but the unit grid forces them to 12px or 16px with nothing between, so a 5-glyph stack label does not fit a body.</span></div>
+      <div><span class="lb">key, front</span><span class="vl"><b>Strong.</b> A 16px saturated yellow square on a dark tile is unmissable, and the stepped arrow gives the front a shape nothing else uses.</span></div>
+      <div><span class="lb">24&times;13 board</span><span class="vl"><b>No.</b> A 15px cell is under two units. The whole grammar collapses; it would need a second, smaller sprite set.</span></div>
+      <div><span class="lb">theme cost</span><span class="vl"><b>Medium.</b> Hues brighten by about 20% and keep their identity. Light theme needs a separate floor pair, not a token flip.</span></div>
+    </div>
+  </figure>
+
+  <figure class="fig">
+    <p class="styname"><b>3 · Neon vector</b><span>black, additive glow, motion streaks</span></p>
+    <div class="frame"><div class="panelwrap" id="pan-3"></div></div>
+    <figcaption>Black field, glowing strokes, and the history chain drawn as a tapering streak so a body's last four indices read as motion. The key and the fronts are the only things allowed to bloom.</figcaption>
+    <div class="spec">
+      <div><span class="lb">direction</span><span class="vl"><b>Strong.</b> The streak tapers away from where the body came from, which shows direction as a shape rather than as a fill rule, and it also shows speed through a tile.</span></div>
+      <div><span class="lb">index</span><span class="vl"><b>Weak.</b> Glow eats small type. Numerals need a dark plate behind them, which puts a hole in the effect on every body.</span></div>
+      <div><span class="lb">key, front</span><span class="vl"><b>Strongest of the four.</b> Bloom is a channel nothing else uses, so urgency gets its own dimension without touching the four hues.</span></div>
+      <div><span class="lb">24&times;13 board</span><span class="vl"><b>Partly.</b> Glow radius does not scale down: at 15px cells neighbouring bodies bleed into one smear. It needs a radius cap and then it is just bright flat colour.</span></div>
+      <div><span class="lb">theme cost</span><span class="vl"><b>High.</b> There is no light version of additive glow. A light theme is a different art direction, not a token set.</span></div>
+    </div>
+  </figure>
+
+  <figure class="fig">
+    <p class="styname"><b>4 · Tabletop</b><span>paper board, wooden tokens</span></p>
+    <div class="frame"><div class="panelwrap" id="pan-4"></div></div>
+    <figcaption>Printed paper board, turned wooden discs with a drop shadow, a brass key, and hand-drawn dashed outlines for the centre and for spawns. Direction is the physical answer: your direction is face up, the opposite direction is the token flipped to its dark back.</figcaption>
+    <div class="spec">
+      <div><span class="lb">direction</span><span class="vl"><b>Strong and teachable.</b> A flipped token is a rule players already know from board games, and it holds up when the token is 15px.</span></div>
+      <div><span class="lb">index</span><span class="vl"><b>Adequate.</b> Engraved numerals read well at 56px and turn to mud under the shadow at 20px; they want to be printed flat, not carved.</span></div>
+      <div><span class="lb">key, front</span><span class="vl"><b>Good for the key, weak for fronts.</b> A brass square is obviously a possession. A front is not a physical object, so it becomes a drawn arrow sitting on top of the fiction.</span></div>
+      <div><span class="lb">24&times;13 board</span><span class="vl"><b>No.</b> Drop shadows and rim light need about 24px of token to read. Below that the board is grey discs on beige.</span></div>
+      <div><span class="lb">theme cost</span><span class="vl"><b>Highest.</b> It is a light theme by nature. A dark version means a different table, different wood and a second shadow model, so it is two art directions.</span></div>
+    </div>
+  </figure>
+
+  <figure class="fig">
+    <p class="styname"><b>Side by side, one tile</b><span>(7,4), the crowded tile</span></p>
+    <div class="frame"><div class="panelwrap" id="pan-5"></div></div>
+    <figcaption>The tile that carries Rook 14 with the key at t11, Juno 16 with the key at t6, and Juno's front. Drawn at 56px, at 20px, and at 20px magnified three times so the geometry is visible. 20px is what a 24&times;13 board gives on a 390px phone.</figcaption>
+    <div class="spec">
+      <div><span class="lb">reading</span><span class="vl">At 20px no style keeps the numeral, so the personal index is gone in all five. Identity by hue, direction by fill or flip, and the key square all survive in today, pixel and tabletop. Blueprint loses the key, which is an outline at this size and reads as a hole. Neon's glow roughly doubles the apparent size of a body, so the two bodies on this tile merge into one mass.</span></div>
+    </div>
+  </figure>
+</div>
+
+<h2>Recommendation</h2>
+<div class="mk-prose rec">
+<p><strong>Keep the flat neutral base and buy two things.</strong> None of the four is worth adopting whole. Three of them fail the board size the game is heading towards, and two of them are a second full palette before they render a pixel. But the current look is not finished either: it spends colour on identity and nothing on urgency, which is why the key and the fronts are the weakest reads today.</p>
+<p><strong>Buy the annotation grammar from Blueprint.</strong> Mono labels, leader lines and a dimension line with a number on it. That is exactly the shape of the facts this game has to state: gap 4, index 14 to 17, t11. It costs one type style and a line style, it works in both themes, and it is the only one of the four that makes the rules easier to say out loud.</p>
+<p><strong>Buy the bloom from Neon, for two objects only.</strong> The key and the fronts. Additive glow is the one perceptual channel the current design has not spent, it is hue-independent so it does not fight the four player colours, and it degrades to a plain bright fill when the radius is capped on small cells. Nothing else on the board is allowed to glow, which is what makes it mean urgency.</p>
+<p><strong>Reject Pixel and Tabletop as the whole direction, and keep both in reserve.</strong> Pixel is the best of the four at the size the prototype runs at now and the worst at the size it is heading to; if boards stay at 16 columns it is a real candidate and the cheapest of the four. Tabletop is the best answer to direction anyone here has, the flipped token, and that idea can be lifted into the flat style without the wood. It is also the right look for a replay or share image, where the board is large and still.</p>
+</div>
+
+<h2>How the current token set maps</h2>
+<p class="mk-prose" style="margin-top:0">Every value the prototype themes today, against what each direction would need. Where a cell says more than a colour, that direction needs a new token, not a new value.</p>
+<table class="cmp">
+  <thead><tr><th style="width:132px">token</th><th>today (dark)</th><th>1 Blueprint</th><th>2 Pixel</th><th>3 Neon</th><th>4 Tabletop</th></tr></thead>
+  <tbody>
+    <tr><td class="tok">--surface-0</td><td class="hex">#17161A</td><td class="hex">#08192A</td><td class="hex">#12121A</td><td class="hex">#050507</td><td class="hex">#D8C49C</td></tr>
+    <tr><td class="tok">--surface-1</td><td class="hex">#212024 <span class="sec">(floor)</span></td><td class="hex">#0C2338</td><td class="hex">#232334 <span class="sec">+ #1D1D2B checker</span></td><td class="hex">#0B0B10</td><td class="hex">#E7D8B8 <span class="sec">+ paper noise</span></td></tr>
+    <tr><td class="tok">--wall</td><td class="hex">#6E6B73 <span class="sec">at 0.38</span></td><td class="hex">#1B3A55 <span class="sec">+ hatch pattern</span></td><td class="hex">#4A4A63 <span class="sec">+ #6A6A85 top edge</span></td><td class="hex">#111118 <span class="sec">+ #2A6070 edge</span></td><td class="hex">#8C6A42 <span class="sec">+ shadow</span></td></tr>
+    <tr><td class="tok">--border</td><td class="hex">#37353B</td><td class="hex">#2E6B82 <span class="sec">at 0.35</span></td><td class="hex">#000000 <span class="sec">1 unit, hard</span></td><td class="hex">#1A1A22</td><td class="hex">#9A8461</td></tr>
+    <tr><td class="tok">--text-primary</td><td class="hex">#EDEAE4</td><td class="hex">#BFEFF8</td><td class="hex">#FFFFFF</td><td class="hex">#E6F2FF <span class="sec">needs a plate</span></td><td class="hex">#32251A</td></tr>
+    <tr><td class="tok">--text-secondary</td><td class="hex">#A8A49C</td><td class="hex">#5FA8BE</td><td class="hex">#9A9AB8</td><td class="hex">#6E7E92</td><td class="hex">#6B5942</td></tr>
+    <tr><td class="tok">--key</td><td class="hex">#F2C94C</td><td class="hex">#8FE8F5 <span class="sec">outline + hatch</span></td><td class="hex">#FFD23D</td><td class="hex">#FFE45C <span class="sec">+ 10px bloom</span></td><td class="hex">#C9A227 <span class="sec">brass, 2px shadow</span></td></tr>
+    <tr><td class="tok">--C <span class="sec">Coral</span></td><td class="hex">#D85A30</td><td class="hex">#D85A30 <span class="sec">foreign on navy</span></td><td class="hex">#FF7A45</td><td class="hex">#FF6A3D <span class="sec">+ 6px bloom</span></td><td class="hex">#B4562C <span class="sec">stain over wood</span></td></tr>
+    <tr><td class="tok">--A <span class="sec">Amber</span></td><td class="hex">#C98F12</td><td class="hex">#C98F12 <span class="sec">collides with key</span></td><td class="hex">#F5B72A</td><td class="hex">#FFC23D</td><td class="hex">#A8801F <span class="sec">collides with brass</span></td></tr>
+    <tr><td class="tok">--dot-floor</td><td class="hex">0.22 <span class="sec">oldest history alpha</span></td><td class="hex">0.35 <span class="sec">line weight, not alpha</span></td><td class="hex">1.0 <span class="sec">dither, no alpha</span></td><td class="hex">0.15 <span class="sec">streak tail</span></td><td class="hex">0.45 <span class="sec">printed ghost</span></td></tr>
+    <tr><td class="tok">--mono</td><td class="hex">system mono</td><td class="hex">system mono, 0.08em tracking</td><td class="hex">mono 700, crisp edges</td><td class="hex">mono 300, 0.12em tracking</td><td class="hex">a serif, engraved</td></tr>
+  </tbody>
+</table>
+
+<h2>Trade-offs</h2>
+<div class="mk-pc">
+  <div class="pro"><h3>Pros</h3><ul>
+    <li>Judging four directions on one crop of real fixture data makes the comparison about legibility rather than taste. The crowded tile (7,4) breaks three of the five styles and that shows up immediately.</li>
+    <li>The recommendation is two additions, an annotation grammar and a bloom reserved for two objects, rather than a re-skin, so it can ship in pieces.</li>
+    <li>Bloom for the key and the fronts uses a channel the four player hues do not use, which is the open question about urgency answered with something other than a fifth colour.</li>
+    <li>The token table says exactly which directions need new tokens rather than new values, which is the real cost line.</li>
+  </ul></div>
+  <div class="con"><h3>Cons</h3><ul>
+    <li>Five hand-drawn panels are five renderers. Nothing here is proof that any of them survives contact with a full 16&times;9 board in motion, with stacks, bounces and inversions.</li>
+    <li>The 20px row is a still image of a size problem. The honest test is a live board at that size, which this page does not give.</li>
+    <li>Only dark styles were pushed hard. Tabletop is judged partly on being light, which is a fair cost but not a fair aesthetic comparison.</li>
+    <li>Additive glow has an accessibility cost that is not measured here: it lowers text contrast near the glowing object and it is exactly the effect that some players turn down.</li>
+    <li>The flipped-token idea for direction is recommended without being drawn in the flat style, so it is a claim, not a mockup.</li>
+  </ul></div>
+</div>
+
+<h2>What it answers</h2>
+<div class="mk-prose">
+<p>It gives <strong>what visual treatment distinguishes urgent threats without overloading player colours</strong> a concrete answer with a drawing behind it: additive bloom, reserved for the key and for fronts, hue-independent, capped in radius on small cells.</p>
+<p>It serves <strong>identity and personal index on every body</strong> by measuring each direction against the numeral, and it is where the page is most useful as a negative result: three of the four candidate styles make the index harder to read than the placeholder does.</p>
+<p>It leaves <strong>how erasure and restoration fronts read</strong> untouched, because none of these styles was drawn with a hole in the timeline in it. It also leaves the animation language to page 07; a style that looks good still can still fail in motion.</p>
+</div>
+
+<h2>Cost</h2>
+<div class="mk-prose">
+<p><strong>S for the recommendation, L for any of the four whole.</strong> The annotation grammar is a type style, a 1px leader line and a label component in <code>ui.tsx</code>, plus two tokens in <code>style.css</code> for the line and the label ink. The bloom is one SVG filter and a rule that only the key square and front triangles may reference it, plus a radius that is a function of cell size, which is a few lines in the board renderer.</p>
+<p>Adopting a direction whole is a different job. Each needs the ten tokens above re-picked in both themes, and three of them need new tokens the theme system does not have: a hatch pattern and a leader colour for blueprint, a checker pair and a unit size for pixel, a bloom radius and a streak taper for neon, a paper texture and a shadow model for tabletop. Pixel additionally needs the board renderer to snap to a unit grid, which means giving up the current <code>cqmin</code> scaling in <code>style.css</code>; that is the only one of the four that changes how the board is laid out rather than how it is painted. None of them needs an engine or view change.</p>
+</div>
+</main>
+<script src="shared/fixture.js"></script><script src="shared/board.js"></script><script src="shared/nav.js"></script>
+<script>
+(function(){
+  const F=MK.F, C=MK.C, el=MK.el;
+
+  // ---------- the crop, straight from the fixture ----------
+  const X0=6, Y0=2, CW=6, CH=5;
+  const inCrop=(x,y)=>x>=X0&&x<X0+CW&&y>=Y0&&y<Y0+CH;
+  const loc=(b)=>({p:b.p,t:b.t,dir:b.dir,live:!!b.live,color:b.color,lx:b.x-X0,ly:b.y-Y0,
+                   key:MK.heldBy(b)||null,ox:0,oy:0,rf:1});
+  const SC={
+    walls:F.walls.filter((w)=>inCrop(w[0],w[1])).map((w)=>[w[0]-X0,w[1]-Y0]),
+    centre:[F.center[0]-X0,F.center[1]-Y0],
+    chains:{C:MK.path('C').filter((b)=>b.p>=14&&inCrop(b.x,b.y)).map(loc),
+            A:MK.path('A').filter((b)=>b.p>=14&&inCrop(b.x,b.y)).map(loc)},
+    front:(function(){const f=F.fronts[0];return {lx:f.x-X0,ly:f.y-Y0,gap:f.gap,color:f.color};})()
+  };
+  const MYDIR=F.me.dir;
+  const all=SC.chains.C.concat(SC.chains.A);
+  let draw=all;
+
+  // Two bodies share (7,3) and two share (7,4), four and five world turns apart.
+  // Offset them inside the tile so no style has to draw one on top of the other.
+  (function(){
+    const byTile=new Map();
+    for(const b of all){ const k=b.lx+','+b.ly; if(!byTile.has(k)) byTile.set(k,[]); byTile.get(k).push(b); }
+    for(const arr of byTile.values()){
+      if(arr.length<2) continue;
+      arr.sort((a,b)=>a.t-b.t);
+      arr.forEach((b,i)=>{ const s=i===0?-0.20:0.20; b.ox=s; b.oy=s; b.rf=0.62; });
+    }
+  })();
+
+  // Draw top-left first so the newer body in a shared tile sits on top.
+  draw=all.slice().sort((a,b)=>(a.ly+a.oy)-(b.ly+b.oy));
+
+  // ---------- panel geometry, identical for every style ----------
+  const S=56, PAD=12, BW=CW*S, BH=CH*S, SW=BW+PAD*2, SH=BH+PAD*2;
+  const TX=(lx)=>PAD+lx*S, TY=(ly)=>PAD+ly*S, CX=(lx)=>TX(lx)+S/2, CY=(ly)=>TY(ly)+S/2;
+  const BX=(b)=>CX(b.lx)+b.ox*S, BY=(b)=>CY(b.ly)+b.oy*S, BR=(b,r)=>r*b.rf;
+  function root(w,h){
+    return el('svg',{viewBox:'0 0 '+(w||SW)+' '+(h||SH),width:(w||SW),height:(h||SH),
+      style:'display:block;border-radius:6px'});
+  }
+  const isWall=(lx,ly)=>SC.walls.some((w)=>w[0]===lx&&w[1]===ly);
+
+  // ---------- 0 · today, in the current tokens ----------
+  function today(){
+    const s=root();
+    s.appendChild(el('rect',{x:0,y:0,width:SW,height:SH,fill:'#17161A'}));
+    for(let y=0;y<CH;y++) for(let x=0;x<CW;x++)
+      s.appendChild(el('rect',{x:TX(x)+1,y:TY(y)+1,width:S-2,height:S-2,rx:3,
+        fill:isWall(x,y)?'#6E6B73':'#212024',opacity:isWall(x,y)?0.38:1}));
+    s.appendChild(el('rect',{x:CX(SC.centre[0])-8,y:CY(SC.centre[1])-8,width:16,height:16,rx:2,
+      fill:'#F2C94C',stroke:'#17161A'}));
+    for(const b of draw){
+      const col=C[b.color].hex, mine=b.dir===MYDIR, op=b.live?1:0.62, r=BR(b,19.6);
+      const g=el('g',{opacity:op});
+      g.appendChild(el('rect',{x:BX(b)-r,y:BY(b)-r,width:r*2,height:r*2,rx:r,
+        fill:mine?col:'transparent',stroke:col,'stroke-width':r*0.17}));
+      g.appendChild(el('text',{x:BX(b),y:BY(b)+r*0.27,'text-anchor':'middle','font-family':'var(--mono)',
+        'font-size':r*0.74,'font-weight':500,fill:mine?C[b.color].ink:'#EDEAE4',text:b.p}));
+      s.appendChild(g);
+      if(b.key) s.appendChild(el('rect',{x:BX(b)+r*0.58,y:BY(b)-4.5,width:9,height:9,rx:2,
+        fill:'#F2C94C',stroke:'#17161A',opacity:op}));
+    }
+    const f=SC.front;
+    s.appendChild(el('path',{d:'M'+(TX(f.lx)+3.4)+','+(TY(f.ly)+S-3.4)+' l7.8,0 l-3.9,-6.7 z',fill:C[f.color].hex}));
+    return s;
+  }
+
+  // ---------- 1 · blueprint ----------
+  function blueprint(){
+    const s=root(), ink='#8FE8F5', line='#2E6B82', dim='#5FA8BE', warn='#E5B84A';
+    s.appendChild(el('rect',{x:0,y:0,width:SW,height:SH,fill:'#08192A'}));
+    s.appendChild(el('rect',{x:PAD,y:PAD,width:BW,height:BH,fill:'#0C2338'}));
+    const defs=el('defs',{});
+    const pat=el('pattern',{id:'bp-hatch',width:7,height:7,patternUnits:'userSpaceOnUse',
+      patternTransform:'rotate(45)'});
+    pat.appendChild(el('rect',{x:0,y:0,width:7,height:7,fill:'#0E2A42'}));
+    pat.appendChild(el('rect',{x:0,y:0,width:2,height:7,fill:'#1B3A55'}));
+    defs.appendChild(pat); s.appendChild(defs);
+    for(let x=0;x<=CW*2;x++) s.appendChild(el('line',{x1:PAD+x*S/2,y1:PAD,x2:PAD+x*S/2,y2:PAD+BH,
+      stroke:line,'stroke-width':x%2?0.5:1,opacity:x%2?0.35:0.75}));
+    for(let y=0;y<=CH*2;y++) s.appendChild(el('line',{x1:PAD,y1:PAD+y*S/2,x2:PAD+BW,y2:PAD+y*S/2,
+      stroke:line,'stroke-width':y%2?0.5:1,opacity:y%2?0.35:0.75}));
+    for(let x=0;x<CW;x++) s.appendChild(el('text',{x:CX(x),y:PAD-3,'text-anchor':'middle',
+      'font-family':'var(--mono)','font-size':8.5,fill:dim,text:'x'+(X0+x)}));
+    for(let y=0;y<CH;y++) s.appendChild(el('text',{x:PAD-4,y:CY(y)+3,'text-anchor':'end',
+      'font-family':'var(--mono)','font-size':8.5,fill:dim,text:'y'+(Y0+y)}));
+    for(const w of SC.walls)
+      s.appendChild(el('rect',{x:TX(w[0])+1,y:TY(w[1])+1,width:S-2,height:S-2,fill:'url(#bp-hatch)',
+        stroke:line,'stroke-width':1.2}));
+    // centre tile, loose key
+    const c=SC.centre;
+    s.appendChild(el('rect',{x:TX(c[0])+6,y:TY(c[1])+6,width:S-12,height:S-12,fill:'none',stroke:dim,
+      'stroke-width':1,'stroke-dasharray':'4 3'}));
+    s.appendChild(el('rect',{x:CX(c[0])-8,y:CY(c[1])-8,width:16,height:16,fill:'none',stroke:ink,'stroke-width':1.6}));
+    s.appendChild(el('line',{x1:CX(c[0])-8,y1:CY(c[1])-8,x2:CX(c[0])+8,y2:CY(c[1])+8,stroke:ink,'stroke-width':1}));
+    s.appendChild(el('text',{x:TX(c[0])+4,y:TY(c[1])-6,'font-family':'var(--mono)',
+      'font-size':8,fill:dim,text:'KEY t0–t5'}));
+    // chains
+    for(const col of ['C','A']){
+      let d='';
+      SC.chains[col].forEach((b,i)=>{ d+=(i?' L':'M')+BX(b)+','+BY(b); });
+      s.appendChild(el('path',{d:d,fill:'none',stroke:C[col].hex,'stroke-width':1,opacity:0.55,
+        'stroke-dasharray':'3 3'}));
+    }
+    for(const b of draw){
+      const col=C[b.color].hex, r=BR(b,b.live?19:16);
+      s.appendChild(el('circle',{cx:BX(b),cy:BY(b),r:r,fill:'#08192A',stroke:col,
+        'stroke-width':b.live?2:1.2,opacity:b.live?1:0.85}));
+      if(b.live) s.appendChild(el('circle',{cx:BX(b),cy:BY(b),r:r+3.5,fill:'none',stroke:col,
+        'stroke-width':0.7,'stroke-dasharray':'2 3'}));
+      const sgn=b.dir===1?1:-1, px=BX(b)+sgn*(r+1), py=BY(b);
+      s.appendChild(el('path',{d:'M'+(px-sgn*5)+','+(py-5)+' L'+(px+sgn*3)+','+py+' L'+(px-sgn*5)+','+(py+5),
+        fill:'none',stroke:col,'stroke-width':1.8}));
+      s.appendChild(el('text',{x:BX(b),y:BY(b)+4,'text-anchor':'middle','font-family':'var(--mono)',
+        'font-size':r*0.72,'letter-spacing':'0.06em',fill:ink,text:b.p}));
+      s.appendChild(el('text',{x:BX(b),y:BY(b)+r+8,'text-anchor':'middle','font-family':'var(--mono)',
+        'font-size':7,fill:dim,text:'t'+b.t+' '+(b.dir===1?'+1':'−1')}));
+      if(b.key){
+        const kx=BX(b)+r*0.62, ky=BY(b)-5;
+        s.appendChild(el('rect',{x:kx,y:ky,width:10,height:10,fill:'#08192A',stroke:ink,'stroke-width':1.3}));
+        s.appendChild(el('line',{x1:kx,y1:ky,x2:kx+10,y2:ky+10,stroke:ink,'stroke-width':0.8}));
+      }
+    }
+    // front, and a dimension line routed through empty tiles to the body it reaches
+    const f=SC.front, target=SC.chains.C[SC.chains.C.length-1];
+    s.appendChild(el('path',{d:'M'+(TX(f.lx)+5)+','+(TY(f.ly)+S-5)+' l20,0 l-10,-15 z',fill:'none',
+      stroke:C[f.color].hex,'stroke-width':1.6}));
+    const ax=TX(f.lx)+15, ay=TY(f.ly)+S-2, ex=BX(target)+22, ey=BY(target);
+    s.appendChild(el('path',{d:'M'+ax+','+ay+' L'+ax+',200 L168,200',fill:'none',stroke:warn,
+      'stroke-width':1,'stroke-dasharray':'5 3'}));
+    s.appendChild(el('path',{d:'M238,200 L320,200 L320,'+ey+' L'+ex+','+ey,fill:'none',stroke:warn,
+      'stroke-width':1,'stroke-dasharray':'5 3'}));
+    s.appendChild(el('path',{d:'M'+ax+','+(ay-9)+' l-3.5,7 l7,0 z',fill:warn}));
+    s.appendChild(el('path',{d:'M'+ex+','+ey+' l7,-3.5 l0,7 z',fill:warn}));
+    s.appendChild(el('rect',{x:168,y:192,width:70,height:16,fill:'#08192A',stroke:warn,'stroke-width':0.8}));
+    s.appendChild(el('text',{x:203,y:203,'text-anchor':'middle','font-family':'var(--mono)',
+      'font-size':9,fill:warn,text:'GAP 4 TURNS'}));
+    // title block
+    const bx=PAD+BW-138, by=PAD+BH-40;
+    s.appendChild(el('rect',{x:bx,y:by,width:138,height:40,fill:'#08192A',stroke:ink,'stroke-width':1}));
+    s.appendChild(el('line',{x1:bx,y1:by+14,x2:bx+138,y2:by+14,stroke:ink,'stroke-width':0.6}));
+    s.appendChild(el('text',{x:bx+5,y:by+10,'font-family':'var(--mono)','font-size':8,fill:ink,
+      text:'TBTT · SHEET 16.1'}));
+    s.appendChild(el('text',{x:bx+5,y:by+25,'font-family':'var(--mono)','font-size':7.5,fill:dim,
+      text:'CROP x6–11 y2–6 · SCALE 1:1'}));
+    s.appendChild(el('text',{x:bx+5,y:by+36,'font-family':'var(--mono)','font-size':7.5,fill:dim,
+      text:'TURN 17/43 · SEED demo · df18'}));
+    // bottom dimension line, broken for its own label
+    const dy=SH-6;
+    s.appendChild(el('path',{d:'M'+PAD+','+dy+' L150,'+dy+' M210,'+dy+' L'+(PAD+BW)+','+dy+
+      ' M'+PAD+','+(dy-3)+' l0,6 M'+(PAD+BW)+','+(dy-3)+' l0,6',stroke:dim,'stroke-width':0.8,fill:'none'}));
+    s.appendChild(el('text',{x:180,y:dy+3,'text-anchor':'middle','font-family':'var(--mono)',
+      'font-size':8,fill:dim,text:'6 TILES'}));
+    return s;
+  }
+
+  // ---------- 2 · pixel ----------
+  const PX={C:'#FF7A45',P:'#9A92FF',T:'#3FD3BE',A:'#F5B72A'};
+  const snap=(v)=>Math.round(v/4)*4;
+  function pixel(){
+    const s=root(), U=8;
+    const defs=el('defs',{});
+    const d1=el('pattern',{id:'px-dith',width:8,height:8,patternUnits:'userSpaceOnUse'});
+    d1.appendChild(el('rect',{x:0,y:0,width:4,height:4,fill:'#000000','fill-opacity':0.5}));
+    d1.appendChild(el('rect',{x:4,y:4,width:4,height:4,fill:'#000000','fill-opacity':0.5}));
+    defs.appendChild(d1);
+    const cp=el('clipPath',{id:'px-clip'});
+    cp.appendChild(el('rect',{x:PAD,y:PAD,width:BW,height:BH}));
+    defs.appendChild(cp); s.appendChild(defs);
+    s.appendChild(el('rect',{x:0,y:0,width:SW,height:SH,fill:'#12121A'}));
+    const g=el('g',{'clip-path':'url(#px-clip)'}); s.appendChild(g);
+    for(let y=0;y<CH;y++) for(let x=0;x<CW;x++){
+      const w=isWall(x,y);
+      g.appendChild(el('rect',{x:TX(x),y:TY(y),width:S,height:S,fill:w?'#4A4A63':((x+y)%2?'#1D1D2B':'#232334'),
+        'shape-rendering':'crispEdges'}));
+      if(w){
+        g.appendChild(el('rect',{x:TX(x),y:TY(y),width:S,height:U,fill:'#6A6A85','shape-rendering':'crispEdges'}));
+        g.appendChild(el('rect',{x:TX(x)+U,y:TY(y)+S,width:S,height:U,fill:'url(#px-dith)','shape-rendering':'crispEdges'}));
+        g.appendChild(el('rect',{x:TX(x)+S,y:TY(y)+U,width:U,height:S,fill:'url(#px-dith)','shape-rendering':'crispEdges'}));
+      }
+      g.appendChild(el('rect',{x:TX(x),y:TY(y),width:S,height:S,fill:'none',stroke:'#12121A',
+        'stroke-width':2,'shape-rendering':'crispEdges'}));
+    }
+    const c=SC.centre;
+    g.appendChild(el('rect',{x:CX(c[0])-8,y:CY(c[1])-4,width:16,height:16,fill:'url(#px-dith)','shape-rendering':'crispEdges'}));
+    g.appendChild(el('rect',{x:CX(c[0])-8,y:CY(c[1])-8,width:16,height:16,fill:'#FFD23D','shape-rendering':'crispEdges'}));
+    g.appendChild(el('rect',{x:CX(c[0])-8,y:CY(c[1])-8,width:16,height:8,fill:'#FFF0A8','shape-rendering':'crispEdges'}));
+    for(const b of draw){
+      const col=PX[b.color], mine=b.dir===MYDIR, half=snap(BR(b,20)), x=snap(BX(b))-half, y=snap(BY(b))-half;
+      const w=half*2;
+      g.appendChild(el('rect',{x:x+U,y:y+w,width:w,height:U,fill:'url(#px-dith)','shape-rendering':'crispEdges'}));
+      g.appendChild(el('rect',{x:x,y:y,width:w,height:w,fill:mine?col:'#12121A',stroke:col,
+        'stroke-width':U/2,'shape-rendering':'crispEdges',opacity:b.live?1:0.82}));
+      const pip=w>=32?U:U/2, pxp=b.dir===1?x+w:x-pip;
+      g.appendChild(el('rect',{x:pxp,y:snap(BY(b))-pip/2,width:pip,height:pip,fill:col,'shape-rendering':'crispEdges'}));
+      g.appendChild(el('text',{x:x+half,y:y+half+5,'text-anchor':'middle','font-family':'var(--mono)',
+        'font-size':w>=32?16:12,'font-weight':700,'letter-spacing':'0.5px',
+        fill:mine?'#12121A':'#FFFFFF',text:b.p}));
+      if(b.key){
+        const ks=w>=32?16:12;
+        g.appendChild(el('rect',{x:x+w-ks/2,y:y+half-ks/2,width:ks,height:ks,fill:'#FFD23D',
+          stroke:'#12121A','stroke-width':2,'shape-rendering':'crispEdges'}));
+      }
+    }
+    // front as a stepped triangle, three rows of the 8px unit
+    const f=SC.front, fx=snap(TX(f.lx)+4), fy=snap(TY(f.ly)+S-4);
+    [[0,24],[4,16],[8,8]].forEach(function(r,i){
+      g.appendChild(el('rect',{x:fx+r[0],y:fy-8*(i+1),width:r[1],height:8,fill:PX.A,
+        stroke:'#12121A','stroke-width':1.5,'shape-rendering':'crispEdges'}));
+    });
+    return s;
+  }
+
+  // ---------- 3 · neon ----------
+  const NE={C:'#FF6A3D',P:'#A79BFF',T:'#3DEBD0',A:'#FFC23D'};
+  function taper(x1,y1,x2,y2,w1,w2){
+    const dx=x2-x1, dy=y2-y1, L=Math.hypot(dx,dy)||1, nx=-dy/L, ny=dx/L;
+    return 'M'+(x1+nx*w1/2)+','+(y1+ny*w1/2)+' L'+(x2+nx*w2/2)+','+(y2+ny*w2/2)+
+           ' L'+(x2-nx*w2/2)+','+(y2-ny*w2/2)+' L'+(x1-nx*w1/2)+','+(y1-ny*w1/2)+' Z';
+  }
+  function neon(){
+    const s=root();
+    const defs=el('defs',{});
+    function glow(id,dev,n){
+      const fl=el('filter',{id:id,x:'-120%',y:'-120%',width:'340%',height:'340%'});
+      fl.appendChild(el('feGaussianBlur',{stdDeviation:dev,result:'b'}));
+      const mg=el('feMerge',{});
+      for(let i=0;i<n;i++) mg.appendChild(el('feMergeNode',{in:'b'}));
+      fl.appendChild(mg); defs.appendChild(fl);
+    }
+    glow('ne-glow',3.5,3); glow('ne-key',6,4); glow('ne-soft',7,2);
+    s.appendChild(defs);
+    s.appendChild(el('rect',{x:0,y:0,width:SW,height:SH,fill:'#050507'}));
+    for(let i=0;i<=CW;i++) s.appendChild(el('line',{x1:TX(i),y1:PAD,x2:TX(i),y2:PAD+BH,stroke:'#1A1A22','stroke-width':1}));
+    for(let i=0;i<=CH;i++) s.appendChild(el('line',{x1:PAD,y1:TY(i),x2:PAD+BW,y2:TY(i),stroke:'#1A1A22','stroke-width':1}));
+    for(const w of SC.walls)
+      s.appendChild(el('rect',{x:TX(w[0])+2,y:TY(w[1])+2,width:S-4,height:S-4,fill:'#111118',
+        stroke:'#2A6070','stroke-width':1}));
+    // tapering streaks: wide at the newest index, thin at the oldest
+    for(const col of ['C','A']){
+      const ch=SC.chains[col], hue=NE[col], n=ch.length;
+      for(let i=1;i<n;i++){
+        const a=ch[i-1], b=ch[i];
+        const w1=3+11*((i-1)/(n-1)), w2=3+11*(i/(n-1));
+        const d=taper(BX(a),BY(a),BX(b),BY(b),w1,w2);
+        s.appendChild(el('path',{d:d,fill:hue,opacity:0.22,filter:'url(#ne-soft)'}));
+        s.appendChild(el('path',{d:d,fill:hue,opacity:0.30}));
+      }
+    }
+    const c=SC.centre;
+    s.appendChild(el('rect',{x:CX(c[0])-9,y:CY(c[1])-9,width:18,height:18,fill:'#FFE45C',
+      filter:'url(#ne-key)',class:'sweep'}));
+    s.appendChild(el('rect',{x:CX(c[0])-7,y:CY(c[1])-7,width:14,height:14,fill:'#FFF6C9'}));
+    for(const b of draw){
+      const hue=NE[b.color], mine=b.dir===MYDIR, r=BR(b,b.live?19:15.5);
+      s.appendChild(el('circle',{cx:BX(b),cy:BY(b),r:r,fill:'none',stroke:hue,
+        'stroke-width':b.live?5:3,filter:'url(#ne-glow)',opacity:b.live?1:0.7}));
+      s.appendChild(el('circle',{cx:BX(b),cy:BY(b),r:r,fill:mine?hue:'#050507',
+        'fill-opacity':mine?0.30:0.55,stroke:hue,'stroke-width':b.live?2.4:1.6}));
+      s.appendChild(el('rect',{x:BX(b)-r*0.72,y:BY(b)-r*0.52,width:r*1.44,height:r*1.04,rx:3,
+        fill:'#050507','fill-opacity':0.78}));
+      s.appendChild(el('text',{x:BX(b),y:BY(b)+5,'text-anchor':'middle','font-family':'var(--mono)',
+        'font-size':r*0.72,'font-weight':300,'letter-spacing':'0.1em',fill:'#E6F2FF',text:b.p}));
+      if(b.key){
+        const kx=BX(b)+r*0.6, ky=BY(b)-6;
+        s.appendChild(el('rect',{x:kx,y:ky,width:12,height:12,fill:'#FFE45C',filter:'url(#ne-key)'}));
+        s.appendChild(el('rect',{x:kx+1,y:ky+1,width:10,height:10,fill:'#FFF6C9'}));
+      }
+    }
+    const f=SC.front;
+    s.appendChild(el('path',{d:'M'+(CX(f.lx)-14)+','+(TY(f.ly)+S-6)+' l28,0 l-14,-19 z',fill:NE.A,
+      filter:'url(#ne-key)',class:'sweep'}));
+    s.appendChild(el('path',{d:'M'+(CX(f.lx)-10)+','+(TY(f.ly)+S-8)+' l20,0 l-10,-14 z',fill:'#FFE7B0'}));
+    return s;
+  }
+
+  // ---------- 4 · tabletop ----------
+  const WD={C:'#B4562C',P:'#6A62A8',T:'#2B7F74',A:'#A8801F'};
+  function wobble(x,y,w,h){
+    const j=()=>(Math.random()-0.5)*2.6;
+    return 'M'+(x+j())+','+(y+j())+' L'+(x+w+j())+','+(y+j())+' L'+(x+w+j())+','+(y+h+j())+
+           ' L'+(x+j())+','+(y+h+j())+' Z';
+  }
+  function tabletop(){
+    const s=root();
+    const defs=el('defs',{});
+    const nz=el('filter',{id:'tt-noise'});
+    nz.appendChild(el('feTurbulence',{type:'fractalNoise',baseFrequency:'0.85',numOctaves:'3'}));
+    nz.appendChild(el('feColorMatrix',{type:'saturate',values:'0'}));
+    defs.appendChild(nz);
+    const sh=el('filter',{id:'tt-shadow',x:'-50%',y:'-50%',width:'220%',height:'220%'});
+    sh.appendChild(el('feDropShadow',{dx:1.5,dy:2.5,stdDeviation:1.8,'flood-color':'#4A3821','flood-opacity':'0.55'}));
+    defs.appendChild(sh);
+    for(const k in WD){
+      const g=el('radialGradient',{id:'tt-'+k,cx:'34%',cy:'28%',r:'78%'});
+      g.appendChild(el('stop',{offset:'0%','stop-color':'#E9CFA2'}));
+      g.appendChild(el('stop',{offset:'55%','stop-color':WD[k]}));
+      g.appendChild(el('stop',{offset:'100%','stop-color':'#5A3A20'}));
+      defs.appendChild(g);
+    }
+    s.appendChild(defs);
+    s.appendChild(el('rect',{x:0,y:0,width:SW,height:SH,fill:'#D8C49C'}));
+    s.appendChild(el('rect',{x:0,y:0,width:SW,height:SH,filter:'url(#tt-noise)',opacity:0.12}));
+    s.appendChild(el('rect',{x:PAD-3,y:PAD-3,width:BW+6,height:BH+6,fill:'#E7D8B8',stroke:'#7A6544','stroke-width':2}));
+    s.appendChild(el('rect',{x:PAD-6,y:PAD-6,width:BW+12,height:BH+12,fill:'none',stroke:'#9A8461','stroke-width':1}));
+    for(let i=1;i<CW;i++) s.appendChild(el('line',{x1:TX(i),y1:PAD,x2:TX(i),y2:PAD+BH,stroke:'#9A8461','stroke-width':0.9}));
+    for(let i=1;i<CH;i++) s.appendChild(el('line',{x1:PAD,y1:TY(i),x2:PAD+BW,y2:TY(i),stroke:'#9A8461','stroke-width':0.9}));
+    for(const w of SC.walls){
+      s.appendChild(el('rect',{x:TX(w[0])+5,y:TY(w[1])+5,width:S-10,height:S-10,rx:2,fill:'#8C6A42',
+        stroke:'#6B5233','stroke-width':1,filter:'url(#tt-shadow)'}));
+      s.appendChild(el('rect',{x:TX(w[0])+8,y:TY(w[1])+8,width:S-16,height:6,rx:2,fill:'#A5804F',opacity:0.6}));
+    }
+    const c=SC.centre;
+    s.appendChild(el('path',{d:wobble(TX(c[0])+5,TY(c[1])+5,S-10,S-10),fill:'none',stroke:'#7A6544',
+      'stroke-width':1.8,'stroke-dasharray':'7 5','stroke-linecap':'round'}));
+    s.appendChild(el('rect',{x:CX(c[0])-9,y:CY(c[1])-9,width:18,height:18,rx:2,fill:'#C9A227',
+      stroke:'#8A6C14','stroke-width':1,filter:'url(#tt-shadow)'}));
+    s.appendChild(el('rect',{x:CX(c[0])-6,y:CY(c[1])-6,width:12,height:4,rx:1,fill:'#E6C95C',opacity:0.8}));
+    // front, drawn on the board in pencil
+    const f=SC.front;
+    s.appendChild(el('path',{d:'M'+(TX(f.lx)+9)+','+(TY(f.ly)+S-7)+' q9,-5 17,-1 M'+(TX(f.lx)+9)+','+(TY(f.ly)+S-7)+
+      ' l0,-17 m-5,7 l5,-8 l6,7',fill:'none',stroke:'#8A3B1E','stroke-width':2.2,'stroke-linecap':'round'}));
+    for(const b of draw){
+      const mine=b.dir===MYDIR, r=BR(b,b.live?21:18);
+      const g=el('g',{filter:'url(#tt-shadow)'});
+      g.appendChild(el('circle',{cx:BX(b),cy:BY(b),r:r,
+        fill:mine?'url(#tt-'+b.color+')':'#3E3122',stroke:mine?'#5A3A20':'#2A2016','stroke-width':1.4}));
+      g.appendChild(el('circle',{cx:BX(b),cy:BY(b),r:r-4,fill:'none',
+        stroke:mine?'#00000022':WD[b.color],'stroke-width':mine?1.2:2.6}));
+      s.appendChild(g);
+      s.appendChild(el('text',{x:BX(b),y:BY(b)+r*0.27,'text-anchor':'middle',
+        'font-family':'Georgia,"Times New Roman",serif','font-size':r*0.72,'font-weight':600,
+        fill:mine?'#2A1B0E':'#E9CFA2',text:b.p}));
+      if(b.live) s.appendChild(el('circle',{cx:BX(b),cy:BY(b),r:r+4,fill:'none',stroke:'#7A6544',
+        'stroke-width':1.2,'stroke-dasharray':'4 4'}));
+      if(b.key) s.appendChild(el('rect',{x:BX(b)+r*0.58,y:BY(b)-6,width:13,height:13,rx:2,fill:'#C9A227',
+        stroke:'#8A6C14','stroke-width':1,filter:'url(#tt-shadow)'}));
+    }
+    return s;
+  }
+
+  // ---------- the crowded tile at two sizes ----------
+  const STY=['today','blueprint','pixel','neon','tabletop'];
+  function tileStrip(){
+    const big=56, small=20, mag=3, GUT=56, colW=76;
+    const W=GUT+colW*5, H=196;
+    const s=root(W,H);
+    const defs=el('defs',{});
+    const fl=el('filter',{id:'ts-glow',x:'-120%',y:'-120%',width:'340%',height:'340%'});
+    fl.appendChild(el('feGaussianBlur',{stdDeviation:2.4,result:'b'}));
+    const mg=el('feMerge',{}); for(let i=0;i<3;i++) mg.appendChild(el('feMergeNode',{in:'b'}));
+    fl.appendChild(mg); defs.appendChild(fl); s.appendChild(defs);
+    s.appendChild(el('rect',{x:0,y:0,width:W,height:H,fill:'var(--surface-2)'}));
+    const rows=[[18,'56px'],[88,'20px'],[116,'20px ×3']];
+    rows.forEach(function(r,ri){
+      const h=ri===0?big:ri===1?small:small*mag;
+      s.appendChild(el('text',{x:6,y:r[0]+h/2+3,'font-family':'var(--mono)','font-size':9,
+        fill:'var(--text-muted)',text:r[1]}));
+    });
+    STY.forEach(function(n,i){
+      const x=GUT+i*colW+(colW-big)/2;
+      s.appendChild(el('text',{x:x+big/2,y:12,'text-anchor':'middle','font-family':'var(--mono)',
+        'font-size':9.5,fill:'var(--text-secondary)',text:n}));
+      s.appendChild(oneTile(n,big,x,18));
+      s.appendChild(oneTile(n,small,x+big/2-small/2,88));
+      const g=el('g',{transform:'translate('+(x+big/2-small*mag/2)+',116) scale('+mag+')'});
+      g.appendChild(oneTile(n,small,0,0));
+      s.appendChild(g);
+    });
+    return s;
+  }
+  function oneTile(style,z,ox,oy){
+    const g=el('g',{transform:'translate('+ox+','+oy+')'});
+    const bg={today:'#212024',blueprint:'#0C2338',pixel:'#232334',neon:'#0B0B10',tabletop:'#E7D8B8'};
+    const mine={today:C.C.hex,blueprint:C.C.hex,pixel:PX.C,neon:NE.C,tabletop:WD.C};
+    const other={today:C.A.hex,blueprint:C.A.hex,pixel:PX.A,neon:NE.A,tabletop:WD.A};
+    const keyc={today:'#F2C94C',blueprint:null,pixel:'#FFD23D',neon:'#FFE45C',tabletop:'#C9A227'};
+    const ink={today:C.C.ink,blueprint:'#8FE8F5',pixel:'#12121A',neon:'#E6F2FF',tabletop:'#2A1B0E'};
+    const px=style==='pixel';
+    const mk=(cx,cy,r,a)=>px
+      ? el('rect',Object.assign({x:Math.round(cx-r),y:Math.round(cy-r),width:Math.round(r*2),
+          height:Math.round(r*2),'shape-rendering':'crispEdges'},a))
+      : el('circle',Object.assign({cx:cx,cy:cy,r:r},a));
+    const sq=(x,y,w,a)=>el('rect',Object.assign({x:x,y:y,width:w,height:w},a));
+    g.appendChild(el('rect',{x:0,y:0,width:z,height:z,rx:px?0:3,fill:bg[style]}));
+    if(style==='tabletop') g.appendChild(el('rect',{x:0,y:0,width:z,height:z,fill:'none',
+      stroke:'#9A8461','stroke-width':0.9}));
+    // Juno 16, opposite direction, earlier world turn: up and left, smaller
+    const ax=z*0.34, ay=z*0.34, ar=z*0.21;
+    if(style==='neon') g.appendChild(mk(ax,ay,ar,{fill:'none',stroke:other[style],
+      'stroke-width':z*0.05,filter:'url(#ts-glow)'}));
+    g.appendChild(mk(ax,ay,ar,{fill:style==='tabletop'?'#3E3122':(style==='today'||px)?bg[style]:'none',
+      stroke:other[style],'stroke-width':z*0.05}));
+    if(z>=50) g.appendChild(el('text',{x:ax,y:ay+z*0.07,'text-anchor':'middle',
+      'font-family':style==='tabletop'?'Georgia,serif':'var(--mono)','font-size':z*0.19,
+      'font-weight':px?700:400,
+      fill:style==='tabletop'?'#E9CFA2':style==='blueprint'?'#8FE8F5':'#EDEAE4',text:'16'}));
+    g.appendChild(sq(ax+ar*0.55,ay-z*0.055,z*0.11,keyc[style]
+      ?{fill:keyc[style],stroke:bg[style],'stroke-width':0.8}
+      :{fill:'none',stroke:'#8FE8F5','stroke-width':1}));
+    // Rook 14, your direction, later world turn: down and right, larger
+    const rx=z*0.62, ry=z*0.62, rr=z*0.25;
+    if(style==='neon') g.appendChild(mk(rx,ry,rr,{fill:'none',stroke:mine[style],
+      'stroke-width':z*0.06,filter:'url(#ts-glow)'}));
+    g.appendChild(mk(rx,ry,rr,{fill:style==='blueprint'?bg[style]:mine[style],
+      'fill-opacity':style==='neon'?0.32:1,stroke:mine[style],'stroke-width':z*0.06}));
+    if(z>=50){
+      if(style==='neon') g.appendChild(el('rect',{x:rx-z*0.17,y:ry-z*0.12,width:z*0.34,height:z*0.24,
+        rx:2,fill:'#050507','fill-opacity':0.78}));
+      g.appendChild(el('text',{x:rx,y:ry+z*0.08,'text-anchor':'middle',
+        'font-family':style==='tabletop'?'Georgia,serif':'var(--mono)','font-size':z*0.22,
+        'font-weight':px?700:500,fill:ink[style],text:'14'}));
+    }
+    g.appendChild(sq(rx+rr*0.6,ry-z*0.06,z*0.12,keyc[style]
+      ?{fill:keyc[style],stroke:bg[style],'stroke-width':0.8}
+      :{fill:'none',stroke:'#8FE8F5','stroke-width':1}));
+    // Juno's front, bottom left
+    g.appendChild(el('path',{d:'M'+(z*0.06)+','+(z*0.95)+' l'+(z*0.20)+',0 l'+(-z*0.10)+','+(-z*0.17)+' z',
+      fill:other[style]}));
+    return g;
+  }
+
+  // ---------- mount ----------
+  function mount(id,svg){ document.getElementById(id).appendChild(svg); }
+  mount('pan-0',today());
+  mount('pan-1',blueprint());
+  mount('pan-2',pixel());
+  mount('pan-3',neon());
+  mount('pan-4',tabletop());
+  mount('pan-5',tileStrip());
+
+  // ---------- callouts on the blueprint panel ----------
+  function mark(n,x,y){
+    const i=document.createElement('i'); i.className='callout'; i.textContent=n;
+    i.style.left=x+'px'; i.style.top=y+'px';
+    document.getElementById('pan-1').appendChild(i);
+  }
+  mark(1,180,22);
+  mark(2,54,60);
+  mark(3,56,180);
+  mark(4,186,166);
+  mark(5,222,78);
+  mark(6,118,70);
+})();
+</script>
+</body></html>

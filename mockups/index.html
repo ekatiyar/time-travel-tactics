@@ -1,0 +1,81 @@
+<!doctype html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
+<title>UI design space · tbtt mockups</title><link rel="stylesheet" href="shared/mock.css">
+<style>
+.gal{display:grid;grid-template-columns:repeat(auto-fill,minmax(300px,1fr));gap:14px;margin:18px 0 30px}
+.gcard{display:block;text-decoration:none;color:inherit;background:var(--surface-1);border:1px solid var(--border);border-radius:12px;padding:14px;transition:border-color .15s}
+.gcard:hover{border-color:var(--accent-br)}
+.gcard .n{font-family:var(--mono);font-size:11px;color:var(--text-muted)}
+.gcard h3{margin:2px 0 4px;font-size:15px;font-weight:500;color:var(--text-primary)}
+.gcard p{margin:0 0 8px;font-size:13px;color:var(--text-secondary)}
+.gcard .thumb{height:96px;border-radius:8px;background:var(--surface-2);border:1px solid var(--border);margin-bottom:10px;overflow:hidden;display:flex;align-items:center;justify-content:center}
+.gcard .thumb img{width:100%;height:100%;object-fit:cover;display:block}
+.tags{display:flex;gap:5px;flex-wrap:wrap}
+.tags span{font-size:10.5px;padding:1px 7px;border-radius:9px;background:var(--surface-2);color:var(--text-muted)}
+.tags span.axis-layout{color:#85B7EB}.tags span.axis-time{color:#E5B84A}.tags span.axis-board{color:#5FBF92}.tags span.axis-flow{color:#EE8A63}.tags span.axis-style{color:#B48EAD}
+.bundle{background:var(--surface-1);border-radius:12px;padding:14px 16px;margin:10px 0}
+.bundle h3{margin:0 0 6px;font-size:15px;color:var(--text-primary)}
+.bundle p{margin:0;font-size:13.5px;color:var(--text-secondary)}
+</style></head>
+<body><main class="mk-page">
+<h1>UI design space for the bootstrap prototype</h1>
+<p class="mk-lede">Eighteen mockup pages exploring how the play screen could change, from small layout moves to a different picture of time. Every page draws the same engine-generated position so the ideas can be compared: meta-turn 17 of a 16x9 bootstrap match, you are Coral holding the key and walking backward, and Amber's older grab will take it from you in 4 turns.</p>
+<div class="mk-meta"><span>Mockups only, no implementation</span><span>Fixture from the real engine (shared/make-fixture.ts)</span><span>Dark and light via the toggle</span></div>
+
+<h2>How to read these</h2>
+<div class="mk-prose"><ul>
+<li>Each page states the idea, shows 2 to 4 mockups with numbered callouts, then lists trade-offs, which design-doc UI requirements or open questions it answers, and a rough cost (S, M, L) split between view-only work and engine view changes.</li>
+<li>Pages are grouped by axis: <strong>layout</strong> (where things go), <strong>time</strong> (how history and fronts read), <strong>board</strong> (how the board itself is drawn), <strong>flow</strong> (setup, input, learning, review), and <strong>style</strong>.</li>
+<li>Most ideas combine. Suggested bundles are at the bottom.</li>
+</ul></div>
+
+<h2>Pages</h2>
+<div class="gal" id="gal"></div>
+
+<h2>Comparison</h2>
+<table class="cmp">
+<tr><th>Page</th><th>Solves</th><th>Cost</th><th>Needs engine view change?</th><th>Risk</th></tr>
+<tr><td>00 Baseline</td><td>Names the current problems</td><td>–</td><td>–</td><td>–</td></tr>
+<tr><td>01 Board-first layout</td><td>Board too small, chrome too loud</td><td>M</td><td>no</td><td>Rails hide controls new players need</td></tr>
+<tr><td>02 Timeline instrument</td><td>Playheads, direction, fronts, gap, custody</td><td>M</td><td>small (key holder per index)</td><td>Vertical space</td></tr>
+<tr><td>03 Worldlines</td><td>History as paths, inversion as a loop</td><td>M</td><td>no</td><td>Clutter with 4 players</td></tr>
+<tr><td>04 Isometric stack</td><td>History as depth</td><td>L</td><td>no</td><td>Occlusion, touch precision</td></tr>
+<tr><td>05 Spacetime cube</td><td>Time as an axis; fronts and holes as planes</td><td>L (S for peek)</td><td>no</td><td>Spaghetti on big boards</td></tr>
+<tr><td>06 Key & fronts</td><td>Key side, steal tile, custody, ETA</td><td>M</td><td>small</td><td>Colour overload</td></tr>
+<tr><td>07 Animations</td><td>Bounce, invert, grab, 2:1 front step</td><td>M</td><td>no</td><td>Board refactor for stable tokens</td></tr>
+<tr><td>08 Input</td><td>Legality inline, predicted outcome</td><td>S–M</td><td>no</td><td>Radial menu on touch</td></tr>
+<tr><td>09 Inspector</td><td>Touch inspection, illegal-move reasons</td><td>S</td><td>no</td><td>Panel churn</td></tr>
+<tr><td>10 Threat layer</td><td>Urgency without player colours</td><td>M</td><td>small (reachable tiles)</td><td>Overload</td></tr>
+<tr><td>11 Mobile</td><td>Portrait play, thumb controls</td><td>M</td><td>no</td><td>Board legibility at 22px cells</td></tr>
+<tr><td>12 Split presents</td><td>Who can I meet, when</td><td>S</td><td>no</td><td>Concept still hard</td></tr>
+<tr><td>13 Setup & lobby</td><td>Seeded preview, seat on spawn</td><td>S–M</td><td>no</td><td>–</td></tr>
+<tr><td>14 Onboarding</td><td>Coach marks, contextual rule cards</td><td>M</td><td>no</td><td>Nagging</td></tr>
+<tr><td>15 Replay</td><td>Meta-turn scrub, custody chart, share</td><td>M</td><td>yes (view at earlier meta-turn)</td><td>–</td></tr>
+<tr><td>16 Art direction</td><td>Identity, contrast</td><td>S per theme</td><td>no</td><td>Legibility at small sizes</td></tr>
+<tr><td>17 Index ramp & glyphs</td><td>Target value at a glance</td><td>S</td><td>no</td><td>Hue confusion</td></tr>
+</table>
+
+<h2>Suggested bundles</h2>
+<div class="bundle"><h3>A. Evolve what exists (M total)</h3><p>01 board-first layout + 02 timeline instrument + 06 key and front language + 08 on-board input + 09 inspector. Keeps the flat board, fixes the three hardest reads (direction, key custody, front ETA), and removes the two range sliders. All view work in ui.tsx and style.css plus one small addition to the bootstrap view.</p></div>
+<div class="bundle"><h3>B. Show the rules moving (M)</h3><p>07 animations + 10 threat layer + 12 split presents. Best return for teaching. Pairs with A. Requires stable keyed tokens in the board component.</p></div>
+<div class="bundle"><h3>C. The big bet (L)</h3><p>05 spacetime cube as a secondary view (or 04 isometric), with 03 worldlines as the 2D fallback. Spectacular for replay (15) and sharing, risky as the primary play surface.</p></div>
+<div class="bundle"><h3>D. Reach (M)</h3><p>11 mobile + 13 setup and lobby + 14 onboarding. Nothing about the board changes; more people get to a first turn.</p></div>
+
+<h2>Where the files are</h2>
+<div class="mk-prose"><p>All pages live in <code>mockups/</code> and open from file:// with no build. Shared tokens are in shared/mock.css, the fixture in shared/fixture.js (regenerate with <code>node --import tsx mockups/shared/make-fixture.ts</code>), the baseline board renderer in shared/board.js, and current-prototype screenshots in current/.</p></div>
+</main>
+<script src="shared/fixture.js"></script><script src="shared/board.js"></script><script src="shared/nav.js"></script>
+<script>
+(function(){
+  const axis = {'00':'flow','01':'layout','02':'time','03':'board','04':'board','05':'time','06':'time','07':'board','08':'flow','09':'flow','10':'board','11':'layout','12':'time','13':'flow','14':'flow','15':'flow','16':'style','17':'style'};
+  const cost = {'00':'–','01':'M','02':'M','03':'M','04':'L','05':'L','06':'M','07':'M','08':'S–M','09':'S','10':'M','11':'M','12':'S','13':'S–M','14':'M','15':'M','16':'S','17':'S'};
+  const gal = document.getElementById('gal');
+  for (const [href, title, desc] of MK_PAGES) {
+    if (href === 'index.html') continue;
+    const n = href.slice(0,2);
+    const a = document.createElement('a'); a.className = 'gcard'; a.href = href;
+    a.innerHTML = `<div class="thumb"><img src="thumbs/${n}.png" alt="" loading="lazy"></div><div class="n">${title.slice(0,2)}</div><h3>${title.slice(3)}</h3><p>${desc}</p><div class="tags"><span class="axis-${axis[n]}">${axis[n]}</span><span>cost ${cost[n]}</span></div>`;
+    gal.appendChild(a);
+  }
+})();
+</script>
+</body></html>

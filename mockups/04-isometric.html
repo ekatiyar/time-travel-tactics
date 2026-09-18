@@ -1,0 +1,273 @@
+<!doctype html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
+<title>04 Isometric time stack · tbtt mockups</title><link rel="stylesheet" href="shared/mock.css">
+<style>
+#p04 .hold{position:relative;line-height:0}
+#p04 .iso{display:block;width:100%;height:auto}
+#p04 .slab{transition:transform .2s ease}
+#p04 .peel .slab{cursor:pointer}
+#p04 .peel .slab:hover{transform:translate(30px,-34px)}
+#p04 .peel .slab:hover .slabTiles{opacity:1}
+#p04 .pairhead{font-size:12.5px;color:var(--text-muted);font-family:var(--mono);margin:0 0 6px}
+#p04 .leg{display:flex;gap:16px;flex-wrap:wrap;font-size:12px;color:var(--text-secondary);margin-top:9px;align-items:center}
+#p04 .leg span{display:inline-flex;gap:6px;align-items:center}
+#p04 .leg svg{display:block}
+#p04 figure.fig{margin-bottom:26px}
+#p04 .four{display:grid;grid-template-columns:1fr 1fr;gap:18px;align-items:start}
+@media(max-width:900px){#p04 .four{grid-template-columns:1fr}}
+@media(prefers-reduced-motion:reduce){#p04 .slab{transition:none}}
+</style></head>
+<body><main class="mk-page" id="p04">
+<h1>Isometric time stack</h1>
+<p class="mk-lede">The flat board puts present and history on one plane and asks colour and opacity to carry the difference. This direction spends a spatial axis instead: tiles become diamonds, walls become raised blocks, and each earlier world turn is a translucent slab hanging below the focus layer, so history reads as depth rather than as dimness.</p>
+<div class="mk-meta"><span class="req">UI req: one combined board for present and history</span><span class="req">UI req: player identity and personal index on every body</span><span>Open question: how touch users inspect a history body</span><span>Open question: should a player see their own known future</span></div>
+
+<figure class="fig">
+  <div class="frame"><div class="hold" id="f1"></div></div>
+  <div class="leg" id="leg1"></div>
+  <figcaption>Fixture board, 16&times;9, focus world turn 8 on top, then t7, t6 and t5 beneath at 92px apart. Tile diamonds are 52&times;26 and inset 10%, so the seams let the slab below glow through. Walls rise 22px on the focus slab and stay flat below.</figcaption>
+  <ul class="callouts">
+    <li><b>1</b>Focus slab, t8. Four bodies: Coral 8 at (4,4), Coral 17 live at (8,2) with the key on its right, Teal 8 at (13,1) and Teal 13 at (14,1). Full brightness, raised walls, index on a floating label.</li>
+    <li><b>2</b>Each slab below is one world turn earlier. Bodies keep their hue and drop to 59%, 44% and 29% opacity. The bottom 92px band of each slab is the only part not covered by the slab above it.</li>
+    <li><b>3</b>Coral's forward bodies 5, 6, 7 and 8 chain straight down through the slabs. That dashed chain is the worldline, and depth makes it a literal descent.</li>
+    <li><b>4</b><span>Coral's live body, index 17, has nothing beneath it. Coral is walking backward, so its previous body, index 16, sits at t9, which is <em>above</em> the focus and off the top of this stack.</span></li>
+    <li><b>5</b>Teal's four inversions at (14,1) are also at t9 and so are absent. The corner looks quiet here and is the busiest tile in the match.</li>
+    <li><b>6</b>The raised wall at (9,3) hides part of the tile behind it. On the flat board a wall never hides anything.</li>
+    <li><b>7</b>Corner pillars tie the slabs together and carry the turn labels down the left edge.</li>
+  </ul>
+</figure>
+
+<figure class="fig">
+  <div class="frame"><div class="hold peel" id="f2"></div></div>
+  <figcaption>Peel variant. Hovering any slab slides it 30px right and 34px up and returns its tiles to full opacity; here t6 is shown already peeled. Peeling is the inspection gesture: it is the only way to read a body that the focus slab covers. Try hovering the other slabs.</figcaption>
+  <ul class="callouts">
+    <li><b>1</b>The peeled slab, t6, now shows all nine of its bodies: Coral 6, Amber 6 and 9, Purple 6 and 7, Teal 6, 15 and 16, and Amber 16 holding the key at (7,4).</li>
+    <li><b>2</b>Amber index 16 at (7,4), t6: the grab that started the front now bearing down on Coral. Covered in the stacked view, visible when peeled.</li>
+    <li><b>3</b>The gap the peel leaves behind shows how much of t6 the focus slab was covering: roughly 70% of the board.</li>
+  </ul>
+</figure>
+
+<h2>Four tiles, both ways</h2>
+<p class="mk-prose" style="margin-top:0">Tiles (3,3) to (4,4) at focus t8, look-back 3, at the same tile width in both. This is where Coral and Amber cross: Coral 5 to 8 walks through and Amber 6 to 10 inverts on top of it.</p>
+<div class="four">
+  <figure class="fig">
+    <p class="pairhead">flat grid · today</p>
+    <div class="frame"><div class="hold" id="f3a"></div></div>
+    <figcaption>Focus bodies are large chips with indices. The three earlier turns are a corner cluster of dots: two colours, five bodies, no order, no indices, and no way to tell that Amber 7 and Amber 8 are the same tile at the same turn on either side of an inversion.</figcaption>
+  </figure>
+  <figure class="fig">
+    <p class="pairhead">isometric stack · four slabs</p>
+    <div class="frame"><div class="hold" id="f3b"></div></div>
+    <figcaption>One turn per slab, so each body has a place and a label. Amber 7 and 8 are two pawns on one diamond at t7. The cost is height: four tiles now need 500px of vertical room, where the flat version needs 300.</figcaption>
+  </figure>
+</div>
+
+<h2>Trade-offs</h2>
+<div class="mk-pc">
+  <div class="pro"><h3>Pros</h3><ul>
+    <li>Depth is a free channel. Colour keeps meaning identity, fill keeps meaning direction, and age stops competing with either.</li>
+    <li>Same-tile stacks stop being stacks. Coral 12 and 13 at t12, or Amber 7 and 8 at t7, become two pawns on two slabs instead of a "12&middot;13" label.</li>
+    <li>The worldline becomes a physical descent, so "which turn was that" has a spatial answer rather than an opacity you have to judge.</li>
+    <li>Walls read as walls. A raised block says "you cannot walk here" without relying on a fill value.</li>
+    <li>It gives the look-back slider something to do that you can see: each notch adds a visible plate.</li>
+  </ul></div>
+  <div class="con"><h3>Cons</h3><ul>
+    <li>Occlusion is severe and it is the central problem. The focus slab covers about 70% of the slab under it, so the default view hides most of what it claims to show.</li>
+    <li>The axis is world time, and half the fixture's interest is at t9 and above. An inverted player's recent history runs off the <em>top</em> of a stack that only goes down.</li>
+    <li>Tiles are no longer square, so grid reading gets harder: "two tiles left" is a diagonal, and reading (x,y) off a diamond takes practice.</li>
+    <li>Touch targets shrink. A past-slab pawn is about 26&times;20px, well under the 44px minimum, and the peel gesture competes with pan.</li>
+    <li>Cost: 144 diamonds and up to 15 wall blocks per slab, plus pawns. At four slabs that is roughly 700 SVG nodes against 144 rects today, and every look-back change rebuilds all of them.</li>
+    <li>Everything moves when the focus turn changes, so the whole stack re-renders each turn rather than a few chips.</li>
+  </ul></div>
+</div>
+
+<h2>What it answers</h2>
+<div class="mk-prose">
+<p>It answers <strong>one combined board for present and history</strong> literally, and answers <strong>identity and personal index on every body</strong> better than the flat board does, because every body gets its own diamond and its own label rather than sharing a tile. It gives a real handle on <strong>touch inspection of a history body</strong>: peel a slab, tap the pawn. That is a better gesture than a long press on a 5px dot.</p>
+<p>It does not help with <strong>fronts</strong>. A front travels through personal index, which cuts across slabs diagonally and has no natural depth reading, so fronts still need the flat board's triangles or page 03's notch. It does not help with <strong>beyond-horizon turns</strong> either: those are above the focus, and this stack only goes down. And it actively argues against itself on <strong>should a player see their own known future</strong>, since an inverted player's whole recorded life is in the direction the stack does not render.</p>
+<p>The honest recommendation is to treat this as an inspection mode rather than the main board. As a mode reached from a body, "show me the last four turns of this corner", the occlusion cost is paid on a 4&times;4 crop where it is cheap. As the default 16&times;9 view it hides more than it reveals.</p>
+</div>
+
+<h2>Cost</h2>
+<div class="mk-prose">
+<p><strong>L.</strong> This is a second renderer, not a change to the existing one. The board in <code>ui.tsx</code> is DOM rects on a CSS grid; this needs an SVG projection, a depth sort by <code>x+y</code>, wall block geometry, pawn geometry and slab transforms. Call it 400 lines of new rendering plus hit-testing, because a diamond is not a rect and pointer events need the painter order reversed.</p>
+<p>No engine view change: <code>view.bodies</code> already carries the world turn per body, which is all a slab needs. The look-back value becomes the slab count directly. The parts that do need engine thought are the ones this view cannot draw, fronts and the horizon, and those stay on the flat board.</p>
+<p>If it ships as an inspection mode on a small crop, it drops to <strong>M</strong>: the same projection over a 4&times;4 window, no peel gesture on desktop hover, and no need to solve hit-testing on 700 nodes.</p>
+</div>
+</main>
+<script src="shared/fixture.js"></script><script src="shared/board.js"></script><script src="shared/nav.js"></script>
+<script>
+(function(){
+  const F=MK.F, C=MK.C, focusT=F.me.t, el=MK.el;
+  const wallSet=new Set(F.walls.map(p=>p[0]+','+p[1]));
+
+  // Isometric stack. turns[0] is the focus slab and sits on top.
+  function iso(host, o){
+    o=Object.assign({turns:[8,7,6,5], x0:0,y0:0, w:F.w, h:F.h, tw:52, gap:92,
+      lift:-1, connect:'C', pillars:true, labels:true, ruler:true}, o||{});
+    const tw=o.tw, th=tw/2, hw=tw/2, hh=th/2;
+    const wallH=tw*0.42, prx=tw*0.25, pry=tw*0.125, ph=tw*0.42, fs=tw*0.215;
+    const padTop=ph+pry+fs*1.9+10;
+    const originX=o.h*hw, originY=padTop;
+    const W=(o.w+o.h)*hw, H=padTop+(o.w+o.h-2)*hh+hh+(o.turns.length-1)*o.gap+14;
+    const rulerW=o.ruler?34:0;
+    const svg=el('svg',{viewBox:(-rulerW)+' 0 '+(W+rulerW)+' '+H, class:'iso'});
+    const px=(x,y,k)=>[originX+((x-o.x0)-(y-o.y0))*hw, originY+((x-o.x0)+(y-o.y0))*hh+k*o.gap+(k===o.lift?-34:0)+0];
+    const liftDX=(k)=>k===o.lift?30:0;
+
+    function diamond(cx,cy,f){ f=f||0.90; const a=hw*f,b=hh*f;
+      return (cx)+','+(cy-b)+' '+(cx+a)+','+cy+' '+cx+','+(cy+b)+' '+(cx-a)+','+cy; }
+
+    const bodiesOf=(t)=>F.bodies.filter(b=>b.t===t && b.x>=o.x0 && b.x<o.x0+o.w && b.y>=o.y0 && b.y<o.y0+o.h);
+
+    // Back to front: lowest slab first.
+    for(let k=o.turns.length-1;k>=0;k--){
+      const t=o.turns[k], isFocus=k===0, age=k;
+      const g=el('g',{class:'slab','data-t':t});
+      const tiles=el('g',{class:'slabTiles',opacity:isFocus?1:(0.42-age*0.06)});
+      g.appendChild(tiles);
+      const deck=el('g',{});
+      const dx=liftDX(k);
+      const list=bodiesOf(t);
+      const byTile=new Map();
+      for(const b of list){ const kk=b.x+','+b.y; if(!byTile.has(kk)) byTile.set(kk,[]); byTile.get(kk).push(b); }
+      for(const arr of byTile.values()) arr.sort((a,b)=>a.p-b.p);
+
+      for(let d=0; d<=(o.w-1)+(o.h-1); d++){
+        for(let x=o.x0;x<o.x0+o.w;x++){
+          const y=d-(x-o.x0)+o.y0;
+          if(y<o.y0||y>=o.y0+o.h) continue;
+          const p=px(x,y,k), cx=p[0]+dx, cy=p[1];
+          const isWall=wallSet.has(x+','+y);
+          tiles.appendChild(el('polygon',{points:diamond(cx,cy),
+            fill:isWall?'var(--wall)':'var(--surface-1)', opacity:isWall?0.5:1,
+            stroke:'var(--border)','stroke-width':isFocus?0.7:0.5}));
+          if(isWall && isFocus){
+            const top=diamond(cx,cy-wallH,0.90);
+            deck.appendChild(el('polygon',{points:cx-hw*0.9+','+(cy-wallH)+' '+cx+','+(cy-wallH+hh*0.9)+' '+cx+','+(cy+hh*0.9)+' '+(cx-hw*0.9)+','+cy,
+              fill:'var(--wall)',opacity:0.34}));
+            deck.appendChild(el('polygon',{points:(cx+hw*0.9)+','+(cy-wallH)+' '+cx+','+(cy-wallH+hh*0.9)+' '+cx+','+(cy+hh*0.9)+' '+(cx+hw*0.9)+','+cy,
+              fill:'var(--wall)',opacity:0.22}));
+            deck.appendChild(el('polygon',{points:top,fill:'var(--wall)',opacity:0.55,stroke:'var(--surface-0)','stroke-width':0.6}));
+          }
+          const arr=byTile.get(x+','+y);
+          if(!arr) continue;
+          arr.forEach((b,i)=>{
+            const col=C[b.color], op=isFocus?1:(0.74-age*0.15);
+            const ox=(arr.length>1?(i-(arr.length-1)/2)*prx*0.9:0);
+            const bx=cx+ox, by=cy+ (arr.length>1? (i-(arr.length-1)/2)*pry*0.5 : 0);
+            const bh=isFocus?ph:ph*0.52, rx=isFocus?prx:prx*0.82, ry=isFocus?pry:pry*0.82;
+            const same=b.dir===F.me.dir;
+            const gg=el('g',{opacity:op,title:F.names[b.color]+' · index '+b.p+' · t'+b.t+(b.live?' · current':'')});
+            gg.appendChild(el('path',{d:'M'+(bx-rx)+','+(by-bh)+'L'+(bx-rx)+','+by+
+              'Q'+(bx-rx)+','+(by+ry)+' '+bx+','+(by+ry)+'Q'+(bx+rx)+','+(by+ry)+' '+(bx+rx)+','+by+
+              'L'+(bx+rx)+','+(by-bh)+'Z', fill:same?col.hex:'var(--surface-2)', stroke:col.hex,'stroke-width':1.4}));
+            gg.appendChild(el('ellipse',{cx:bx,cy:by-bh,rx:rx,ry:ry,fill:same?col.hex:'var(--surface-1)',
+              stroke:col.hex,'stroke-width':1.4, 'fill-opacity':same?1:1}));
+            if(same) gg.appendChild(el('ellipse',{cx:bx,cy:by-bh,rx:rx*0.62,ry:ry*0.62,fill:col.ink,opacity:0.30}));
+            if(b.live) gg.appendChild(el('ellipse',{cx:bx,cy:by+ry*0.2,rx:rx*1.5,ry:ry*1.5,fill:'none',stroke:col.hex,'stroke-width':1.6,opacity:0.75}));
+            const kk=MK.heldBy(b);
+            if(kk) gg.appendChild(el('rect',{x:bx+rx*0.55*(kk.side[0]||1),y:by-bh-ry*0.4,width:tw*0.13,height:tw*0.13,rx:1.5,fill:'var(--key)',stroke:'var(--surface-0)','stroke-width':0.7}));
+            if(o.labels && (isFocus || k===o.lift)){
+              const ly=by-bh-ry-fs*1.15;
+              gg.appendChild(el('rect',{x:bx-fs*0.95,y:ly-fs*0.82,width:fs*1.9,height:fs*1.45,rx:fs*0.5,fill:'var(--surface-0)',opacity:0.88}));
+              gg.appendChild(el('text',{x:bx,y:ly+fs*0.38,'text-anchor':'middle','font-family':'var(--mono)','font-size':fs,fill:col.hex,text:b.p}));
+            }
+            deck.appendChild(gg);
+          });
+        }
+      }
+      g.appendChild(deck);
+      svg.appendChild(g);
+    }
+
+    // Corner pillars and turn ruler, drawn over the stack edge.
+    const over=el('g',{});
+    if(o.pillars){
+      const corners=[[o.x0,o.y0+o.h-1],[o.x0+o.w-1,o.y0+o.h-1]];
+      for(const c of corners){
+        const a=px(c[0],c[1],0), b=px(c[0],c[1],o.turns.length-1);
+        over.appendChild(el('path',{d:'M'+a[0]+','+a[1]+'L'+b[0]+','+b[1],stroke:'var(--border)','stroke-width':1,'stroke-dasharray':'3 4'}));
+      }
+    }
+    if(o.ruler) o.turns.forEach((t,k)=>{
+      const p=px(o.x0,o.y0+o.h-1,k);
+      over.appendChild(el('text',{x:-8,y:p[1]+4,'text-anchor':'end','font-family':'var(--mono)','font-size':12,
+        fill:k===0?'var(--text-primary)':'var(--text-muted)',text:'t'+t}));
+      over.appendChild(el('path',{d:'M-4,'+p[1]+'L'+(p[0]-hw*0.6)+','+p[1],stroke:'var(--border)','stroke-width':0.8,'stroke-dasharray':'2 3'}));
+    });
+    // Worldline chain for one colour, straight down through the slabs.
+    if(o.connect){
+      const path=MK.path(o.connect), idx=new Map(o.turns.map((t,k)=>[t,k]));
+      for(let i=0;i<path.length-1;i++){
+        const a=path[i], b=path[i+1];
+        if(!idx.has(a.t)||!idx.has(b.t)) continue;
+        if(a.x<o.x0||a.x>=o.x0+o.w||b.x<o.x0||b.x>=o.x0+o.w) continue;
+        if(a.y<o.y0||a.y>=o.y0+o.h||b.y<o.y0||b.y>=o.y0+o.h) continue;
+        const ka=idx.get(a.t), kb=idx.get(b.t);
+        const pa=px(a.x,a.y,ka), pb=px(b.x,b.y,kb);
+        over.appendChild(el('path',{d:'M'+(pa[0]+liftDX(ka))+','+(pa[1]-ph*0.5)+'L'+(pb[0]+liftDX(kb))+','+(pb[1]-ph*0.5),
+          stroke:C[o.connect].hex,'stroke-width':1.6,'stroke-dasharray':'4 4',opacity:0.85,
+          title:F.names[o.connect]+' index '+a.p+' at t'+a.t+' → index '+b.p+' at t'+b.t}));
+      }
+    }
+    svg.appendChild(over);
+    host.innerHTML=''; host.appendChild(svg);
+    return {svg,px,W:W+rulerW,H,rulerW,tw:tw,ph:ph,o:o};
+  }
+
+  function mark(host, api, n, x, y, k, dx, dy){
+    const p=api.px(x,y,k);
+    const i=document.createElement('i'); i.className='callout'; i.textContent=n;
+    i.style.left=(100*(p[0]+api.rulerW+(dx||0))/api.W)+'%';
+    i.style.top=(100*(p[1]+(dy||0))/api.H)+'%';
+    i.style.transform='translate(-50%,-50%)';
+    host.appendChild(i);
+  }
+
+  // Figure 1: the full stack
+  const f1=document.getElementById('f1');
+  const a1=iso(f1,{turns:[8,7,6,5]});
+  // Coral 17 has no body below it: annotate with an upward caret.
+  (function(){
+    const p=a1.px(8,2,0);
+    const g=MK.el('g',{});
+    g.appendChild(MK.el('path',{d:'M'+p[0]+','+(p[1]-a1.ph-16)+'L'+p[0]+','+(p[1]-a1.ph-44),
+      stroke:C.C.hex,'stroke-width':1.6,'stroke-dasharray':'4 4',opacity:0.9}));
+    g.appendChild(MK.el('path',{d:'M'+p[0]+','+(p[1]-a1.ph-52)+'l6,10l-12,0Z',fill:C.C.hex}));
+    g.appendChild(MK.el('text',{x:p[0]+10,y:p[1]-a1.ph-46,'font-size':11,fill:'var(--text-secondary)',
+      text:'index 16 is at t9, above the stack'}));
+    a1.svg.appendChild(g);
+  })();
+  mark(f1,a1,1,8,2,0,38,-18);
+  mark(f1,a1,2,11,6,2,30,-6);
+  mark(f1,a1,3,3,4,1,-26,-14);
+  mark(f1,a1,4,8,2,0,-66,-26);
+  mark(f1,a1,5,14,1,0,30,-14);
+  mark(f1,a1,6,9,3,0,36,-14);
+  mark(f1,a1,7,0,8,2,-14,14);
+
+  (function(){
+    const L=document.getElementById('leg1');
+    function chip(html,label){const s=document.createElement('span');s.innerHTML=html+'<em style="font-style:normal">'+label+'</em>';L.appendChild(s);}
+    chip('<svg width="30" height="18"><polygon points="15,3 28,9 15,15 2,9" fill="var(--surface-1)" stroke="var(--border)"/></svg>','tile');
+    chip('<svg width="30" height="24"><polygon points="15,2 28,8 15,14 2,8" fill="var(--wall)" opacity=".55"/><polygon points="2,8 15,14 15,20 2,14" fill="var(--wall)" opacity=".34"/><polygon points="28,8 15,14 15,20 28,14" fill="var(--wall)" opacity=".22"/></svg>','wall block');
+    chip('<svg width="26" height="26"><path d="M6,6 L6,18 Q6,22 13,22 Q20,22 20,18 L20,6 Z" fill="'+C.C.hex+'" stroke="'+C.C.hex+'"/><ellipse cx="13" cy="6" rx="7" ry="3.5" fill="'+C.C.hex+'" stroke="'+C.C.hex+'"/></svg>','body, your direction');
+    chip('<svg width="26" height="26"><path d="M6,6 L6,18 Q6,22 13,22 Q20,22 20,18 L20,6 Z" fill="var(--surface-2)" stroke="'+C.A.hex+'"/><ellipse cx="13" cy="6" rx="7" ry="3.5" fill="var(--surface-1)" stroke="'+C.A.hex+'"/></svg>','body, other direction');
+    chip('<svg width="26" height="18"><ellipse cx="13" cy="9" rx="10" ry="6" fill="none" stroke="'+C.T.hex+'" stroke-width="1.6"/></svg>','live body ring');
+    chip('<svg width="26" height="18"><path d="M4,3 L4,15" stroke="'+C.C.hex+'" stroke-width="1.6" stroke-dasharray="4 4"/><path d="M14,3 L22,15" stroke="var(--border)" stroke-dasharray="3 4"/></svg>','worldline / pillar');
+  })();
+
+  // Figure 2: peel, t6 pre-lifted
+  const f2=document.getElementById('f2');
+  const a2=iso(f2,{turns:[8,7,6,5],lift:2});
+  mark(f2,a2,1,2,8,2,26,-4);
+  mark(f2,a2,2,7,4,2,26,-30);
+  mark(f2,a2,3,3,6,2,-30,34);
+
+  // Figure 3: four tiles, flat against iso
+  const flat=MK.board(document.getElementById('f3a'),{focusT:focusT,lookBack:3,cell:150,labels:true,spawns:false});
+  flat.svg.setAttribute('viewBox','450 450 300 300');
+  iso(document.getElementById('f3b'),{turns:[8,7,6,5],x0:3,y0:3,w:2,h:2,tw:150,gap:104,connect:'C',pillars:false});
+})();
+</script>
+</body></html>

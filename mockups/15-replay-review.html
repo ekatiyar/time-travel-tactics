@@ -1,0 +1,598 @@
+<!doctype html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
+<title>15 Replay &amp; post-match · tbtt mockups</title><link rel="stylesheet" href="shared/mock.css"><style>
+/* scoped to #p15 */
+#p15 .rv{display:flex;flex-direction:column;gap:12px}
+#p15 .banner{display:flex;align-items:center;gap:16px;padding:14px 18px;border-radius:10px;
+  background:linear-gradient(90deg,color-mix(in srgb,var(--C) 26%,var(--surface-1)),var(--surface-1) 62%);
+  border:1px solid var(--border);border-left:4px solid var(--C)}
+#p15 .banner .crown{width:40px;height:40px;border-radius:50%;background:var(--C);color:var(--CI,#FBEDE7);
+  display:flex;align-items:center;justify-content:center;flex:none}
+#p15 .banner h3{margin:0;font-size:19px;font-weight:500;color:var(--text-primary)}
+#p15 .banner .why{font-size:13px;color:var(--text-secondary);margin-top:2px}
+#p15 .banner .grow{flex:1}
+#p15 .banner .acts{display:flex;gap:8px;flex-wrap:wrap}
+#p15 .main{display:grid;grid-template-columns:minmax(0,1fr) 352px;gap:12px;align-items:start}
+@media(max-width:1180px){#p15 .main{grid-template-columns:1fr}}
+#p15 .panel{background:var(--surface-2);border:1px solid var(--border);border-radius:9px;padding:10px 12px}
+#p15 .panel h4{margin:0 0 8px;font-size:12px;font-weight:500;color:var(--text-secondary);
+  display:flex;align-items:center;gap:8px;letter-spacing:.02em}
+#p15 .chip{font-family:var(--mono);font-size:10.5px;padding:1px 7px;border-radius:9px;
+  background:var(--surface-3);color:var(--text-muted);font-weight:400}
+#p15 .boardwrap{position:relative}
+#p15 .boardhead{display:flex;align-items:baseline;gap:10px;margin-bottom:6px;font-size:13px}
+#p15 .boardhead b{font-family:var(--mono);font-weight:500;color:var(--text-primary);font-size:14px}
+#p15 table.stat{border-collapse:collapse;width:100%;font-size:12.5px}
+#p15 table.stat th{font-weight:500;color:var(--text-muted);font-size:11px;text-align:right;padding:0 0 5px 6px}
+#p15 table.stat th:first-child{text-align:left}
+#p15 table.stat td{padding:4px 0 4px 6px;text-align:right;font-family:var(--mono);
+  border-top:1px solid var(--border);color:var(--text-secondary)}
+#p15 table.stat td:first-child{text-align:left;font-family:inherit;color:var(--text-primary)}
+#p15 table.stat td.win{color:var(--text-primary)}
+#p15 .nm{display:flex;align-items:center;gap:7px}
+#p15 ol.chap{margin:0;padding:0;list-style:none;font-size:12.5px;max-height:262px;overflow:auto}
+#p15 ol.chap li{display:flex;gap:9px;padding:4px 6px;border-radius:6px;cursor:default;align-items:baseline}
+#p15 ol.chap li.on{background:var(--accent-bg);box-shadow:inset 0 0 0 1px var(--accent-br)}
+#p15 ol.chap li.proj{opacity:.62}
+#p15 ol.chap li b{font-family:var(--mono);font-size:11.5px;color:var(--text-muted);flex:none;width:30px}
+#p15 ol.chap li.on b{color:var(--accent-br)}
+#p15 ol.chap li span{color:var(--text-secondary)}
+#p15 ol.chap li.key span{color:var(--text-primary)}
+#p15 .transport{display:flex;align-items:center;gap:8px;flex-wrap:wrap;margin-top:8px}
+#p15 .transport .tbtn{width:34px;height:30px;display:flex;align-items:center;justify-content:center;
+  border:1px solid var(--btn-border);border-radius:7px;background:transparent;cursor:pointer;color:var(--text-primary)}
+#p15 .transport .tbtn.on{background:var(--accent-bg);border-color:var(--accent-br)}
+#p15 .rd{font-family:var(--mono);font-size:12.5px;color:var(--text-secondary)}
+#p15 .rewindbar{display:flex;align-items:center;gap:10px;padding:7px 12px;border-radius:8px;
+  background:color-mix(in srgb,var(--warn) 16%,var(--surface-2));border:1px solid var(--warn);
+  font-size:13px;color:var(--text-primary);margin-bottom:9px}
+#p15 .rewindbar .dot{width:8px;height:8px;border-radius:50%;background:var(--warn);flex:none;
+  animation:p15pulse 1.2s ease-in-out infinite}
+@keyframes p15pulse{0%,100%{opacity:1}50%{opacity:.25}}
+#p15 .cardscale{width:604px;height:317px;overflow:hidden;border-radius:8px;border:1px solid var(--border);max-width:100%}
+#p15 .card1200{width:1200px;height:630px;transform:scale(.5033);transform-origin:0 0;
+  background:var(--surface-0);display:grid;grid-template-columns:660px 1fr;gap:0;position:relative}
+#p15 .card1200 .cl{padding:44px 0 44px 48px;display:flex;align-items:center}
+#p15 .card1200 .cr{padding:52px 48px 44px 30px;display:flex;flex-direction:column;justify-content:center;gap:0}
+#p15 .card1200 .ct{font-size:56px;font-weight:500;line-height:1.05;color:var(--text-primary)}
+#p15 .card1200 .cs{font-size:26px;color:var(--text-secondary);margin-top:14px;font-family:var(--mono)}
+#p15 .card1200 .crow{display:flex;align-items:center;gap:12px;font-size:24px;margin-top:11px;color:var(--text-secondary)}
+#p15 .card1200 .crow .sw{width:17px;height:17px}
+#p15 .card1200 .cf{position:absolute;left:48px;bottom:26px;font-size:20px;color:var(--text-muted);font-family:var(--mono)}
+#p15 .legrow{display:flex;gap:16px;flex-wrap:wrap;font-size:11.5px;color:var(--text-muted);margin-top:7px;align-items:center}
+#p15 .legrow span{display:flex;align-items:center;gap:5px}
+#p15 .fig .frame{padding:12px}
+</style></head>
+<body><main class="mk-page" id="p15">
+<h1>Replay &amp; post-match review</h1>
+<p class="mk-lede">Today the match ends with one line of text and the advice to drag the world-turn slider. A match is a
+list of actions the engine can replay exactly, so the ending should be a readable document: what happened, when the key
+changed hands, and a picture worth sending to the other player.</p>
+<div class="mk-meta"><span class="req">UI req: timeline strip with each playhead and direction</span><span class="req">UI req: personal-index gap for an inbound front</span><span>Open question: is two indices per meta-turn the right front rate?</span></div>
+
+<figure class="fig">
+ <div class="frame" id="f1">
+  <div class="rv">
+   <div class="banner">
+    <div class="crown"><svg width="20" height="20" viewBox="0 0 20 20" fill="none"><path d="M3 15h14M3.5 5.5l3.2 3L10 3.5l3.3 5 3.2-3-1.3 9H4.8z" stroke="currentColor" stroke-width="1.6" stroke-linejoin="round"/></svg></div>
+    <div>
+     <h3>Rook wins &middot; meta-turn 33 of 43</h3>
+     <div class="why">Live body at <b class="mono">t0</b> on (2,1), beside its spawn (1,1), holding the key it stole back on meta-turn 22.</div>
+    </div>
+    <div class="grow"></div>
+    <div class="acts"><button class="btn">Copy replay link</button><button class="btn">Save share card</button><button class="btn primary">Rematch, new seed</button></div>
+   </div>
+
+   <div class="main">
+    <div class="panel boardwrap">
+     <div class="boardhead"><b id="bh">meta-turn 13</b><span class="sec" id="bs">Rook picks up the key at t11</span></div>
+     <div id="b1"></div>
+     <div class="legrow">
+      <span><i class="sw" style="background:var(--C)"></i>Rook</span>
+      <span><i class="sw" style="background:var(--A)"></i>Juno</span>
+      <span><i class="sw" style="background:var(--T)"></i>Ash</span>
+      <span><i class="sw" style="background:var(--P)"></i>Mira</span>
+      <span><i style="width:10px;height:10px;background:var(--key);display:inline-block;border-radius:2px"></i>key</span>
+      <span><svg width="10" height="9"><path d="M0 9 L10 9 L5 0 Z" fill="var(--A)"/></svg>front</span>
+      <span>filled = Rook&rsquo;s direction, outline = the other way</span>
+     </div>
+    </div>
+
+    <div style="display:flex;flex-direction:column;gap:12px">
+     <div class="panel">
+      <h4>Chapters <span class="chip">click to jump</span></h4>
+      <ol class="chap" id="chaps"></ol>
+     </div>
+     <div class="panel">
+      <h4>Players <span class="chip">final</span></h4>
+      <table class="stat">
+       <thead><tr><th>Player</th><th>Bodies</th><th>Inv</th><th>Key</th><th>Stuck/blk</th></tr></thead>
+       <tbody>
+        <tr><td class="win"><span class="nm"><i class="sw" style="background:var(--C)"></i>Rook <span class="pill" style="background:var(--C);color:#FBEDE7">win</span></span></td><td>34</td><td>8</td><td>21</td><td>0 / 0</td></tr>
+        <tr><td><span class="nm"><i class="sw" style="background:var(--A)"></i>Juno</span></td><td>34</td><td>2</td><td>13</td><td>0 / 1</td></tr>
+        <tr><td><span class="nm"><i class="sw" style="background:var(--T)"></i>Ash</span></td><td>34</td><td>4</td><td>0</td><td>0 / 0</td></tr>
+        <tr><td><span class="nm"><i class="sw" style="background:var(--P)"></i>Mira</span></td><td>34</td><td>3</td><td>0</td><td>0 / 0</td></tr>
+       </tbody>
+      </table>
+      <div class="legrow" style="margin-top:9px">Key is meta-turns holding a real key. Bodies equal actions taken: only a stuck turn makes none, and nobody was stuck.</div>
+     </div>
+    </div>
+   </div>
+
+   <div class="panel"><h4>Meta-turn scrub <span class="chip">0 &ndash; 43 cap</span></h4><div id="scrub"></div></div>
+   <div class="panel"><h4>Key custody and events <span class="chip">rows ordered by key involvement</span></h4><div id="cust"></div></div>
+  </div>
+  <i class="callout" style="left:22px;top:22px">1</i>
+  <i class="callout" style="left:22px;top:98px">2</i>
+  <i class="callout" style="right:24px;top:98px">3</i>
+  <i class="callout" style="right:24px;top:352px">4</i>
+  <i class="callout" style="left:22px;bottom:170px">5</i>
+  <i class="callout" style="left:22px;bottom:78px">6</i>
+ </div>
+ <figcaption>Post-match screen. Everything above the scrub is one meta-turn of the match; everything below is the whole match at once.</figcaption>
+</figure>
+<ul class="callouts">
+ <li><b>1</b>Outcome states the rule that fired, not just the winner: which tile, which world turn, which spawn, and that a key was held.</li>
+ <li><b>2</b>Board at the selected chapter, drawn by the existing renderer. Chapters are the only navigation most players need.</li>
+ <li><b>3</b>Chapter list doubles as a match summary you can read without touching the board.</li>
+ <li><b>4</b>Four numbers per player. Inversions and key turns are what separate these players; bodies and stuck turns are the sanity check.</li>
+ <li><b>5</b>Scrub runs over meta-turns, not world turns. The cap is drawn to the end so a 33-turn match looks short and a 43-turn one looks exhausted.</li>
+ <li><b>6</b>One row per player. The band is custody of a real key, the ticks are that player&rsquo;s events, and the dashed arrow is a front crossing from the thief to the victim.</li>
+</ul>
+
+<div class="note warn"><strong>Honesty note.</strong> Meta-turns 0 to 17 are engine data from the fixture. Meta-turns 18 to 33
+are a hand-checked continuation, because the fixture stops at 17 and no player can win before then. The continuation is
+rule-legal and checked against the board: Rook cannot re-grab while it still holds a key, so it parks on (8,3) at
+<span class="mono">t7</span> with its key side against the wall at (9,3), which makes it un-stealable; Juno&rsquo;s front
+strips Rook on meta-turn 21; on 22 Rook takes the key back from Juno&rsquo;s recorded body <span class="mono">p17</span> at
+the same world turn, starting a front at key index 7 that Juno&rsquo;s older front can never reach, because fronts only move
+forward. The scrub is interactive over 0 to 17 and marks the boundary; the draw-at-cap banner is shown as a variant below.</div>
+
+<h2>In-match rewind</h2>
+<figure class="fig">
+ <div class="frame" id="f2">
+  <div class="rewindbar"><i class="dot"></i><b>Rewind</b> &mdash; you are looking at meta-turn <b class="mono" id="rwm">10</b>. The match is on meta-turn 17 and your action is not committed.
+   <span style="flex:1"></span><button class="btn" id="rwlive">Back to now</button></div>
+  <div class="main" style="grid-template-columns:minmax(0,1fr) 300px">
+   <div>
+    <div id="b2"></div>
+    <div id="scrub2" style="margin-top:8px"></div>
+    <div class="transport">
+     <button class="tbtn" id="rwfirst" title="first turn">&#124;&#9664;</button>
+     <button class="tbtn" id="rwback" title="step back">&#9664;</button>
+     <button class="tbtn on" id="rwplay" title="play or pause">&#9208;</button>
+     <button class="tbtn" id="rwfwd" title="step forward">&#9654;</button>
+     <button class="tbtn" id="rwlast" title="latest turn">&#9654;&#124;</button>
+     <span class="rd">1 meta-turn / 600 ms</span>
+     <span class="rd" style="color:var(--text-muted)">&middot; <kbd>,</kbd> <kbd>.</kbd> step &middot; <kbd>space</kbd> play</span>
+    </div>
+   </div>
+   <div class="panel">
+    <h4>This turn <span class="chip" id="rwchip">m10</span></h4>
+    <ul id="rwev" style="margin:0;padding:0;list-style:none;font-size:12.5px;line-height:1.5"></ul>
+    <div class="legrow" style="margin-top:10px">Stepping does not send anything. The turn you rewind to is derived from the
+    action log you already hold.</div>
+   </div>
+  </div>
+  <i class="callout" style="left:22px;top:20px">7</i>
+  <i class="callout" style="left:22px;bottom:96px">8</i>
+  <i class="callout" style="left:172px;bottom:34px">9</i>
+  <i class="callout" style="right:24px;top:96px">10</i>
+ </div>
+ <figcaption>Same chapter bar, docked under the board during play. The board is running at one meta-turn per 600 ms.</figcaption>
+</figure>
+<ul class="callouts">
+ <li><b>7</b>A warning rail, not a modal. Rewind never blocks the match, and the reminder that your action is uncommitted stays on screen.</li>
+ <li><b>8</b>The same scrub component as the post-match screen, narrower and without the cap tail. Learning it once is enough.</li>
+ <li><b>9</b>600 ms per meta-turn is slow enough to read four simultaneous moves and fast enough that a 33-turn match takes 20 seconds.</li>
+ <li><b>10</b>Per-turn event list, which is today&rsquo;s log filtered to one meta-turn instead of a scrolling wall.</li>
+</ul>
+
+<h2>Share card</h2>
+<figure class="fig">
+ <div class="frame" id="f3" style="display:flex;gap:18px;flex-wrap:wrap;align-items:flex-start">
+  <div>
+   <div class="cardscale"><div class="card1200">
+     <div class="cl"><div id="b3" style="width:100%"></div></div>
+     <div class="cr">
+      <div class="ct">Rook wins</div>
+      <div class="cs">meta-turn 33 of 43</div>
+      <div style="height:22px"></div>
+      <div class="crow"><i class="sw" style="background:var(--C)"></i>Rook<span style="color:var(--text-muted)">&middot; key at t0</span></div>
+      <div class="crow"><i class="sw" style="background:var(--A)"></i>Juno<span style="color:var(--text-muted)">&middot; lost the key on 27</span></div>
+      <div class="crow"><i class="sw" style="background:var(--T)"></i>Ash<span style="color:var(--text-muted)">&middot; no key</span></div>
+      <div class="crow"><i class="sw" style="background:var(--P)"></i>Mira<span style="color:var(--text-muted)">&middot; no key</span></div>
+     </div>
+     <div class="cf">bootstrap &middot; 16&times;9 &middot; seed demo</div>
+   </div></div>
+   <div class="legrow">1200 &times; 630, drawn at half scale. Rendered from the same board component, so it cannot drift from the game.</div>
+  </div>
+  <div class="panel" style="max-width:330px">
+   <h4>What goes on it</h4>
+   <div class="mk-prose" style="font-size:13px">
+    <p style="margin-top:0">The board thumbnail is the final meta-turn, not turn zero, so the picture shows a full timeline rather than four
+    lonely spawns. Names sit beside their colour because the colours alone are not reliable: Coral and Amber measure
+    &Delta;E 12.9 against each other in normal vision, below the readable floor.</p>
+    <p>Everything on the card is in the resume link already, so the card and the link can be produced from one string.</p>
+   </div>
+  </div>
+  <i class="callout" style="left:24px;top:24px">11</i>
+  <i class="callout" style="left:340px;top:24px">12</i>
+ </div>
+ <figcaption>Link preview for the resume or replay URL.</figcaption>
+</figure>
+<ul class="callouts">
+ <li><b>11</b>Final board as the thumbnail. A 16&times;9 board is already the aspect ratio of a link preview.</li>
+ <li><b>12</b>Result in words in the first line, because most previews truncate everything after it.</li>
+</ul>
+
+<h2>Variants</h2>
+<div class="variants">
+ <figure class="fig"><div class="frame" style="padding:10px" id="v1"></div><figcaption>Draw at the cap: the same banner with no winner. The line that matters is how the key was moving when time ran out.</figcaption></figure>
+ <figure class="fig"><div class="frame" style="padding:10px" id="v2"></div><figcaption>Custody as one lane instead of four rows. Shorter, but it cannot show two players holding a real key at once, which happened for 18 of 33 meta-turns here.</figcaption></figure>
+</div>
+
+<h2>Trade-offs</h2>
+<div class="mk-pc">
+ <div class="pro"><h3>Pros</h3><ul>
+  <li>Chapters come from <span class="mono">view.events</span>, which already carries a meta-turn, a kind, a colour and a tile. No new engine data.</li>
+  <li>The custody rows answer a rules question the design doc raises: whether two indices per meta-turn is the right front rate. You can see the gap close.</li>
+  <li>One scrub component serves post-match review and in-match rewind.</li>
+  <li>A share card built from the board renderer cannot drift out of date the way a hand-drawn one would.</li>
+ </ul></div>
+ <div class="con"><h3>Cons</h3><ul>
+  <li>Needs a view at an earlier meta-turn, which the engine does not expose today.</li>
+  <li>Fourteen chapters on a 43-turn bar is dense. Only six are labelled; the rest need the list beside them.</li>
+  <li>Rewind during a live match is a way to miss your turn. The warning rail helps, it does not fix it.</li>
+  <li>The share card leaks the result to anyone with the link, including a player who has not opened the match yet.</li>
+ </ul></div>
+</div>
+
+<h2>What it answers</h2>
+<div class="mk-prose">
+ <p>It covers the UI requirement for a timeline strip with playheads and direction, at the scale of a whole match rather
+ than one turn, and it puts the personal-index gap of an inbound front on screen as a distance you watch close.
+ It gives the front-rate open question an instrument: the custody rows show Juno&rsquo;s front taking six meta-turns to
+ cross from its grab to Rook&rsquo;s present, and Rook&rsquo;s taking five to cross back.</p>
+ <p>It leaves open whether replay should respect the horizon. Today <span class="mono">view()</span> clips bodies and
+ events to the viewer&rsquo;s horizon; after the match that clipping hides the thing you are reviewing. It also leaves
+ open how a spectator, who has no colour, enters the replay at all.</p>
+</div>
+
+<h2>What the engine already gives you, and what it does not</h2>
+<div class="mk-prose">
+ <table class="cmp">
+  <tr><th style="width:44%">Already there</th><th>Would need building</th></tr>
+  <tr>
+   <td><span class="mono">Match</span> stores config plus an action log of <span class="mono">{turn, color, action}</span>, and
+   <span class="mono">_derive()</span> replays the whole log from turn 0 on every change. Replay is the normal path, not a new one.</td>
+   <td>A view at an earlier meta-turn. <span class="mono">view(color)</span> only derives the head state and the cache
+   holds one derived state, so a scrub needs either a prefix argument to <span class="mono">_derive</span> or a second
+   <span class="mono">Match</span> built from a log prefix.</td>
+  </tr>
+  <tr>
+   <td><span class="mono">view.events</span> already carries the meta-turn, so chapter marks need no new field. Grabs,
+   inversions, blocks and losses are all there.</td>
+   <td>A decision on the horizon after the match ends. Review wants every body; <span class="mono">view()</span> filters
+   to <span class="mono">me.horizon</span>. That is one flag, and one rule about who may set it.</td>
+  </tr>
+  <tr>
+   <td>Keys and fronts at an earlier turn come free from <span class="mono">bootstrap.view(s, turn, horizon)</span> once the
+   state is re-derived. Nothing changes in the mode.</td>
+   <td>Custody as a series. Today you can read who holds a key now; a chart over 43 turns means recording one row per
+   meta-turn during the replay, which is a loop around the existing view call.</td>
+  </tr>
+  <tr>
+   <td><span class="mono">export()</span> already encodes config, log and names into the string behind the resume link. A
+   replay link is that string.</td>
+   <td>Card rendering. The board is SVG, so a card is a serialise-and-rasterise step, plus somewhere to host the image for
+   a link preview to fetch.</td>
+  </tr>
+ </table>
+ <p>Cost of replay itself is not a concern. Forty-three turns of four players is a few hundred tile resolutions; deriving a
+ fresh state for every 600 ms frame is far cheaper than the render.</p>
+</div>
+
+<h2>Cost</h2>
+<div class="mk-prose">
+ <p><strong>Rewind and the scrub: M.</strong> The chapter bar, custody chart, transport and event panel are
+ <span class="mono">ui.tsx</span> and <span class="mono">style.css</span> only, but they all depend on the one engine
+ change: a view at an earlier meta-turn. That change is small and sits inside <span class="mono">core.ts</span>, where
+ <span class="mono">_derive</span> already loops turn by turn.</p>
+ <p><strong>Post-match screen: S</strong> once rewind exists, since it is the same components on a finished match.</p>
+ <p><strong>Share card: M to L,</strong> and mostly not UI work. Rendering is easy; serving an image at a stable URL for a
+ link preview needs hosting the prototype does not have.</p>
+</div>
+</main>
+<script src="shared/fixture.js"></script><script src="shared/board.js"></script><script src="shared/nav.js"></script>
+<script>
+(function () {
+  var F = MK.F, C = MK.C, el = MK.el;
+  var CAP = F.cap;            // 43
+  var REAL = 17;              // last meta-turn with engine data
+  var END = 33;               // hand-checked ending
+
+  // ---- state of the match at the start of meta-turn m, for m <= REAL -------
+  // Nobody was stuck, so each colour holds bodies p0..pm and its live body is pm.
+  var KEYS = {
+    14: [['C',14]],
+    15: [['C',14],['C',15]],
+    16: [['C',14],['C',15],['C',16],['A',16]],
+    17: [['C',14],['C',15],['C',16],['C',17],['A',16],['A',17]]
+  };
+  var FRONTS = {
+    16: [{color:'A',t:8,x:F.center[0],y:F.center[1],target:null,gap:0}],
+    17: [{color:'A',t:11,x:7,y:4,target:'C',gap:4}]
+  };
+  function centerIdx(m) {
+    var top = m < 14 ? 12 : m < 16 ? 10 : 5, a = [];
+    for (var t = 0; t <= top; t++) a.push(t);
+    return a;
+  }
+  function meT(m) {
+    var b = F.bodies.find(function (b) { return b.color === F.me.color && b.p === m; });
+    return b ? b.t : 0;
+  }
+  // Swap the shared fixture for one meta-turn, render, swap back.
+  function boardAt(node, m, opts) {
+    m = Math.max(0, Math.min(REAL, m));
+    var ob = F.bodies, ok = F.keys, of = F.fronts, oc = F.keyAtCenter, om = F.me.t;
+    F.bodies = ob.filter(function (b) { return b.p <= m; })
+      .map(function (b) { return { color: b.color, p: b.p, t: b.t, x: b.x, y: b.y, dir: b.dir, live: b.p === m }; });
+    F.keys = (KEYS[m] || []).map(function (k) { return { color: k[0], p: k[1], side: [1, 0] }; });
+    F.fronts = FRONTS[m] || [];
+    F.keyAtCenter = centerIdx(m);
+    F.me.t = meT(m);
+    var api = MK.board(node, Object.assign({ focusT: meT(m), lookBack: 4 }, opts || {}));
+    F.bodies = ob; F.keys = ok; F.fronts = of; F.keyAtCenter = oc; F.me.t = om;
+    return api;
+  }
+
+  // ---- chapters -----------------------------------------------------------
+  var CH = [
+    { m: 0,  c: null, big: 1, text: 'Match starts. One key on the center at t0.' },
+    { m: 4,  c: 'A',  text: 'Juno blocked by Rook at t5 on (2,4).' },
+    { m: 6,  c: 'P',  text: 'Mira inverts at t6 and starts walking back.' },
+    { m: 7,  c: 'A',  text: 'Juno inverts at t7.' },
+    { m: 9,  c: 'T',  text: 'Ash inverts three times at t9, stacking 8 to 13 on (14,1).' },
+    { m: 12, c: 'C',  text: 'Rook inverts at t12.' },
+    { m: 13, c: 'C',  big: 1, key: 1, text: 'Rook picks up the key at t11 on (7,4). Front starts at key index 11.' },
+    { m: 15, c: 'A',  big: 1, key: 1, text: 'Juno picks up the key at t6 on (7,4). Front starts at key index 6.' },
+    { m: 17, c: 'A',  big: 1, key: 1, text: "Juno's front passes index 11. Rook's grab breaks; its key is still real." },
+    { m: 18, c: 'C',  proj: 1, text: 'Rook parks on (8,3) at t7, key side against the wall at (9,3).' },
+    { m: 21, c: 'A',  big: 1, key: 1, proj: 1, text: "Front reaches Rook's present. Rook loses the key." },
+    { m: 22, c: 'C',  big: 1, key: 1, proj: 1, text: "Rook steals it back from Juno's p17 at t7. Front starts at index 7." },
+    { m: 27, c: 'C',  proj: 1, text: "Rook's front reaches Juno's present. Juno loses the key." },
+    { m: END,c: 'C',  big: 1, key: 1, proj: 1, text: 'Rook reaches t0 on (2,1) beside its spawn, holding the key. Match ends.' }
+  ];
+
+  // ---- scrub bar ----------------------------------------------------------
+  function scrub(node, o) {
+    o = o || {};
+    var W = 1200, H = o.compact ? 46 : 78, L = 34, R = 26;
+    var last = o.max == null ? CAP : o.max;
+    var x = function (m) { return L + (m / last) * (W - L - R); };
+    var svg = el('svg', { viewBox: '0 0 ' + W + ' ' + H, width: '100%', style: 'display:block;overflow:visible' });
+    var trackY = o.compact ? 26 : 50;
+    svg.appendChild(el('rect', { x: L, y: trackY, width: W - L - R, height: 10, rx: 5, fill: 'var(--surface-1)' }));
+    svg.appendChild(el('rect', { x: L, y: trackY, width: x(Math.min(END, last)) - L, height: 10, rx: 5, fill: 'var(--surface-3)' }));
+    // engine data vs hand-checked continuation
+    if (!o.compact) {
+      svg.appendChild(el('rect', { x: x(REAL), y: trackY, width: x(END) - x(REAL), height: 10, rx: 5, fill: 'var(--text-muted)', opacity: 0.22 }));
+      svg.appendChild(el('line', { x1: x(REAL), y1: trackY - 6, x2: x(REAL), y2: trackY + 16, stroke: 'var(--text-muted)', 'stroke-width': 1, 'stroke-dasharray': '2 2' }));
+      svg.appendChild(el('text', { x: x(REAL) + 5, y: trackY + 24, 'font-size': 9.5, 'font-family': 'var(--mono)', fill: 'var(--text-muted)', text: 'hand-checked continuation' }));
+      svg.appendChild(el('text', { x: x(REAL) - 5, y: trackY + 24, 'text-anchor': 'end', 'font-size': 9.5, 'font-family': 'var(--mono)', fill: 'var(--text-muted)', text: 'engine data' }));
+    }
+    // ticks every 5
+    for (var m = 0; m <= last; m += 5) {
+      svg.appendChild(el('text', { x: x(m), y: trackY - 6, 'text-anchor': 'middle', 'font-size': 9.5, 'font-family': 'var(--mono)', fill: 'var(--text-muted)', text: m }));
+    }
+    if (!o.compact) {
+      svg.appendChild(el('text', { x: x(last), y: trackY + 24, 'text-anchor': 'end', 'font-size': 9.5, 'font-family': 'var(--mono)', fill: 'var(--text-muted)', text: 'cap ' + CAP }));
+    }
+    // chapter pins
+    var flagY = o.compact ? 8 : 12;
+    CH.forEach(function (ch) {
+      if (ch.m > last) return;
+      var col = ch.c ? C[ch.c].hex : 'var(--text-secondary)';
+      var g = el('g', { class: 'p15pin', 'data-m': ch.m, style: 'cursor:pointer',
+        title: 'meta-turn ' + ch.m + ' · ' + ch.text });
+      g.appendChild(el('rect', { x: x(ch.m) - 7, y: flagY - 4, width: 14, height: trackY - flagY + 18, fill: 'transparent' }));
+      if (ch.big) {
+        g.appendChild(el('line', { x1: x(ch.m), y1: flagY + 11, x2: x(ch.m), y2: trackY + 10, stroke: col, 'stroke-width': 1.4, opacity: ch.proj ? 0.5 : 0.85, 'stroke-dasharray': ch.proj ? '3 3' : null }));
+        if (ch.key) {
+          g.appendChild(el('rect', { x: x(ch.m) - 4.5, y: flagY + 1, width: 9, height: 9, rx: 2, fill: 'var(--key)', stroke: 'var(--surface-2)', 'stroke-width': 1.5 }));
+        } else {
+          g.appendChild(el('circle', { cx: x(ch.m), cy: flagY + 5.5, r: 4, fill: col }));
+        }
+      } else {
+        g.appendChild(el('line', { x1: x(ch.m), y1: trackY - 3, x2: x(ch.m), y2: trackY + 13, stroke: col, 'stroke-width': 1.4, opacity: 0.7 }));
+      }
+      svg.appendChild(g);
+    });
+    // playhead
+    var head = el('g', {});
+    head.appendChild(el('line', { x1: 0, y1: trackY - 4, x2: 0, y2: trackY + 14, stroke: 'var(--text-primary)', 'stroke-width': 2 }));
+    head.appendChild(el('circle', { cx: 0, cy: trackY + 5, r: 6.5, fill: 'var(--text-primary)', stroke: 'var(--surface-2)', 'stroke-width': 2 }));
+    svg.appendChild(head);
+    node.innerHTML = '';
+    node.appendChild(svg);
+    return { svg: svg, x: x, set: function (m) { head.setAttribute('transform', 'translate(' + x(m) + ',0)'); } };
+  }
+
+  // ---- custody + events chart --------------------------------------------
+  var ROWS = ['C', 'A', 'P', 'T'];
+  var BANDS = { C: [[13, 21], [22, END]], A: [[15, 27]], P: [], T: [] };
+  var EV = {
+    C: [[12, 'inv'], [13, 'grab'], [21, 'lost'], [22, 'grab'], [END, 'win']],
+    A: [[4, 'blk'], [7, 'inv'], [12, 'inv'], [15, 'grab'], [27, 'lost']],
+    P: [[6, 'inv'], [13, 'inv'], [16, 'inv']],
+    T: [[7, 'hold'], [9, 'inv'], [10, 'inv'], [11, 'inv'], [12, 'hold'], [14, 'hold'], [15, 'inv'], [16, 'hold']]
+  };
+  var EVNAME = { inv: 'inverts', grab: 'takes the key', lost: 'loses the key', blk: 'blocked', hold: 'holds', win: 'wins' };
+
+  function custody(node, opts) {
+    opts = opts || {};
+    var W = 1200, L = 96, R = 26, rowH = 22, gapY = 34;
+    var single = !!opts.single;
+    var rows = single ? ['key'] : ROWS;
+    var H = 26 + rows.length * gapY + 22;
+    var x = function (m) { return L + (m / CAP) * (W - L - R); };
+    var yOf = function (i) { return 22 + i * gapY; };
+    var svg = el('svg', { viewBox: '0 0 ' + W + ' ' + H, width: '100%', style: 'display:block' });
+
+    // recessive grid every 5 meta-turns
+    for (var m = 0; m <= CAP; m += 5) {
+      svg.appendChild(el('line', { x1: x(m), y1: 14, x2: x(m), y2: yOf(rows.length - 1) + rowH + 4, stroke: 'var(--border)', 'stroke-width': 1, opacity: m % 10 ? 0.45 : 0.9 }));
+      svg.appendChild(el('text', { x: x(m), y: H - 6, 'text-anchor': 'middle', 'font-size': 10, 'font-family': 'var(--mono)', fill: 'var(--text-muted)', text: m }));
+    }
+    svg.appendChild(el('text', { x: L - 8, y: H - 6, 'text-anchor': 'end', 'font-size': 10, fill: 'var(--text-muted)', text: 'meta-turn' }));
+    // end of match
+    svg.appendChild(el('line', { x1: x(END), y1: 10, x2: x(END), y2: yOf(rows.length - 1) + rowH + 4, stroke: 'var(--text-secondary)', 'stroke-width': 1.5 }));
+    svg.appendChild(el('text', { x: x(END) + 5, y: 18, 'font-size': 10, 'font-family': 'var(--mono)', fill: 'var(--text-secondary)', text: 'end 33' }));
+    svg.appendChild(el('text', { x: x(CAP), y: 18, 'text-anchor': 'end', 'font-size': 10, 'font-family': 'var(--mono)', fill: 'var(--text-muted)', text: 'cap 43' }));
+
+    if (single) {
+      // one lane: whoever holds the newest real key
+      var segs = [[13, 15, 'C'], [15, 21, 'A'], [21, 22, null], [22, END, 'C']];
+      svg.appendChild(el('text', { x: L - 8, y: yOf(0) + 15, 'text-anchor': 'end', 'font-size': 12, fill: 'var(--text-primary)', text: 'key' }));
+      svg.appendChild(el('rect', { x: L, y: yOf(0), width: x(END) - L, height: rowH, rx: 4, fill: 'var(--surface-1)' }));
+      segs.forEach(function (s) {
+        if (!s[2]) return;
+        svg.appendChild(el('rect', { x: x(s[0]) + 1, y: yOf(0), width: x(s[1]) - x(s[0]) - 2, height: rowH, rx: 4,
+          fill: C[s[2]].hex, title: F.names[s[2]] + ' · meta-turns ' + s[0] + ' to ' + s[1] }));
+        svg.appendChild(el('text', { x: x(s[0]) + 7, y: yOf(0) + 15, 'font-size': 11, fill: C[s[2]].ink, text: F.names[s[2]] }));
+      });
+      node.innerHTML = ''; node.appendChild(svg); return;
+    }
+
+    rows.forEach(function (c, i) {
+      var y = yOf(i);
+      svg.appendChild(el('text', { x: L - 8, y: y + 15, 'text-anchor': 'end', 'font-size': 12, fill: 'var(--text-primary)', text: F.names[c] }));
+      svg.appendChild(el('circle', { cx: L - 84, cy: y + 11, r: 5, fill: C[c].hex }));
+      svg.appendChild(el('rect', { x: L, y: y, width: x(END) - L, height: rowH, rx: 4, fill: 'var(--surface-1)' }));
+      BANDS[c].forEach(function (b) {
+        var proj = b[0] > REAL || b[1] > REAL;
+        svg.appendChild(el('rect', { x: x(b[0]) + 1, y: y, width: x(b[1]) - x(b[0]) - 2, height: rowH, rx: 4,
+          fill: C[c].hex, opacity: proj ? 0.72 : 1,
+          title: F.names[c] + ' holds a real key · meta-turns ' + b[0] + ' to ' + b[1] }));
+        svg.appendChild(el('text', { x: x(b[0]) + 8, y: y + 15, 'font-size': 11, fill: C[c].ink,
+          text: F.names[c] + ' · ' + (b[1] - b[0]) + ' turns' }));
+      });
+      // event ticks under the band
+      (EV[c] || []).forEach(function (e) {
+        var ex = x(e[0]), t = e[1];
+        var g = el('g', { title: 'meta-turn ' + e[0] + ' · ' + F.names[c] + ' ' + EVNAME[t] });
+        if (t === 'inv') g.appendChild(el('path', { d: 'M' + (ex - 4) + ',' + (y + rowH + 7) + ' l4,-5 l4,5', fill: 'none', stroke: C[c].hex, 'stroke-width': 1.6 }));
+        else if (t === 'grab') g.appendChild(el('rect', { x: ex - 4, y: y + rowH + 1, width: 8, height: 8, rx: 2, fill: 'var(--key)' }));
+        else if (t === 'lost') g.appendChild(el('path', { d: 'M' + (ex - 4.5) + ',' + (y + rowH + 2) + ' l9,0 l-4.5,7 z', fill: 'var(--bad-br)' }));
+        else if (t === 'blk') g.appendChild(el('path', { d: 'M' + (ex - 3.5) + ',' + (y + rowH + 2.5) + ' l7,7 M' + (ex + 3.5) + ',' + (y + rowH + 2.5) + ' l-7,7', stroke: 'var(--text-muted)', 'stroke-width': 1.6 }));
+        else if (t === 'win') g.appendChild(el('path', { d: 'M' + ex + ',' + (y + rowH + 1) + ' l4.5,4.5 l-4.5,4.5 l-4.5,-4.5 z', fill: 'var(--good)' }));
+        else g.appendChild(el('circle', { cx: ex, cy: y + rowH + 5.5, r: 2.2, fill: 'var(--text-muted)' }));
+        svg.appendChild(g);
+      });
+    });
+
+    // fronts crossing between rows
+    function frontArrow(fromC, fromM, toC, toM, label) {
+      var y0 = yOf(ROWS.indexOf(fromC)) + rowH + 12, y1 = yOf(ROWS.indexOf(toC)) + rowH - 3;
+      var x0 = x(fromM), x1 = x(toM);
+      svg.appendChild(el('path', {
+        d: 'M' + x0 + ',' + y0 + ' C' + (x0 + (x1 - x0) * 0.45) + ',' + y0 + ' ' + (x1 - (x1 - x0) * 0.35) + ',' + y1 + ' ' + x1 + ',' + y1,
+        fill: 'none', stroke: C[fromC].hex, 'stroke-width': 1.5, 'stroke-dasharray': '4 3', opacity: 0.9,
+        title: label
+      }));
+      svg.appendChild(el('path', { d: 'M' + x1 + ',' + (y1 + 5) + ' l-4,-6 l8,0 z', fill: C[fromC].hex }));
+      // Halo: the label crosses a custody band, so it needs to read over colour.
+      svg.appendChild(el('text', { x: (x0 + x1) / 2, y: (y0 + y1) / 2 + (y1 > y0 ? 11 : -4), 'text-anchor': 'middle',
+        'font-size': 9.5, 'font-family': 'var(--mono)', fill: 'var(--text-primary)',
+        stroke: 'var(--surface-0)', 'stroke-width': 3, 'stroke-linejoin': 'round',
+        style: 'paint-order:stroke', text: label }));
+    }
+    frontArrow('A', 15, 'C', 21, "Juno's front, 6 turns");
+    frontArrow('C', 22, 'A', 27, "Rook's front, 5 turns");
+
+    node.innerHTML = '';
+    node.appendChild(svg);
+  }
+
+  // ---- figure 1 -----------------------------------------------------------
+  var sel = 13;
+  var s1 = scrub(document.getElementById('scrub'));
+  var chapEl = document.getElementById('chaps');
+  CH.forEach(function (ch) {
+    var li = document.createElement('li');
+    li.className = (ch.proj ? 'proj ' : '') + (ch.key ? 'key' : '');
+    li.dataset.m = ch.m;
+    li.innerHTML = '<b>m' + ch.m + '</b><span>' + ch.text + '</span>';
+    li.onclick = function () { pick(ch.m); };
+    chapEl.appendChild(li);
+  });
+  function chapterAt(m) {
+    var best = CH[0];
+    CH.forEach(function (ch) { if (ch.m <= m) best = ch; });
+    return best;
+  }
+  function pick(m) {
+    sel = Math.max(0, Math.min(REAL, m));
+    boardAt(document.getElementById('b1'), sel, { cell: 44 });
+    s1.set(m);
+    var ch = chapterAt(m);
+    document.getElementById('bh').textContent = 'meta-turn ' + sel;
+    document.getElementById('bs').textContent = ch.text + (m > REAL ? ' — board frozen at 17, past the engine data' : '');
+    Array.prototype.forEach.call(chapEl.children, function (li) { li.classList.toggle('on', +li.dataset.m === ch.m); });
+  }
+  Array.prototype.forEach.call(document.querySelectorAll('#scrub .p15pin'), function (g) {
+    g.addEventListener('click', function () { pick(+g.dataset.m); });
+  });
+  pick(13);
+  custody(document.getElementById('cust'));
+
+  // ---- figure 2: rewind ---------------------------------------------------
+  var rm = 10, playing = true, timer = null;
+  var s2 = scrub(document.getElementById('scrub2'), { compact: true, max: REAL });
+  function evLines(m) {
+    return F.events.filter(function (e) { return e.turn === m; }).map(function (e) {
+      var verb = { moved: 'moves to', held: 'holds at', inverted: 'inverts at', blocked: 'is blocked at', grab: 'takes the key at' }[e.kind] || e.kind;
+      return '<li style="display:flex;gap:7px;align-items:baseline"><i class="sw" style="background:' + C[e.color].hex + '"></i>' +
+        '<span style="color:var(--text-secondary)"><b style="color:var(--text-primary);font-weight:500">' + F.names[e.color] + '</b> ' + verb +
+        ' <span class="mono">t' + e.t + '</span> (' + e.x + ',' + e.y + ')' + (e.by ? ' by ' + F.names[e.by] : '') + '</span></li>';
+    }).join('') || '<li class="muted">Nothing recorded on this meta-turn.</li>';
+  }
+  function draw2() {
+    boardAt(document.getElementById('b2'), rm, { cell: 38 });
+    s2.set(rm);
+    document.getElementById('rwm').textContent = rm;
+    document.getElementById('rwchip').textContent = 'm' + rm;
+    document.getElementById('rwev').innerHTML = evLines(rm);
+  }
+  function tick() { rm = rm >= REAL ? 0 : rm + 1; draw2(); }
+  function setPlay(on) {
+    playing = on;
+    document.getElementById('rwplay').classList.toggle('on', on);
+    document.getElementById('rwplay').innerHTML = on ? '&#9208;' : '&#9654;';
+    if (timer) clearInterval(timer);
+    timer = on ? setInterval(tick, 600) : null;
+  }
+  document.getElementById('rwplay').onclick = function () { setPlay(!playing); };
+  document.getElementById('rwback').onclick = function () { setPlay(false); rm = Math.max(0, rm - 1); draw2(); };
+  document.getElementById('rwfwd').onclick = function () { setPlay(false); rm = Math.min(REAL, rm + 1); draw2(); };
+  document.getElementById('rwfirst').onclick = function () { setPlay(false); rm = 0; draw2(); };
+  document.getElementById('rwlast').onclick = function () { setPlay(false); rm = REAL; draw2(); };
+  document.getElementById('rwlive').onclick = function () { setPlay(false); rm = REAL; draw2(); };
+  draw2(); setPlay(true);
+
+  // ---- figure 3: share card ----------------------------------------------
+  boardAt(document.getElementById('b3'), REAL, { cell: 36, labels: true });
+
+  // ---- variants -----------------------------------------------------------
+  var v1 = document.getElementById('v1');
+  v1.innerHTML =
+    '<div class="banner" style="background:linear-gradient(90deg,var(--surface-3),var(--surface-1) 60%);border-left-color:var(--text-muted)">' +
+    '<div class="crown" style="background:var(--surface-3);color:var(--text-secondary)">' +
+    '<svg width="20" height="20" viewBox="0 0 20 20" fill="none"><circle cx="10" cy="10" r="7" stroke="currentColor" stroke-width="1.6"/><path d="M10 6v4l2.6 1.6" stroke="currentColor" stroke-width="1.6" stroke-linecap="round"/></svg></div>' +
+    '<div><h3>Draw at the cap &middot; meta-turn 43</h3>' +
+    '<div class="why">Rook held the key for 9 meta-turns and was 4 world turns from t0. Juno held it at the end, 9 tiles from its spawn.</div></div></div>';
+  custody(document.getElementById('v2'), { single: true });
+})();
+</script>
+</body></html>

@@ -1,0 +1,629 @@
+<!doctype html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
+<title>01 Board-first layout · tbtt mockups</title><link rel="stylesheet" href="shared/mock.css"><style>
+/* Scoped to #p01 so nothing leaks into the shared chrome. */
+#p01 .vpwrap{padding:0;overflow:hidden;position:relative;background:var(--surface-0)}
+#p01 .vp{width:1440px;height:820px;transform-origin:0 0;position:relative;background:var(--surface-0);
+  display:grid;grid-template-rows:46px 1fr 104px;font-size:13px}
+#p01 .vp.focus{grid-template-rows:46px 1fr 300px}
+
+/* Top HUD */
+#p01 .hud{display:flex;align-items:center;gap:14px;padding:0 14px;border-bottom:1px solid var(--border);
+  background:var(--surface-1)}
+#p01 .hud .who{display:flex;align-items:center;gap:9px}
+#p01 .hud .pill{font-size:12px;padding:2px 10px;font-weight:500}
+#p01 .hud .mono{font-size:12.5px;color:var(--text-secondary)}
+#p01 .hud .spacer{flex:1}
+#p01 .keychip{display:inline-flex;align-items:center;gap:6px;font-size:12px;color:var(--text-secondary);
+  border:1px solid var(--border);border-radius:20px;padding:2px 10px}
+#p01 .keysq{width:10px;height:10px;background:var(--key);border-radius:2px;flex:none}
+#p01 .dot{width:8px;height:8px;border-radius:50%;background:var(--good);flex:none}
+#p01 .warnchip{display:inline-flex;align-items:center;gap:6px;font-size:12px;color:var(--warn);
+  border:1px solid var(--warn);border-radius:20px;padding:2px 10px}
+#p01 .tri{width:0;height:0;border-left:5px solid transparent;border-right:5px solid transparent;
+  border-bottom:9px solid var(--A);flex:none}
+
+/* Legend popover */
+#p01 .legwrap{position:relative}
+#p01 .legbtn{width:24px;height:24px;border-radius:50%;border:1px solid var(--btn-border);background:transparent;
+  color:var(--text-secondary);font:500 13px/1 system-ui;cursor:pointer}
+#p01 .legpop{position:absolute;left:0;bottom:32px;width:400px;background:var(--surface-2);border:1px solid var(--btn-border);
+  border-radius:10px;padding:11px 13px;display:none;z-index:20;box-shadow:0 12px 30px rgba(0,0,0,.45)}
+#p01 .legpop .cols2{display:grid;grid-template-columns:1fr 1fr;column-gap:16px}
+#p01 .legwrap:hover .legpop,#p01 .legwrap.open .legpop{display:block}
+#p01 .legpop .row{display:flex;align-items:center;gap:7px;color:var(--text-secondary);font-size:12px;padding:2px 0}
+#p01 .dk{width:11px;height:11px;border:2px solid var(--text-secondary);border-radius:50%;flex:none}
+#p01 .dk.m{background:var(--text-secondary)}
+#p01 .dk.x{background:linear-gradient(90deg,var(--text-secondary) 50%,transparent 50%)}
+
+/* Middle band */
+#p01 .band{display:grid;grid-template-rows:minmax(0,1fr);min-height:0;position:relative;overflow:hidden}
+#p01 .stagearea{position:relative;display:flex;align-items:center;justify-content:center;min-width:0;padding:10px}
+#p01 .boardhold{position:relative}
+
+/* Left rail */
+#p01 .lrail{border-right:1px solid var(--border);background:var(--surface-1);min-width:0;min-height:0;
+  overflow:hidden;display:flex;flex-direction:column}
+#p01 .railhead{display:flex;align-items:center;gap:8px;padding:9px 12px;border-bottom:1px solid var(--border);
+  color:var(--text-secondary);font-size:12.5px}
+#p01 .railhead .grow{flex:1}
+#p01 .icobtn{width:26px;height:26px;border-radius:7px;border:1px solid var(--btn-border);background:transparent;
+  color:var(--text-secondary);font:500 12px/1 var(--mono);cursor:pointer;display:flex;align-items:center;justify-content:center;flex:none}
+#p01 .logrow{display:flex;gap:7px;align-items:baseline;padding:4px 12px;font-size:12.5px;color:var(--text-secondary)}
+#p01 .logrow .m{font-family:var(--mono);font-size:10.5px;color:var(--text-muted);width:24px;text-align:right;flex:none}
+#p01 .logrow strong{color:var(--text-primary);font-weight:500}
+#p01 .sep{border-top:1px solid var(--border);margin:5px 12px}
+#p01 .icostrip{width:52px;border-right:1px solid var(--border);background:var(--surface-1);
+  display:flex;flex-direction:column;align-items:center;gap:10px;padding:10px 0}
+#p01 .icostrip .vlabel{writing-mode:vertical-rl;font-size:10.5px;color:var(--text-muted);letter-spacing:.06em}
+
+/* Toasts over the board edge */
+#p01 .toasts{position:absolute;left:10px;top:12px;width:288px;display:flex;flex-direction:column;gap:6px;z-index:8}
+#p01 .toast{background:color-mix(in srgb,var(--surface-1) 92%,transparent);border:1px solid var(--border);
+  border-left:3px solid var(--border);border-radius:0 9px 9px 0;padding:5px 10px;font-size:12px;color:var(--text-secondary);
+  display:flex;gap:7px;align-items:baseline}
+#p01 .toast .m{font-family:var(--mono);font-size:10.5px;color:var(--text-muted);flex:none}
+#p01 .toast strong{color:var(--text-primary);font-weight:500}
+#p01 .toast.a2{opacity:.72} #p01 .toast.a3{opacity:.48}
+
+/* Right rail */
+#p01 .rrail{border-left:1px solid var(--border);background:var(--surface-1);padding:12px;min-width:0;min-height:0;
+  overflow:hidden;display:flex;flex-direction:column;gap:10px}
+#p01 .rrail h3{margin:0;font-size:12.5px;font-weight:500;color:var(--text-secondary)}
+#p01 .dpad{display:grid;grid-template-columns:repeat(3,1fr);gap:6px}
+#p01 .dpad button{padding:0;height:52px;display:flex;flex-direction:column;align-items:center;justify-content:center;
+  gap:1px;font-size:16px;line-height:1.1}
+#p01 .dpad button small{font-size:9.5px;font-family:var(--mono);color:var(--text-muted)}
+#p01 .dpad .blank{visibility:hidden}
+#p01 .wide{width:100%;text-align:center}
+#p01 .still{display:flex;align-items:center;gap:6px;flex-wrap:wrap;font-size:12px;color:var(--text-secondary)}
+#p01 .av{width:20px;height:20px;border-radius:50%;font:500 10px/20px var(--mono);text-align:center;flex:none}
+#p01 .hint{font-size:11.5px;color:var(--text-muted)}
+#p01 .prio{font-family:var(--mono);font-size:12px;color:var(--text-secondary);display:flex;align-items:center;gap:5px;flex-wrap:wrap}
+
+/* Bottom dock */
+#p01 .dock{border-top:1px solid var(--border);background:var(--surface-1);padding:8px 14px;display:flex;
+  flex-direction:column;gap:6px;min-height:0}
+#p01 .dockrow{display:flex;align-items:center;gap:12px}
+#p01 .scrub{flex:1;position:relative;height:22px}
+#p01 .scrubtrack{position:absolute;left:0;right:0;top:9px;height:4px;border-radius:2px;background:var(--surface-3)}
+#p01 .scrubfill{position:absolute;top:9px;height:4px;border-radius:2px;background:var(--text-secondary);opacity:.55}
+#p01 .scrubthumb{position:absolute;top:3px;width:16px;height:16px;border-radius:50%;background:var(--text-primary);
+  border:2px solid var(--surface-1);transform:translateX(-50%)}
+#p01 .seg{display:flex;border:1px solid var(--btn-border);border-radius:8px;overflow:hidden}
+#p01 .seg button{border:0;border-radius:0;padding:4px 9px;font-size:12px;font-family:var(--mono);background:transparent;
+  color:var(--text-secondary);cursor:pointer;border-right:1px solid var(--btn-border)}
+#p01 .seg button:last-child{border-right:0}
+#p01 .seg button.on{background:var(--accent-bg);color:var(--text-primary)}
+#p01 .docklabel{font-size:11.5px;color:var(--text-muted);font-family:var(--mono);flex:none}
+
+/* Focus-mode dock */
+#p01 .fdock{display:grid;grid-template-columns:1fr 250px;gap:14px;min-height:0}
+#p01 .lanes{display:flex;flex-direction:column;gap:3px;min-width:0}
+#p01 .lane{display:grid;grid-template-columns:76px 1fr;align-items:center;gap:8px}
+#p01 .lanename{font-size:11.5px;font-family:var(--mono);color:var(--text-secondary);text-align:right}
+#p01 .cells{display:grid;gap:3px}
+#p01 .cellbox{height:16px;border-radius:3px;background:var(--surface-2);position:relative}
+#p01 .cellbox.on{background:var(--surface-3)}
+#p01 .cellbox .hd{position:absolute;inset:2px;border-radius:2px}
+#p01 .tnum{font-size:10px;font-family:var(--mono);color:var(--text-muted);text-align:center}
+#p01 .tnum.cur{color:var(--text-primary)}
+#p01 .scrim{position:absolute;inset:0;background:rgba(10,9,12,.66);z-index:6}
+#p01 .peek{background:var(--surface-2);border:1px solid var(--border);border-radius:9px;padding:9px 11px;font-size:12px;
+  color:var(--text-secondary);display:flex;flex-direction:column;gap:5px}
+#p01 .peek b{color:var(--text-primary);font-weight:500}
+
+#p01 .vp .callout{z-index:30}
+#p01 .onboard-label{font:500 11px/1 var(--mono)}
+#p01 .figrow{display:grid;grid-template-columns:1fr 1fr;gap:16px}
+@media(max-width:900px){#p01 .figrow{grid-template-columns:1fr}}
+</style></head>
+<body><main class="mk-page" id="p01">
+<h1>Board-first layout</h1>
+<p class="mk-lede">The board is the game, so it gets the window. Everything else becomes a thin edge: a status HUD on top, a timeline dock on the bottom, and two rails that collapse to icon strips. Today's three-card grid gives the 16x9 board about a third of a 1440-wide window; this gives it two thirds, and more than that once the rails fold.</p>
+<div class="mk-meta"><span class="req">UI req: one combined board for present and history</span><span class="req">UI req: timeline strip with each playhead and direction</span><span class="req">UI req: player identity and personal index on every body</span><span>Open question: urgent threats without overloading player colours</span></div>
+
+<figure class="fig stage">
+  <div class="frame vpwrap" id="wrapA"><div class="vp" id="vpA"></div></div>
+  <figcaption>A. 1440x900 window, both rails open. Meta-turn 17 of 43. Rook (you) is at index 17, t8, walking backward, holding the key on its right side. Juno's front is four meta-turns from your present.</figcaption>
+</figure>
+<ul class="callouts" id="calloutsA">
+  <li><b>1</b>Identity strip: colour pill, personal index, world turn, direction, tile. Everything the old turn-card header carried, in 46px of height.</li>
+  <li><b>2</b>Key chip and front chip sit next to identity because they are the two facts that decide this turn. The front chip counts meta-turns to your present, not to a tile.</li>
+  <li><b>3</b>Legend sits in the dock behind a hover target and opens upward over the board's empty lower-left. It is reference, not status, so it costs nothing until asked for.</li>
+  <li><b>4</b>Log rail, open. Same content as today's log card, but scrolled to the newest turn and pinned to an edge instead of a column.</li>
+  <li><b>5</b>Board at 56px cells, 892x502. Today's board is roughly 700px wide in the same window.</li>
+  <li><b>6</b>Move rail: D-pad, turn-around, commit, still-choosing, priority. Each pad face carries the world turn and index it produces, so legality reasons are no longer tooltip-only.</li>
+  <li><b>7</b>Timeline dock: strip, world-turn scrub, and history depth on two lines. The strip's playhead dots and front triangle stay aligned with the scrub ticks below them.</li>
+  <li><b>8</b>History depth is a segmented control, not a second slider. Four presets cover the useful range; today's slider has 12 positions and no labels.</li>
+</ul>
+
+<figure class="fig stage">
+  <div class="frame vpwrap" id="wrapB"><div class="vp" id="vpB"></div></div>
+  <figcaption>B. Both rails collapsed to 52px icon strips. The board grows to 1156x650, cells are 72px, and move targets move onto the board itself. The last three log lines ride over the board as fading toasts.</figcaption>
+</figure>
+<ul class="callouts" id="calloutsB">
+  <li><b>1</b>Collapsed log: one icon plus a vertical label. Clicking reopens the rail at the width it had.</li>
+  <li><b>2</b>Toasts carry the last three events and fade with age. They sit over dead board space on the left, away from your body at (8,2).</li>
+  <li><b>3</b>With the rail folded, the four move targets are drawn on the board as outlined tiles labelled with the index and world turn they produce. Page 08 develops this.</li>
+  <li><b>4</b>Commit collapses to a single wide button on the icon strip, which is the only control you need once a target is picked.</li>
+  <li><b>5</b>Dock is unchanged between A and B, so the timeline never moves when rails fold.</li>
+</ul>
+
+<figure class="fig stage">
+  <div class="frame vpwrap" id="wrapC"><div class="vp focus" id="vpC"></div></div>
+  <figcaption>C. Focus mode. Grabbing the scrub raises the dock from 104px to 300px over the lower board and turns it into per-player lanes. Releasing it drops back to B. The board dims but stays visible so you keep your bearings.</figcaption>
+</figure>
+<ul class="callouts" id="calloutsC">
+  <li><b>1</b>One lane per player, thirteen columns for t0 to t12. A square is filled when a body there walks your direction and outlined when none does, matching the board's fill rule. Juno's t3 to t7 squares are filled because Juno has bodies in both directions on those turns. This is the design doc's "timeline strip with each playhead and direction" made per player instead of stacked.</li>
+  <li><b>2</b>Juno's front sits in Juno's lane at t11 with the gap written next to it. The same triangle appears on the board tile (7,4).</li>
+  <li><b>3</b>The key band gives each holder its own row over its own personal indices. Yellow is the key at the centre for indices 0 to 5. Rook carries it at 14 to 17; Juno carries it at 16 to 17 from its own grab at t6. The amber triangle is Juno's front, standing on Rook's index 14.</li>
+  <li><b>4</b>Peek panel names what is under the playhead at the focused turn, so scrubbing reads as a sentence rather than a tile hunt.</li>
+  <li><b>5</b>Dimmed board keeps position memory. It is not interactive while the dock is raised.</li>
+</ul>
+
+<h2>Trade-offs</h2>
+<div class="mk-pc">
+  <div class="pro"><h3>Pros</h3><ul>
+    <li>The board roughly doubles in area at 1440 wide, and bodies stop competing with the index numbers drawn on them.</li>
+    <li>Status that never changes shape stays in a fixed 46px band, so the eye learns one place to look for index, turn, and direction.</li>
+    <li>The timeline controls stop being two unlabelled sliders in the middle of the page and become one dock you can point at.</li>
+    <li>Rails collapse, so the layout degrades to a tablet or a narrow window by folding rather than reflowing into a column stack.</li>
+  </ul></div>
+  <div class="con"><h3>Cons</h3><ul>
+    <li>Full-height chrome means the page no longer scrolls; a short window squeezes the dock and the rails rather than letting the page grow.</li>
+    <li>Collapsed rails hide the log, and the three toasts cannot carry a whole turn of four players' events.</li>
+    <li>A hover-only legend is unreachable on touch and needs a tap target as well.</li>
+    <li>Overlay toasts and the focus-mode scrim both draw over the board, which is the thing the layout is meant to protect.</li>
+  </ul></div>
+</div>
+
+<h2>What it answers</h2>
+<div class="mk-prose">
+  <p>It addresses <strong>one combined board for present and history</strong> by giving that board the space to hold trails, stacks, and key marks at 57 to 74px cells instead of 44. It addresses <strong>a timeline strip with each playhead and direction</strong> twice: compactly in the dock, and per player in focus mode. It addresses <strong>the personal-index gap for an inbound front</strong> by promoting Juno's front from a hover tooltip to a HUD chip that reads "front reaches you in 4".</p>
+  <p>It leaves open the <strong>erasure and restoration fronts</strong> question, since bootstrap has one front kind and no holes to draw. It does not answer <strong>how touch users inspect a history body</strong>; hover popovers and a hover legend make that worse, and page 11 handles it. It does not decide <strong>what visual treatment marks urgency</strong>, it only reserves a slot for it in the HUD.</p>
+</div>
+
+<h2>Cost</h2>
+<div class="mk-prose">
+  <p><strong>M.</strong> The board, strip, log, and legend components already exist and are passed a view; this is mostly a new <code>PlayScreen</code> shell plus CSS. Changes land in <code>ui.tsx</code> and <code>style.css</code> only: replace the <code>.cols</code> grid with a three-row viewport grid, add two rail-collapse booleans in component state, move the two <code>input[type=range]</code> rows into the dock, and wrap <code>Legend</code> in a popover.</p>
+  <p>Two pieces need more than layout work. Per-player lanes in focus mode need a per-colour playhead history, which the view does not expose today: it has <code>bodies</code> with <code>t</code> and <code>dir</code>, so lanes can be derived in the UI, but doing it per frame over a long match wants a memo. The key band needs the key's index-to-holder reading, which the mode view already produces for <code>keys</code> and <code>keyAtCenter</code>. Neither is an engine rules change.</p>
+</div>
+</main>
+<script src="shared/fixture.js"></script><script src="shared/board.js"></script><script src="shared/nav.js"></script>
+<script>
+(function(){
+  const F = MK.F, C = MK.C, el = MK.el;
+  const NAMES = F.names;
+  const DIRW = (d) => d === 1 ? 'forward' : 'backward';
+
+  function h(tag, attrs, kids){
+    const n = document.createElement(tag);
+    for (const k in attrs||{}) {
+      if (k === 'text') n.textContent = attrs[k];
+      else if (k === 'html') n.innerHTML = attrs[k];
+      else if (k === 'style' && typeof attrs[k] === 'object') Object.assign(n.style, attrs[k]);
+      else n.setAttribute(k, attrs[k]);
+    }
+    for (const c of kids||[]) n.appendChild(c);
+    return n;
+  }
+  const txt = (t, cls, st) => h('span', {text:t, class:cls||'', style:st||''});
+
+  // Event sentences, matching ui.tsx's eventText wording.
+  function eventText(e){
+    const at = '(' + e.x + ',' + e.y + ')';
+    if (e.kind === 'moved') return 'moved to ' + at + ' at t' + e.t;
+    if (e.kind === 'held') return 'held ' + at;
+    if (e.kind === 'inverted') return 'turned around at ' + at + ', now walking ' + DIRW(e.dir);
+    if (e.kind === 'blocked') return 'was blocked by ' + (e.by ? NAMES[e.by] : 'someone') + ' and stayed at ' + at;
+    if (e.kind === 'grab') return e.by ? 'took the key from ' + NAMES[e.by] + ' at ' + at + ' t' + e.t
+                                       : 'picked up the key at ' + at + ' t' + e.t;
+    if (e.kind === 'lost') return 'lost the key at ' + at + ' t' + e.t;
+    return 'was stuck';
+  }
+  function sw(c, size){
+    return h('i', {class:'sw', style:'background:'+C[c].hex+';width:'+(size||9)+'px;height:'+(size||9)+'px'});
+  }
+
+  // ---- HUD ----------------------------------------------------------------
+  function hud(){
+    const me = F.me;
+    const n = h('div', {class:'hud'});
+    const who = h('div', {class:'who'});
+    who.appendChild(h('span', {class:'pill', text:NAMES[me.color],
+      style:'background:'+C[me.color].hex+';color:'+C[me.color].ink}));
+    who.appendChild(h('span', {class:'mono',
+      text:'index ' + me.p + ' · t' + me.t + ' · ' + DIRW(me.dir) + ' · (' + me.x + ',' + me.y + ')'}));
+    n.appendChild(who);
+    const kc = h('span', {class:'keychip'});
+    kc.appendChild(h('i', {class:'keysq'}));
+    kc.appendChild(txt('key held, right side'));
+    n.appendChild(kc);
+    const f = F.fronts[0];
+    const wc = h('span', {class:'warnchip'});
+    wc.appendChild(h('i', {class:'tri'}));
+    wc.appendChild(txt(NAMES[f.color] + "'s front reaches you in " + f.gap));
+    n.appendChild(wc);
+    n.appendChild(h('span', {class:'spacer'}));
+
+    n.appendChild(h('span', {class:'mono', text:'turn ' + F.turn + ' / ' + F.cap}));
+    const conn = h('span', {class:'mono', style:'display:inline-flex;align-items:center;gap:6px'});
+    conn.appendChild(h('i', {class:'dot'}));
+    conn.appendChild(txt('Connected · 3 others'));
+    n.appendChild(conn);
+    n.appendChild(h('span', {class:'mono', style:'color:var(--text-muted)', text:'state ' + F.hash}));
+    return n;
+  }
+
+
+  // Legend lives in the dock and opens upward, over the board's empty lower-left.
+  function legendWidget(open){
+    const lw = h('div', {class:'legwrap' + (open ? ' open' : '')});
+    lw.appendChild(h('button', {class:'legbtn', text:'?', title:'legend'}));
+    const pop = h('div', {class:'legpop'});
+    pop.appendChild(h('div', {class:'row', style:'color:var(--text-primary);padding-bottom:4px', text:'Legend'}));
+    const cols = h('div', {class:'cols2'});
+    const a = h('div', {}), b = h('div', {});
+    for (const c of F.roster) {
+      const r = h('div', {class:'row'}); r.appendChild(sw(c, 11)); r.appendChild(txt(NAMES[c])); a.appendChild(r);
+    }
+    const rowsA = [
+      ['<i class="dk m"></i>', 'your direction'],
+      ['<i class="dk"></i>', 'opposite direction'],
+      ['<i class="dk x"></i>', 'mixed directions']
+    ];
+    const rowsB = [
+      ['<i style="width:11px;height:11px;background:var(--key);border-radius:2px;flex:none"></i>', 'key'],
+      ['<i class="tri" style="border-bottom-color:var(--text-secondary)"></i>', 'front'],
+      ['<i style="width:11px;height:11px;border:2px dashed var(--text-secondary);border-radius:2px;flex:none"></i>', 'spawn'],
+      ['<i style="width:7px;height:7px;border-radius:50%;background:var(--text-muted);opacity:.4;flex:none"></i>', 'earlier turns'],
+      ['<i style="width:11px;height:11px;flex:none"></i>', 'number on a body is its personal index'],
+      ['<i style="width:11px;height:11px;flex:none"></i>', 'a stack shows its first and last index']
+    ];
+    for (const [g, label] of rowsA) { const r = h('div', {class:'row', html:g}); r.appendChild(txt(label)); a.appendChild(r); }
+    for (const [g, label] of rowsB) { const r = h('div', {class:'row', html:g}); r.appendChild(txt(label)); b.appendChild(r); }
+    cols.appendChild(a); cols.appendChild(b);
+    pop.appendChild(cols);
+    lw.appendChild(pop);
+    return lw;
+  }
+
+  // ---- Left rail ----------------------------------------------------------
+  function logRail(){
+    const n = h('div', {class:'lrail'});
+    const head = h('div', {class:'railhead'});
+    head.appendChild(txt('Log'));
+    head.appendChild(h('span', {class:'grow'}));
+    head.appendChild(h('button', {class:'icobtn', text:'‹', title:'collapse'}));
+    n.appendChild(head);
+    const body = h('div', {style:'overflow:hidden;padding:7px 0;flex:1'});
+    const evs = F.events.slice().reverse();
+    let lastTurn = null;
+    for (const e of evs.slice(0, 20)) {
+      if (lastTurn !== null && e.turn !== lastTurn) body.appendChild(h('div', {class:'sep'}));
+      lastTurn = e.turn;
+      const r = h('div', {class:'logrow'});
+      r.appendChild(h('span', {class:'m', text:'t' + e.turn}));
+      r.appendChild(sw(e.color, 8));
+      const s = h('span', {});
+      s.appendChild(h('strong', {text:NAMES[e.color]}));
+      s.appendChild(document.createTextNode(' ' + eventText(e)));
+      r.appendChild(s);
+      body.appendChild(r);
+    }
+    n.appendChild(body);
+    return n;
+  }
+  function iconStrip(side){
+    const n = h('div', {class:'icostrip', style: side === 'right' ? 'border-right:0;border-left:1px solid var(--border)' : ''});
+    if (side === 'left') {
+      n.appendChild(h('button', {class:'icobtn', text:'☰', title:'open log'}));
+      n.appendChild(h('span', {class:'vlabel', text:'LOG · 68 events'}));
+    } else {
+      n.appendChild(h('button', {class:'icobtn', text:'✛', title:'move controls'}));
+      n.appendChild(h('button', {class:'icobtn', text:'⟲', title:'turn around in time'}));
+      n.appendChild(h('button', {class:'icobtn', style:'background:var(--text-primary);color:var(--surface-0);border-color:var(--text-primary)', text:'✓', title:'commit'}));
+      n.appendChild(h('span', {class:'vlabel', text:'4 still choosing'}));
+    }
+    return n;
+  }
+
+  // ---- Right rail ---------------------------------------------------------
+  function moveRail(){
+    const n = h('div', {class:'rrail'});
+    n.appendChild(h('h3', {text:'Your move'}));
+    const by = {}; for (const a of F.actions) by[a.action] = a;
+    const pad = h('div', {class:'dpad'});
+    function face(a, glyph, sub){
+      const o = by[a];
+      const b = h('button', {class: a === 'H' ? 'btn sel' : 'btn', title: o.reason || ''});
+      b.appendChild(txt(glyph));
+      b.appendChild(h('small', {text: sub}));
+      return b;
+    }
+    const blank = () => h('div', {class:'blank'});
+    pad.appendChild(blank());
+    pad.appendChild(face('W', '↑', '18 · t' + by.W.t));
+    pad.appendChild(blank());
+    pad.appendChild(face('A', '←', '18 · t' + by.A.t));
+    pad.appendChild(face('H', '·', 'hold · t' + by.H.t));
+    pad.appendChild(face('D', '→', '18 · t' + by.D.t));
+    pad.appendChild(blank());
+    pad.appendChild(face('S', '↓', '18 · t' + by.S.t));
+    pad.appendChild(blank());
+    n.appendChild(pad);
+
+    const inv = h('button', {class:'btn wide'});
+    inv.appendChild(txt('Turn around in time'));
+    inv.appendChild(h('div', {style:'font-size:10.5px;font-family:var(--mono);color:var(--text-muted)',
+      text:'index 18 · stay at t' + by.I.t + ' · walk forward'}));
+    n.appendChild(inv);
+    n.appendChild(h('button', {class:'btn primary wide', text:'Commit hold'}));
+    n.appendChild(h('div', {class:'hint', text:'WASD or arrows choose. Enter commits. Esc clears.'}));
+
+    n.appendChild(h('div', {style:'border-top:1px solid var(--border);margin-top:2px'}));
+    n.appendChild(h('h3', {text:'Still choosing'}));
+    const st = h('div', {class:'still'});
+    for (const c of F.pending) {
+      st.appendChild(h('i', {class:'av', text: c === F.me.color ? 'you' : NAMES[c][0],
+        style:'background:'+C[c].hex+';color:'+C[c].ink + (c===F.me.color?';font-size:8px':'')}));
+    }
+    st.appendChild(txt('You, Mira, Ash, Juno'));
+    n.appendChild(st);
+    n.appendChild(h('h3', {text:'Priority this turn'}));
+    const pr = h('div', {class:'prio'});
+    F.priority.forEach((c, i) => {
+      if (i) pr.appendChild(txt('›', '', 'color:var(--text-muted)'));
+      const g = h('span', {style:'display:inline-flex;align-items:center;gap:4px'});
+      g.appendChild(sw(c, 9)); g.appendChild(txt(NAMES[c]));
+      pr.appendChild(g);
+    });
+    n.appendChild(pr);
+    n.appendChild(h('div', {class:'hint', text:'Holders resolve before movers.'}));
+    return n;
+  }
+
+  // ---- Dock ---------------------------------------------------------------
+  function dock(legendOpen){
+    const n = h('div', {class:'dock'});
+    const stripHold = h('div', {style:'height:46px'});
+    n.appendChild(stripHold);
+    MK.strip(stripHold, {focusT:F.me.t, lookBack:4, width:1000});
+
+    const r = h('div', {class:'dockrow'});
+    r.appendChild(legendWidget(!!legendOpen));
+    r.appendChild(h('span', {class:'docklabel', text:'world turn'}));
+    const sc = h('div', {class:'scrub'});
+    const frac = F.me.t / F.me.horizon;
+    sc.appendChild(h('div', {class:'scrubtrack'}));
+    sc.appendChild(h('div', {class:'scrubfill', style:'left:0;width:' + (frac*100) + '%'}));
+    sc.appendChild(h('div', {class:'scrubthumb', style:'left:' + (frac*100) + '%'}));
+    r.appendChild(sc);
+    r.appendChild(h('span', {class:'docklabel', style:'color:var(--text-primary)', text:'t' + F.me.t}));
+    r.appendChild(h('span', {class:'docklabel', text:'| history'}));
+    const seg = h('div', {class:'seg'});
+    for (const [v, lab] of [[0,'0'],[2,'2'],[4,'4'],[11,'all']]) {
+      seg.appendChild(h('button', {class: v === 4 ? 'on' : '', text:lab}));
+    }
+    r.appendChild(seg);
+    r.appendChild(h('span', {class:'docklabel', text:'turns back · explored through t' + F.me.horizon}));
+    n.appendChild(r);
+    return n;
+  }
+
+  // ---- Focus-mode dock ----------------------------------------------------
+  function focusDock(){
+    const n = h('div', {class:'dock fdock'});
+    const left = h('div', {class:'lanes'});
+    const span = F.me.horizon + 1;
+    const cols = 'repeat(' + span + ',1fr)';
+
+    // Top ruler
+    const ruler = h('div', {class:'lane'});
+    ruler.appendChild(h('div', {class:'lanename', text:'world turn'}));
+    const rc = h('div', {class:'cells', style:'grid-template-columns:' + cols});
+    for (let t = 0; t < span; t++) rc.appendChild(h('div', {class:'tnum' + (t === F.me.t ? ' cur' : ''), text:'t' + t}));
+    ruler.appendChild(rc);
+    left.appendChild(ruler);
+
+    for (const c of F.roster) {
+      const lane = h('div', {class:'lane'});
+      const nm = h('div', {class:'lanename', text:NAMES[c]});
+      nm.style.color = C[c].hex;
+      lane.appendChild(nm);
+      const cs = h('div', {class:'cells', style:'grid-template-columns:' + cols});
+      const mine = F.bodies.filter((b) => b.color === c);
+      const liveB = mine.find((b) => b.live);
+      for (let t = 0; t < span; t++) {
+        const box = h('div', {class:'cellbox' + (t >= F.me.t - 4 && t <= F.me.t ? ' on' : '')});
+        const here = mine.filter((b) => b.t === t);
+        if (here.length) {
+          const same = here.some((b) => b.dir === F.me.dir);
+          box.appendChild(h('i', {class:'hd', style:
+            'background:' + (same ? C[c].hex : 'transparent') + ';border:1.5px solid ' + C[c].hex +
+            ';opacity:' + (here.some((b)=>b.live) ? 1 : 0.5)}));
+        }
+        if (liveB && liveB.t === t) {
+          box.appendChild(h('i', {style:'position:absolute;left:50%;top:-6px;transform:translateX(-50%);width:0;height:0;'
+            + 'border-left:4px solid transparent;border-right:4px solid transparent;border-top:5px solid ' + C[c].hex}));
+        }
+        for (const f of F.fronts) if (f.color === c && f.t === t) {
+          box.appendChild(h('i', {style:'position:absolute;right:-3px;bottom:-4px;width:0;height:0;'
+            + 'border-left:5px solid transparent;border-right:5px solid transparent;border-bottom:9px solid ' + C[c].hex}));
+        }
+        cs.appendChild(box);
+      }
+      lane.appendChild(cs);
+      left.appendChild(lane);
+    }
+
+    // Key band: one row per holder, over their own personal indices.
+    // FIX.keys says Rook carries the key at 14-17 and Juno at 16-17; the front decides who keeps it.
+    function keyRow(label, colour, from, to, centre, frontAt){
+      const row = h('div', {class:'lane', style:'margin-top:4px'});
+      const nm = h('div', {class:'lanename', text:label});
+      if (colour) nm.style.color = colour;
+      row.appendChild(nm);
+      const kb = h('div', {class:'cells', style:'grid-template-columns:repeat(18,1fr)'});
+      for (let i = 0; i < 18; i++) {
+        const box = h('div', {class:'cellbox', style:'height:13px'});
+        if (centre && i <= 5) box.style.background = 'var(--key)';
+        else if (i >= from && i <= to) { box.style.background = colour; box.style.opacity = .92; }
+        if (i === frontAt) {
+          box.appendChild(h('i', {style:'position:absolute;left:50%;bottom:-7px;transform:translateX(-50%);width:0;height:0;'
+            + 'border-left:5px solid transparent;border-right:5px solid transparent;border-bottom:9px solid ' + C.A.hex}));
+        }
+        kb.appendChild(box);
+      }
+      row.appendChild(kb);
+      return row;
+    }
+    left.appendChild(keyRow('key · Rook', C.C.hex, 14, 17, true, 14));
+    left.appendChild(keyRow('key · Juno', C.A.hex, 16, 17, false, -1));
+    const idx = h('div', {class:'lane', style:'margin-top:2px'});
+    idx.appendChild(h('div', {class:'lanename', text:'index'}));
+    const ic = h('div', {class:'cells', style:'grid-template-columns:repeat(18,1fr)'});
+    for (let i = 0; i < 18; i++) ic.appendChild(h('div', {class:'tnum', text:String(i)}));
+    idx.appendChild(ic);
+    left.appendChild(idx);
+    const cap = h('div', {class:'lane'});
+    cap.appendChild(h('div', {class:'lanename', text:''}));
+    cap.appendChild(h('div', {class:'tnum', style:'text-align:left;color:var(--text-muted)',
+      text:'Yellow is the key sitting at the centre, indices 0 to 5. Juno\'s front stands on your index 14 at t11 and reaches your present in 4 meta-turns.'}));
+    left.appendChild(cap);
+
+    const peek = h('div', {class:'peek'});
+    peek.appendChild(h('div', {style:'color:var(--text-primary);font-weight:500', text:'At t8'}));
+    peek.appendChild(h('div', {html:'<b>Rook 17</b> (8,2), backward, holds the key on its right side. This is your present.'}));
+    peek.appendChild(h('div', {html:'<b>Ash 13</b> (14,1), backward. Part of the eight-to-thirteen stack Ash built by inverting three times at t9.'}));
+    peek.appendChild(h('div', {html:'<b>Ash 8</b> (13,1), forward.'}));
+    peek.appendChild(h('div', {html:'<b>Rook 8</b> (4,4), forward. Your own earlier body.'}));
+    peek.appendChild(h('div', {style:'margin-top:auto;color:var(--text-muted);font-size:11.5px',
+      text:'Release the scrub to drop back to the slim dock.'}));
+    n.appendChild(left); n.appendChild(peek);
+    return n;
+  }
+
+  // ---- Board with on-board move targets ------------------------------------
+  function boardInto(holder, cell, withTargets){
+    const api = MK.board(holder, {focusT:F.me.t, lookBack:4, cell:cell});
+    if (!withTargets) return api;
+    const s = api.s;
+    for (const a of F.actions) {
+      if (a.action === 'I' || a.action === 'H') continue;
+      const g = MK.el('g', {});
+      g.appendChild(MK.el('rect', {x:a.x*s + s*0.08, y:a.y*s + s*0.08, width:s*0.84, height:s*0.84, rx:5,
+        fill:'var(--accent-bg)', stroke:'var(--accent-br)', 'stroke-width':2, opacity:0.9}));
+      g.appendChild(MK.el('text', {x:api.cx(a.x), y:api.cy(a.y) - s*0.04, 'text-anchor':'middle',
+        'font-family':'var(--mono)', 'font-size':s*0.26, fill:'var(--text-primary)', text:'18'}));
+      g.appendChild(MK.el('text', {x:api.cx(a.x), y:api.cy(a.y) + s*0.26, 'text-anchor':'middle',
+        'font-family':'var(--mono)', 'font-size':s*0.19, fill:'var(--accent-br)', text:'t' + a.t}));
+      api.layers.targets.appendChild(g);
+    }
+    return api;
+  }
+
+  function toasts(){
+    const n = h('div', {class:'toasts'});
+    const evs = F.events.slice(-3).reverse();
+    evs.forEach((e, i) => {
+      const t = h('div', {class:'toast' + (i ? ' a' + (i+1) : '')});
+      t.style.borderLeftColor = C[e.color].hex;
+      t.appendChild(h('span', {class:'m', text:'t' + e.turn}));
+      const s = h('span', {});
+      s.appendChild(h('strong', {text:NAMES[e.color]}));
+      s.appendChild(document.createTextNode(' ' + eventText(e)));
+      t.appendChild(s);
+      n.appendChild(t);
+    });
+    return n;
+  }
+
+  // ---- Assemble -----------------------------------------------------------
+  function stage(railsOpen, opts){
+    const band = h('div', {class:'band'});
+    band.style.gridTemplateColumns = railsOpen ? '232px 1fr 296px' : '52px 1fr 52px';
+    band.appendChild(railsOpen ? logRail() : iconStrip('left'));
+    const area = h('div', {class:'stagearea'});
+    const hold = h('div', {class:'boardhold'});
+    area.appendChild(hold);
+    if (!railsOpen) area.appendChild(toasts());
+    if (opts && opts.scrim) area.appendChild(h('div', {class:'scrim'}));
+    band.appendChild(area);
+    band.appendChild(railsOpen ? moveRail() : iconStrip('right'));
+    return {band, hold, railsOpen};
+  }
+
+  function build(vp, cfg){
+    vp.appendChild(hud());
+    const st = stage(cfg.railsOpen, {scrim: cfg.scrim});
+    vp.appendChild(st.band);
+    vp.appendChild(cfg.focus ? focusDock() : dock(cfg.legend));
+
+    // Board size: fit the stage area, keep 16:9.
+    const areaW = (cfg.railsOpen ? 1440 - 232 - 296 : 1440 - 52 - 52) - 20;
+    const areaH = (cfg.focus ? 820 - 46 - 300 : 820 - 46 - 104) - 20;
+    const w = Math.min(areaW, areaH * F.w / F.h);
+    st.hold.style.width = w + 'px';
+    boardInto(st.hold, cfg.cell, !cfg.railsOpen);
+    return st;
+  }
+
+  function fit(wrapId, vpId){
+    const wrap = document.getElementById(wrapId), vp = document.getElementById(vpId);
+    function apply(){
+      const k = wrap.clientWidth / 1440;
+      vp.style.transform = 'scale(' + k + ')';
+      wrap.style.height = (vp.offsetHeight * k) + 'px';
+    }
+    apply();
+    window.addEventListener('resize', apply);
+  }
+
+  // Callouts are placed against real elements, so they cannot drift from what they name.
+  function marks(vpId, specs){
+    const vp = document.getElementById(vpId);
+    const vr = vp.getBoundingClientRect();
+    specs.forEach((sp, i) => {
+      const t = vp.querySelector(sp[0]);
+      if (!t) { console.error('callout anchor missing: ' + sp[0]); return; }
+      const r = t.getBoundingClientRect();
+      const x = r.left - vr.left + r.width * sp[1] + (sp[3] || 0) - 10;
+      const y = r.top - vr.top + r.height * sp[2] + (sp[4] || 0) - 10;
+      vp.appendChild(h('i', {class:'callout', style:'left:' + x + 'px;top:' + y + 'px', text:String(i+1)}));
+    });
+  }
+
+  build(document.getElementById('vpA'), {railsOpen:true, cell:56, legend:true});
+  build(document.getElementById('vpB'), {railsOpen:false, cell:72});
+  build(document.getElementById('vpC'), {railsOpen:false, cell:72, focus:true, scrim:true});
+
+  marks('vpA', [
+    ['.hud .who', 1, 0.5, 12, 0],
+    ['.warnchip', 1, 0.5, 12, 0],
+    ['.legbtn', 0.5, 0, 0, -6],
+    ['.lrail .railhead', 0.5, 0.5, 0, 0],
+    ['.boardhold', 0.5, 0.12, 0, 0],
+    ['.rrail .dpad', 0.5, 0, 0, -8],
+    ['.dock > div:first-child', 0.576, 0.42, 0, 0],
+    ['.seg', 0.5, 0, 0, -16]
+  ]);
+  marks('vpB', [
+    ['.icostrip', 0.5, 0.56, 0, 0],
+    ['.toasts', 1, 0.5, 12, 0],
+    ['.boardhold', 0.594, 0.278, 30, -24],
+    ['.band > .icostrip:last-child', 0.5, 0.42, 0, 0],
+    ['.dock .seg', 0.5, 0, 0, -16]
+  ]);
+  marks('vpC', [
+    ['.lanes > .lane:nth-child(2) .lanename', 0, 0.5, 0, 0],
+    ['.lanes > .lane:nth-child(5) .cells', 0.885, 0.5, 0, 0],
+    ['.lanes > .lane:nth-child(6) .cells', 0.83, 0.5, 0, 0],
+    ['.peek', 0.5, 0, 0, 10],
+    ['.scrim', 0.5, 0.3, 0, 0]
+  ]);
+
+  fit('wrapA','vpA'); fit('wrapB','vpB'); fit('wrapC','vpC');
+})();
+</script>
+</body></html>

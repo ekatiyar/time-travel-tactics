@@ -1,0 +1,166 @@
+<!doctype html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
+<title>05 Spacetime cube · tbtt mockups</title><link rel="stylesheet" href="shared/mock.css">
+<style>
+.p05 .cube{display:block;width:100%;height:auto}
+.p05 .cube text{font-family:var(--mono);font-size:10px;fill:var(--text-secondary)}
+.p05 .layer{fill:var(--surface-1);stroke:var(--border);stroke-width:1}
+.p05 .layer.focus{fill:var(--surface-2);stroke:var(--accent-br);stroke-width:1.5}
+.p05 .layer.fog{fill:url(#fog5);stroke:var(--border);stroke-dasharray:3 3}
+.p05 .wl{fill:none;stroke-width:3;stroke-linejoin:round;stroke-linecap:round}
+.p05 .plane{fill:var(--A);opacity:.22;stroke:var(--A);stroke-width:1.5}
+.p05 .ctl{display:flex;gap:8px;align-items:center;margin-top:8px;font-size:12.5px;color:var(--text-secondary)}
+.p05 .ctl .btn{padding:3px 9px;font-size:12px}
+.p05 #f1 svg{transition:transform .5s}
+@keyframes p05spin{0%{transform:rotateY(-6deg)}50%{transform:rotateY(6deg)}100%{transform:rotateY(-6deg)}}
+.p05 .spin{animation:p05spin 6s ease-in-out infinite;transform-origin:center}
+</style></head>
+<body><main class="mk-page p05">
+<h1>Spacetime cube</h1>
+<p class="mk-lede">Treat world time as a third spatial axis. Each world turn is a board layer; stack the layers vertically and draw every player's recorded bodies as a worldline threading through them. Inversion is a line that turns back down. A front is a plane cutting the stack. The current combined board is then just the top layer of this object, seen from above.</p>
+<div class="mk-meta"><span class="req">UI req: one combined board for present and history</span><span class="req">UI req: fronts and the hole between them</span><span>Open q: should a player see their own known future?</span><span>Also relevant: cycles as repeating bands</span></div>
+
+<figure class="fig stage">
+  <div class="frame" id="f1"></div>
+  <i class="callout" style="left:190px;top:530px">1</i>
+  <i class="callout" style="left:470px;top:150px">2</i>
+  <i class="callout" style="left:1060px;top:210px">3</i>
+  <i class="callout" style="left:640px;top:300px">4</i>
+  <i class="callout" style="left:640px;top:40px">5</i>
+  <div class="ctl"><span>Layers shown: t0 to t12 (your horizon). Focus layer t8 is opaque; the rest are glass.</span><button class="btn" id="spin">Toggle idle sway</button></div>
+  <figcaption>Oblique projection of the fixture. Coral's worldline rises from spawn to t12 then folds back down to t8. Amber's front is the tinted plane at t11.</figcaption>
+</figure>
+<ul class="callouts">
+  <li><b>1</b>Layer t0 at the bottom with all four spawns. Layers are 30px apart, so 13 explored turns take 390px of height.</li>
+  <li><b>2</b>Coral's worldline (you). The forward leg climbs. At t12 it folds and descends: the inverted leg is drawn slightly offset so it does not hide the climb.</li>
+  <li><b>3</b>Amber's front as a translucent plane at t11. Everything of Coral's line above the plane is what the front will erase from the key's point of view, and the plane descends 2 layers per meta-turn.</li>
+  <li><b>4</b>Focus layer t8 drawn as the real board: tiles, walls, key marks. Other layers show only walls faintly and the bodies as beads on the lines.</li>
+  <li><b>5</b>Horizon fog above t12: dashed empty layers to the cap. Beyond-horizon bodies of other players would live up here; you cannot see them, but the space exists.</li>
+</ul>
+
+<h2>Variants</h2>
+<div class="variants">
+  <figure class="fig"><div class="frame" id="f2"></div><figcaption><strong>Side elevation.</strong> Collapse the y axis: x across, world turn up. This is the cheapest cut of the cube and already shows inversions as folds and the front plane as a horizontal line. Ideal as a hover expansion of the timeline strip.</figcaption></figure>
+  <figure class="fig"><div class="frame" id="f3"></div><figcaption><strong>Peek mode.</strong> Keep the flat board, but pressing and holding a "peek" key tilts it 35° and fans out only the last 4 layers. Answers "what was here two turns ago" without leaving the 2D view.</figcaption></figure>
+</div>
+
+<h2>How you would play in it</h2>
+<div class="mk-prose"><ul>
+<li><strong>Default view</strong> is the flat top layer, exactly today's board. The cube is a mode you enter by dragging the board's edge downward, or with <kbd>Shift</kbd>+scroll.</li>
+<li><strong>Focus layer</strong> follows the world-turn scrub. Scrubbing in cube mode slides the opaque layer up and down the stack rather than swapping the board's contents, which makes "where was everyone at t5" a spatial question.</li>
+<li><strong>Moves are still chosen on the focus layer.</strong> Ghost previews (page 08) extend one layer up or down depending on your direction, which makes "backward players move down" tangible.</li>
+<li><strong>Weapons mode:</strong> an erasure front and its restoration front become two planes with a shaded slab between them: the hole. A cycle is a periodic stack of slabs, which is the clearest picture of cycles I can think of.</li>
+</ul></div>
+
+<h2>Trade-offs</h2>
+<div class="mk-pc">
+  <div class="pro"><h3>Pros</h3><ul>
+    <li>The rules say time is a dimension you can walk through. This is the only view that draws it as one.</li>
+    <li>Fronts, holes, horizons, and same-turn interaction all have a literal geometric meaning: plane, slab, ceiling, same layer.</li>
+    <li>Spectacular for onboarding, replay, and a share card even if play stays 2D.</li>
+  </ul></div>
+  <div class="con"><h3>Cons</h3><ul>
+    <li>Occlusion. A 16x9 board with 72 bodies produces line spaghetti; the mock already needs offsets and glass layers to stay readable. A 24x13 board with four players and 40 turns will not.</li>
+    <li>Precision. Choosing a move on a tilted layer is error-prone; keep input on the flat view.</li>
+    <li>Cost. Rendering is fine in SVG for this size, but hit-testing, hover, and animation in oblique space are a new subsystem. WebGL is the honest answer for boards above 20x10, which is a big dependency for a Preact prototype.</li>
+    <li>Screen height. The stack needs the full viewport; it competes with the timeline instrument (page 02), which shows much of the same information in 260px.</li>
+  </ul></div>
+</div>
+
+<h2>What it answers</h2>
+<div class="mk-prose"><p>Answers the combined-board requirement in a stronger form than a look-back slider. It gives cycles and holes a picture, which the strip cannot do as well. It does not answer touch inspection or small screens, and it should not be the primary play surface.</p></div>
+
+<h2>Cost</h2>
+<div class="mk-prose"><p><strong>L</strong> for a playable version, <strong>M</strong> for the side-elevation variant, <strong>S</strong> for peek mode with CSS 3D transforms on the existing grid (the current board is a CSS grid; a <code>perspective</code> and <code>rotateX</code> on it plus cloned history layers gets most of the effect). Nothing here needs engine changes; the View already has every body with x, y, t, p.</p></div>
+</main>
+<script src="shared/fixture.js"></script><script src="shared/board.js"></script><script src="shared/nav.js"></script>
+<script>
+(function(){
+  const F = FIX, C = COLORS, el = MK.el;
+  const walls = new Set(F.walls.map(p=>p.join(',')));
+  // Oblique projection: X = ox + x*sx + y*sh ; Y = oy + y*sy - t*tz
+  function project(sx, sh, sy, tz, ox, oy){ return (x,y,t)=>[ox + x*sx + y*sh, oy + y*sy - t*tz]; }
+  function layerPath(P, t){ const a=P(-0.5,-0.5,t),b=P(F.w-0.5,-0.5,t),c=P(F.w-0.5,F.h-0.5,t),d=P(-0.5,F.h-0.5,t); return `M${a}L${b}L${c}L${d}Z`; }
+  function cube(container, W, H, opts){
+    const o = Object.assign({sx:52,sh:22,sy:8,tz:30,ox:80,oy:470,layers:F.me.horizon+1,fogTo:F.me.horizon+4,focus:F.me.t,showAll:true},opts||{});
+    const P = project(o.sx,o.sh,o.sy,o.tz,o.ox,o.oy);
+    const svg = el('svg',{viewBox:`0 0 ${W} ${H}`,class:'cube'});
+    svg.appendChild(el('defs',{},[el('pattern',{id:'fog5',width:8,height:8,patternUnits:'userSpaceOnUse',patternTransform:'rotate(45)'},[el('rect',{width:8,height:8,fill:'var(--surface-0)'}),el('rect',{width:1.5,height:8,fill:'var(--border)'})])]));
+    const g = el('g',{id:'cubeg'}); svg.appendChild(g);
+    // draw bottom-up so the stack occludes correctly
+    for (let t=(o.from||0);t<o.fogTo;t++){
+      const fog = t>=o.layers, focus = t===o.focus;
+      g.appendChild(el('path',{class:'layer'+(focus?' focus':fog?' fog':''),d:layerPath(P,t),opacity:fog?0.18:focus?0.8:0.2}));
+      g.appendChild(el('text',{x:P(-0.5,F.h-0.5,t)[0]-8,y:P(-0.5,F.h-0.5,t)[1]+3,'text-anchor':'end',text:'t'+t,fill:focus?'var(--text-primary)':undefined}));
+      if (fog) continue;
+      // walls on every layer, faint; full tiles on focus
+      for (let y=0;y<F.h;y++) for (let x=0;x<F.w;x++){
+        const wall = walls.has(x+','+y);
+        if (!focus && !wall) continue;
+        const a=P(x-0.45,y-0.45,t),b=P(x+0.45,y-0.45,t),c=P(x+0.45,y+0.45,t),d=P(x-0.45,y+0.45,t);
+        g.appendChild(el('path',{d:`M${a}L${b}L${c}L${d}Z`,fill:wall?'var(--wall)':'var(--surface-3)',opacity:wall?(focus?.6:.25):.8}));
+        if (focus && wall){ // raise wall block
+          const h=10; const a2=P(x-0.45,y+0.45,t),b2=P(x+0.45,y+0.45,t);
+          g.appendChild(el('path',{d:`M${a2}L${b2}l0,${h}L${a2[0]},${a2[1]+h}Z`,fill:'var(--wall)',opacity:.35}));
+        }
+      }
+      if (focus){ // spawns + key at center if unheld
+        for (const c of F.roster){ const s=F.spawns[c]; const a=P(s[0]-0.45,s[1]-0.45,t),b=P(s[0]+0.45,s[1]-0.45,t),c2=P(s[0]+0.45,s[1]+0.45,t),d=P(s[0]-0.45,s[1]+0.45,t);
+          g.appendChild(el('path',{d:`M${a}L${b}L${c2}L${d}Z`,fill:'none',stroke:C[c].hex,'stroke-width':1.5,'stroke-dasharray':'4 3'})); }
+        if (F.keyAtCenter.includes(t)){ const k=P(F.center[0],F.center[1],t); g.appendChild(el('rect',{x:k[0]-5,y:k[1]-5,width:10,height:10,rx:2,fill:'var(--key)'})); }
+      }
+      // front plane at t=11 (drawn when we reach that layer so it sits in the stack)
+      for (const f of F.fronts) if (f.t===t){
+        g.appendChild(el('path',{class:'plane',d:layerPath(P,t+0.02)}));
+        const p=P(F.w-0.5,-0.5,t); g.appendChild(el('text',{x:p[0]+8,y:p[1],text:F.names[f.color]+"'s front · lands in "+f.gap+' turns',fill:C[f.color].hex}));
+        g.appendChild(el('path',{d:`M${p[0]+40},${p[1]+6} l0,${o.tz*2-4} l-4,-5 m4,5 l4,-5`,fill:'none',stroke:C[f.color].hex,'stroke-width':1.5}));
+        g.appendChild(el('text',{x:p[0]+48,y:p[1]+o.tz+8,text:'2 layers / turn',fill:C[f.color].hex}));
+      }
+      // worldline segments that end on this layer, plus beads
+      for (const c of (o.showAll?F.roster:['C'])){
+        const path = MK.path(c);
+        path.forEach((b,i)=>{
+          if (b.t!==t) return;
+          const off = b.dir===-1 ? 0.18 : 0; // offset inverted legs
+          const q = P(b.x+off,b.y+off,b.t);
+          const prev = path[i-1];
+          if (prev && prev.t>=(o.from||0)){ const po=prev.dir===-1?0.18:0; const p0=P(prev.x+po,prev.y+po,prev.t);
+            g.appendChild(el('path',{class:'wl',d:`M${p0}L${q}`,stroke:C[c].hex,opacity:b.t<=o.focus?1:.45})); }
+          const live=b.live, mine=b.dir===F.me.dir;
+          g.appendChild(el('circle',{cx:q[0],cy:q[1],r:live?7:3.5,fill:mine?C[c].hex:'var(--surface-1)',stroke:C[c].hex,'stroke-width':live?2.5:1.5,title:`${F.names[c]} ${b.p} · t${b.t}`}));
+          if (live) g.appendChild(el('text',{x:q[0],y:q[1]+3.5,'text-anchor':'middle',text:b.p,fill:mine?C[c].ink:'var(--text-primary)',style:'font-size:8.5px;font-weight:600'}));
+          if (MK.heldBy(b)) g.appendChild(el('rect',{x:q[0]+6,y:q[1]-3,width:6,height:6,rx:1,fill:'var(--key)',stroke:'var(--surface-0)'}));
+        });
+      }
+    }
+    // cap marker
+    if(!o.from){const top = P(-0.5,-0.5,o.fogTo); g.appendChild(el('text',{x:top[0]+20,y:top[1]-10,text:'… up to t'+F.cap+' (cap)',fill:'var(--text-muted)'}));}
+    container.appendChild(svg); return svg;
+  }
+  const svg1 = cube(document.getElementById('f1'), 1400, 600, {});
+  document.getElementById('spin').onclick=()=>svg1.classList.toggle('spin');
+
+  // Side elevation: x across, t up, y collapsed (small offset to separate players)
+  function side(container){
+    const W=680,H=300, left=40, colW=(W-left-20)/F.w, tz=18, oy=H-30;
+    const svg = el('svg',{viewBox:`0 0 ${W} ${H}`,class:'cube'});
+    const X=(x,y)=>left+x*colW+colW/2+(y-4)*1.2, Y=t=>oy-t*tz;
+    for (let t=0;t<=F.me.horizon;t++){ svg.appendChild(el('line',{x1:left,x2:W-20,y1:Y(t),y2:Y(t),stroke:'var(--border)',opacity:t===F.me.t?1:.5,'stroke-width':t===F.me.t?1.5:1}));
+      svg.appendChild(el('text',{x:left-6,y:Y(t)+3,'text-anchor':'end',text:'t'+t,fill:t===F.me.t?'var(--text-primary)':undefined})); }
+    svg.appendChild(el('rect',{x:left,y:Y(F.me.t)-tz/2,width:W-20-left,height:tz,fill:'var(--accent-br)',opacity:.12}));
+    svg.appendChild(el('line',{x1:left,x2:W-20,y1:Y(11),y2:Y(11),stroke:C.A.hex,'stroke-width':2,opacity:.8}));
+    svg.appendChild(el('text',{x:W-22,y:Y(11)-4,'text-anchor':'end',text:'front · 4 turns',fill:C.A.hex}));
+    for (let x=0;x<F.w;x++) svg.appendChild(el('text',{x:X(x,4),y:H-8,'text-anchor':'middle',text:'x'+x}));
+    for (const c of F.roster){ const path=MK.path(c); const pts=path.map(b=>`${X(b.x,b.y)+(b.dir===-1?3:0)},${Y(b.t)}`).join(' ');
+      svg.appendChild(el('polyline',{class:'wl',points:pts,stroke:C[c].hex,opacity:.85,'stroke-width':2.5}));
+      for (const b of path){ const mine=b.dir===F.me.dir; svg.appendChild(el('circle',{cx:X(b.x,b.y)+(b.dir===-1?3:0),cy:Y(b.t),r:b.live?6:2.5,fill:mine?C[c].hex:'var(--surface-1)',stroke:C[c].hex,'stroke-width':b.live?2:1.2}));
+        if (MK.heldBy(b)) svg.appendChild(el('rect',{x:X(b.x,b.y)+6,y:Y(b.t)-3,width:5,height:5,fill:'var(--key)'})); } }
+    container.appendChild(svg);
+  }
+  side(document.getElementById('f2'));
+  // Peek mode: last 4 layers fanned, using the cube projection with a steeper tilt
+  cube(document.getElementById('f3'), 680, 300, {sx:30,sh:12,sy:9,tz:34,ox:80,oy:388,layers:F.me.t+1,fogTo:F.me.t+1,focus:F.me.t,showAll:true,from:F.me.t-3});
+  // hide the layers below t5 in the peek by covering: simplest is to note it in caption; instead trim: remove layer groups for t<5
+  (function(){ const svg=document.querySelector('#f3 svg'); svg.setAttribute('viewBox','0 0 680 300'); })();
+})();
+</script>
+</body></html>

@@ -1,0 +1,62 @@
+<!doctype html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
+<title>00 Baseline · tbtt mockups</title><link rel="stylesheet" href="shared/mock.css">
+<style>
+.p00 img{display:block;width:100%;height:auto;border-radius:6px}
+.p00 .shots{display:grid;grid-template-columns:1fr 1fr;gap:14px;align-items:start}
+.p00 .shots .fig{margin:0}
+.p00 .issues{counter-reset:i;padding:0;margin:0;list-style:none;max-width:900px}
+.p00 .issues li{display:flex;gap:10px;padding:8px 0;border-bottom:1px solid var(--border);font-size:13.5px;color:var(--text-secondary)}
+.p00 .issues li::before{counter-increment:i;content:counter(i);flex:none;width:20px;height:20px;border-radius:50%;background:var(--warn);color:#1a1200;font:600 11px/20px var(--mono);text-align:center}
+.p00 .issues b{color:var(--text-primary);font-weight:500}
+.p00 .issues .ref{font-family:var(--mono);font-size:11px;color:var(--accent-br);margin-left:auto;flex:none;white-space:nowrap}
+</style></head>
+<body><main class="mk-page p00">
+<h1>Baseline: the prototype today</h1>
+<p class="mk-lede">Screenshots of the current play screen captured by driving the real build with a stubbed peer, with the problems each later page tries to solve. Bootstrap mode, 16x9, seed "demo", two players.</p>
+<div class="mk-meta"><span>Captured by mockups/current/capture.mjs</span><span>Dark theme unless noted</span></div>
+
+<figure class="fig"><div class="frame"><img src="current/play-mid.png" alt="Play screen mid-match"></div>
+<figcaption>Play screen after several turns. Three columns: log, board with two range sliders and the strip, and the turn card with the D-pad, invert, commit, and priority.</figcaption></figure>
+
+<h2>What works</h2>
+<div class="mk-prose"><ul>
+<li>One combined board for present and history, as the design doc asks. The focus turn and look-back sliders do exactly what they say.</li>
+<li>Filled vs hollow bodies for "your direction vs opposite" is a strong, cheap encoding, and it is reused on the strip and trail dots.</li>
+<li>Commit state is always visible. Keyboard flow (WASD, Enter, Esc) is complete.</li>
+<li>The event log is honest and complete. Every rule outcome is a sentence.</li>
+</ul></div>
+
+<h2>Problems the other pages address</h2>
+<ol class="issues">
+<li><span><b>The board gets about half the width</b> and 70vh of height on a laptop. The log and the turn card, which change rarely, get the rest.</span><span class="ref">01, 11</span></li>
+<li><span><b>History is corner dots.</b> At 16x9 a trail dot is 11% of a cell, roughly 4px. Direction of travel through world time is not visible at all; you cannot tell which way a player walked.</span><span class="ref">03, 04, 05</span></li>
+<li><span><b>The strip is three 7px rows</b> of dots and triangles. Playheads for four players overlap in one column. The horizon is a dashed box.</span><span class="ref">02, 12</span></li>
+<li><span><b>The front is a small triangle</b> and the ETA lives in hover text. The doc's requirement to show the personal-index gap is met only on hover.</span><span class="ref">02, 06, 07, 10</span></li>
+<li><span><b>The key is a small square on a body side.</b> Nothing shows the steal tile beyond it, or who will hold a real key after the front lands.</span><span class="ref">06, 10</span></li>
+<li><span><b>Legality only through disabled buttons.</b> The reason ("Blocked by wall") is a tooltip on a disabled control, which most users never see; on the board a blocked target tile is grey with a title attribute.</span><span class="ref">08, 09</span></li>
+<li><span><b>Every body carries its index</b> in a 26cqmin font. Stacks show "16 … 18". This is noisy on busy boards and unreadable under about 28px cells.</span><span class="ref">17</span></li>
+<li><span><b>Turns resolve with a re-render.</b> Bounces, grabs, inversions, and front steps all happen invisibly between two frames.</span><span class="ref">07</span></li>
+<li><span><b>The legend is ten always-on items</b> under the board, and the priority card is separate from the controls it affects.</span><span class="ref">01, 08</span></li>
+<li><span><b>Setup is a seven-field form</b> with no picture of the board. The lobby is a list of colour rows with no relation to spawns.</span><span class="ref">13</span></li>
+<li><span><b>No teaching.</b> A single hint sentence ("Grab the key from beside the center…") is the only in-game rule help. Inversion is a button labelled "Turn around in time".</span><span class="ref">14</span></li>
+<li><span><b>Touch cannot inspect.</b> All body details are title attributes.</span><span class="ref">09, 11</span></li>
+<li><span><b>After the match</b> the screen says "Use World turn to review the match". There is no replay over meta-turns, no summary, nothing to share.</span><span class="ref">15</span></li>
+<li><span><b>Mobile stacks the three columns.</b> The board comes first, then sliders, then controls below the fold; committing needs a scroll every turn.</span><span class="ref">11</span></li>
+<li><span><b>Hold is pre-selected.</b> The app falls back to hold (or invert) so Commit always has a legal target, but the highlighted button reads as "you already chose". </span><span class="ref">08</span></li>
+<li><span><b>"World turn" and "turn" sit side by side</b> with similar names: one is the scrub position, the other the meta-turn out of the cap.</span><span class="ref">02, 12</span></li>
+<li><span><b>Inverting shows nothing on the board.</b> The token stays put; only the log line and the header word "backward" change.</span><span class="ref">07, 03</span></li>
+</ol>
+
+<h2>More captures</h2>
+<div class="shots">
+<figure class="fig"><div class="frame"><img src="current/board-only.png" alt="Board only"></div><figcaption>Board crop. Note trail dots (2), key square (5), front triangle (4), and index labels on every body (7).</figcaption></figure>
+<figure class="fig"><div class="frame"><img src="current/strip-only.png" alt="Strip only"></div><figcaption>The strip: fronts row, playheads row, window bar, tick labels, and the "explored through" line (3).</figcaption></figure>
+<figure class="fig"><div class="frame"><img src="current/turncard-only.png" alt="Turn card"></div><figcaption>Turn card with the D-pad, invert, commit, and key hints (6, 9).</figcaption></figure>
+<figure class="fig"><div class="frame"><img src="current/play-mid-light.png" alt="Light theme"></div><figcaption>Light theme of the same state.</figcaption></figure>
+<figure class="fig"><div class="frame"><img src="current/setup.png" alt="Setup"></div><figcaption>Setup form (10).</figcaption></figure>
+<figure class="fig"><div class="frame"><img src="current/lobby.png" alt="Lobby"></div><figcaption>Lobby colour picker (10).</figcaption></figure>
+<figure class="fig"><div class="frame" style="max-width:320px"><img src="current/mobile.png" alt="Mobile"></div><figcaption>390px wide, full page (14).</figcaption></figure>
+</div>
+</main>
+<script src="shared/fixture.js"></script><script src="shared/board.js"></script><script src="shared/nav.js"></script>
+</body></html>

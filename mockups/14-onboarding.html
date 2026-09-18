@@ -1,0 +1,396 @@
+<!doctype html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
+<title>14 Onboarding &amp; rule hints · tbtt mockups</title><link rel="stylesheet" href="shared/mock.css"><style>
+#p14 .stage{position:relative;overflow:hidden;border-radius:8px}
+#p14 .cols{display:grid;grid-template-columns:196px minmax(0,1fr) 248px;gap:12px;align-items:start}
+@media(max-width:1040px){#p14 .cols{grid-template-columns:1fr}}
+#p14 .rail{background:var(--surface-1);border-radius:10px;padding:11px}
+#p14 .rail h4{margin:0 0 7px;font:500 11.5px/1 system-ui;color:var(--text-muted);letter-spacing:.04em;text-transform:uppercase}
+#p14 .log{margin:0;padding:0;list-style:none}
+#p14 .log li{display:flex;gap:6px;align-items:baseline;font-size:12px;color:var(--text-secondary);padding:2px 0}
+#p14 .log .m{font-family:var(--mono);font-size:10.5px;color:var(--text-muted);width:20px;text-align:right;flex:none}
+#p14 .log .sw{width:8px;height:8px}
+#p14 .boardframe{background:var(--surface-2);border:1px solid var(--border);border-radius:8px;padding:6px}
+#p14 .hdr{display:flex;align-items:center;gap:9px;font-size:12.5px;color:var(--text-secondary);margin-bottom:7px}
+#p14 .hdr .pill{background:var(--C);color:var(--C-ink,#FBEDE7)}
+#p14 .hdr .right{margin-left:auto;font-family:var(--mono);font-size:11.5px;color:var(--text-muted)}
+#p14 .slider{display:flex;align-items:center;gap:9px;margin-top:9px;font-size:12px;color:var(--text-secondary)}
+#p14 .slider .track{flex:1;height:4px;border-radius:3px;background:var(--surface-3);position:relative}
+#p14 .slider .knob{position:absolute;top:-4px;width:12px;height:12px;border-radius:50%;background:var(--text-secondary)}
+#p14 .dpad{display:grid;grid-template-columns:repeat(3,1fr);gap:5px}
+#p14 .dpad .btn{padding:0;height:42px;display:flex;flex-direction:column;align-items:center;justify-content:center;line-height:1.1;font-size:15px}
+#p14 .dpad .btn small{font-size:9.5px;font-family:var(--mono);color:var(--text-muted)}
+#p14 .dpad .blank{visibility:hidden}
+#p14 .scrim{position:absolute;border-radius:9px;box-shadow:0 0 0 9999px rgba(8,7,10,.74);outline:2px solid var(--warn);
+  outline-offset:1px;z-index:5;pointer-events:none;transition:all .25s ease}
+#p14 .coach{position:absolute;z-index:6;width:262px;background:var(--surface-3);border:1px solid var(--warn);border-radius:10px;
+  padding:11px 12px;box-shadow:0 10px 30px rgba(0,0,0,.55)}
+#p14 .coach .step{font:500 10.5px/1 var(--mono);color:var(--warn);letter-spacing:.06em;text-transform:uppercase}
+#p14 .coach b{display:block;font-weight:500;font-size:14px;margin:5px 0 4px}
+#p14 .coach p{margin:0;font-size:12.5px;line-height:1.5;color:var(--text-secondary)}
+#p14 .coach .cf{display:flex;align-items:center;gap:8px;margin-top:10px}
+#p14 .coach .cf .dots{display:flex;gap:4px;margin-right:auto}
+#p14 .coach .cf .dots i{width:5px;height:5px;border-radius:50%;background:var(--surface-1);border:1px solid var(--btn-border)}
+#p14 .coach .cf .dots i.on{background:var(--warn);border-color:var(--warn)}
+#p14 .coach .cf .btn{font-size:12px;padding:4px 10px}
+#p14 .mark{z-index:7}
+#p14 .rulecards{display:grid;grid-template-columns:repeat(3,1fr);gap:12px}
+@media(max-width:900px){#p14 .rulecards{grid-template-columns:1fr}}
+#p14 .rc{background:var(--surface-1);border:1px solid var(--border);border-left:3px solid var(--accent-br);border-radius:0 10px 10px 0;padding:12px}
+#p14 .rc.warn{border-left-color:var(--warn)} #p14 .rc.stop{border-left-color:var(--bad-br)}
+#p14 .rc .when{font:500 10.5px/1 var(--mono);color:var(--text-muted);letter-spacing:.05em;text-transform:uppercase}
+#p14 .rc b{display:block;font-weight:500;font-size:14px;margin:6px 0 5px}
+#p14 .rc p{margin:0;font-size:13px;line-height:1.5;color:var(--text-secondary)}
+#p14 .rc .art{margin:9px 0 2px;background:var(--surface-0);border-radius:7px;padding:7px}
+#p14 .rc .rf{display:flex;gap:8px;align-items:center;margin-top:9px}
+#p14 .rc .rf .btn{font-size:12px;padding:4px 10px}
+#p14 .rc .rf a{font-size:11.5px;color:var(--text-muted);text-decoration:none;margin-left:auto}
+#p14 .acts{background:var(--surface-1);border:1px solid var(--border);border-radius:10px;overflow:hidden}
+#p14 .acts h5{margin:0;padding:8px 11px;font:500 11.5px/1 system-ui;color:var(--text-muted);letter-spacing:.04em;
+  text-transform:uppercase;border-bottom:1px solid var(--border);background:var(--surface-2)}
+#p14 .arow{display:grid;grid-template-columns:34px 20px 1fr auto;gap:9px;align-items:center;padding:7px 11px;
+  border-bottom:1px solid var(--border);font-size:13px}
+#p14 .arow:last-child{border-bottom:none}
+#p14 .arow .g{font-size:14px;color:var(--text-secondary);text-align:center}
+#p14 .arow .txt{color:var(--text-primary);line-height:1.4}
+#p14 .arow .chip{font-family:var(--mono);font-size:10.5px;padding:2px 7px;border-radius:10px;border:1px solid var(--border);color:var(--text-muted);white-space:nowrap}
+#p14 .arow.no{background:color-mix(in srgb,var(--bad-br) 9%,transparent)}
+#p14 .arow.no .txt{color:var(--text-muted)}
+#p14 .arow.no .chip{border-color:var(--bad-br);color:var(--bad-br)}
+#p14 .arow.pick{background:var(--accent-bg)}
+#p14 .arow kbd{justify-self:start}
+#p14 .two{display:grid;grid-template-columns:1fr 1fr;gap:14px;align-items:start}
+@media(max-width:900px){#p14 .two{grid-template-columns:1fr}}
+#p14 ol.tut{max-width:820px;counter-reset:t;list-style:none;padding:0;margin:0}
+#p14 ol.tut li{counter-increment:t;position:relative;padding:0 0 0 46px;margin:0 0 11px;color:var(--text-secondary);font-size:14px;line-height:1.5}
+#p14 ol.tut li:before{content:counter(t);position:absolute;left:0;top:1px;width:26px;height:26px;border-radius:50%;
+  background:var(--surface-2);border:1px solid var(--btn-border);font:500 12px/25px var(--mono);text-align:center;color:var(--text-primary)}
+#p14 ol.tut li b{color:var(--text-primary);font-weight:500}
+#p14 ol.tut li .sec{display:block;font-size:12px;color:var(--text-muted);font-family:var(--mono);margin-top:2px}
+</style></head>
+<body><main class="mk-page" id="p14">
+<h1>Onboarding &amp; rule hints</h1>
+<p class="mk-lede">Nothing in the prototype teaches the game. A first-time player meets a board, four numbers, and a button
+called "Turn around in time". This direction adds three layers that cost nothing once learned: five coach marks on the first
+match, rule cards that appear the moment a rule first bites, and a permanent strip that reads this turn's six options as
+sentences.</p>
+<div class="mk-meta"><span class="req">UI req: timeline strip with each playhead and direction</span><span class="req">UI req: illegal moves and their reason on inspection</span><span class="req">UI req: personal-index gap for an inbound front</span><span>Open question: should a player see their own known future</span></div>
+
+<figure class="fig stage" id="fig1">
+  <div class="frame stage" id="stage">
+    <div class="cols">
+      <div class="rail">
+        <button class="btn" style="width:100%;margin-bottom:10px">New match</button>
+        <h4>Log</h4>
+        <ul class="log" id="logList"></ul>
+      </div>
+      <div>
+        <div class="hdr"><span class="pill" id="hpill">Coral</span><span class="mono" id="hme"></span>
+          <span class="right">turn 17 / 43 · state df18</span></div>
+        <div class="boardframe"><div id="board"></div></div>
+        <div class="slider"><span style="width:62px">World turn</span><span class="track"><i class="knob" style="left:64%"></i></span><span class="mono">8</span></div>
+        <div class="slider"><span style="width:62px">History</span><span class="track"><i class="knob" style="left:30%"></i></span><span class="mono">4</span></div>
+        <div id="strip" style="margin-top:8px"></div>
+      </div>
+      <div class="rail">
+        <div style="font-size:12.5px;color:var(--text-secondary);margin-bottom:4px"><span class="mono" style="color:var(--good)">●</span> Connected · 3 other players</div>
+        <div style="font-size:12.5px;color:var(--text-secondary);margin-bottom:10px">Still choosing: You, Mira, Ash, Juno</div>
+        <h4>Your move</h4>
+        <div class="dpad">
+          <span class="blank"></span><button class="btn">↑<small>W</small></button><span class="blank"></span>
+          <button class="btn">←<small>A</small></button><button class="btn sel">·<small>hold</small></button><button class="btn">→<small>D</small></button>
+          <span class="blank"></span><button class="btn">↓<small>S</small></button><span class="blank"></span>
+        </div>
+        <button class="btn" id="btnInv" style="width:100%;margin-top:8px">Turn around in time</button>
+        <button class="btn primary" id="btnCommit" style="width:100%;margin-top:7px">Commit hold</button>
+      </div>
+    </div>
+    <div class="scrim" id="scrim"></div>
+    <div class="coach" id="coach">
+      <span class="step">Step 1 of 5</span>
+      <b>This is you</b>
+      <p>Coral, personal index 17. The number counts the actions you have taken, not the world turn. Every action you take
+      leaves this body behind on the board for good, and it can be stood in front of, robbed, and later shot.</p>
+      <div class="cf"><span class="dots"><i class="on"></i><i></i><i></i><i></i><i></i></span>
+        <button class="btn" style="border:none;color:var(--text-muted)">Skip</button><button class="btn sel">Next</button></div>
+    </div>
+  </div>
+  <figcaption>First match, step 1 of 5. Everything except your own body is dimmed. The five bright markers are the five steps,
+  so the shape of the lesson is visible from the start and you can jump to any of them.</figcaption>
+</figure>
+<ul class="callouts">
+  <li><b>1</b><span><b style="background:none;color:inherit;width:auto;font-weight:500">Your body and index.</b>&nbsp;Personal index, not world turn. The one number the rest of the UI keeps referring to.</span></li>
+  <li><b>2</b><span><b style="background:none;color:inherit;width:auto;font-weight:500">The strip and the playheads.</b>&nbsp;t0 to t12 is world time. Your playhead is at t8 pointing backward; the other dots are the other three presents.</span></li>
+  <li><b>3</b><span><b style="background:none;color:inherit;width:auto;font-weight:500">The key and the grab tiles.</b>&nbsp;One key on the center tile (8,4). Any of its four neighbours picks it up. The square on your body shows which side it hangs on.</span></li>
+  <li><b>4</b><span><b style="background:none;color:inherit;width:auto;font-weight:500">Invert.</b>&nbsp;Turning around costs an index but no world turn. Afterwards you walk back through history and may stand on your own earlier bodies.</span></li>
+  <li><b>5</b><span><b style="background:none;color:inherit;width:auto;font-weight:500">Commit.</b>&nbsp;Choices are simultaneous and private. You can change yours until the last player commits.</span></li>
+</ul>
+
+<figure class="fig">
+  <div class="frame">
+    <div class="rulecards">
+      <div class="rc">
+        <span class="when">Shown the turn you first invert</span>
+        <b>You are walking backward</b>
+        <div class="art"><svg viewBox="0 0 250 52" width="100%" style="display:block"></svg></div>
+        <p>Your playhead now moves from t8 toward t0, one turn per action. You can stand on your own earlier bodies, but not
+        twice in a row on the same one.</p>
+        <div class="rf"><button class="btn">Got it</button><a href="#">Stop showing hints</a></div>
+      </div>
+      <div class="rc warn">
+        <span class="when">Shown when a front targets you</span>
+        <b>Juno's front is 4 turns away</b>
+        <div class="art"><svg viewBox="0 0 250 52" width="100%" style="display:block"></svg></div>
+        <p>It walks the key's earlier holders two indices a turn. Your key is real until it arrives: you can still win with it.
+        On the fourth turn from now your indices 14 to 17 stop reading the key.</p>
+        <div class="rf"><button class="btn">Got it</button><a href="#">Show me the front</a></div>
+      </div>
+      <div class="rc stop">
+        <span class="when">Shown on arrival at t0</span>
+        <b>t0 is the end of the road</b>
+        <div class="art"><svg viewBox="0 0 250 52" width="100%" style="display:block"></svg></div>
+        <p>Walking backward, there is no turn before this one. Moving and holding are both unavailable. Inverting is legal here
+        and always will be, so you can turn around and walk forward again.</p>
+        <div class="rf"><button class="btn">Got it</button><a href="#">Stop showing hints</a></div>
+      </div>
+    </div>
+    <i class="callout" style="left:29.5%;top:4%">6</i>
+    <i class="callout" style="left:63%;top:4%">7</i>
+  </div>
+  <figcaption>Inline rule cards. Each fires once, on the turn its rule first affects you, and never again. All three texts
+  describe the fixture: you inverted at t12 on meta-turn 12, Juno's front is 4 turns out, and Mira has twice hit t0.</figcaption>
+</figure>
+<ul class="callouts">
+  <li><b>6</b>The trigger is written on the card, so the player learns that hints are caused rather than random, and trusts the
+  dismiss button.</li>
+  <li><b>7</b>Each card carries the number from the rules, not a paraphrase: two indices a turn, four turns, indices 14 to 17.
+  That is the same wording the inspector and the front tooltip use.</li>
+</ul>
+
+<figure class="fig">
+  <div class="frame">
+    <div class="two">
+      <div>
+        <div class="acts"><h5>What you can do this turn</h5><div id="actsReal"></div></div>
+        <p class="muted" style="font-size:12.5px;margin:8px 0 0">Your real position: Coral 17 at (8,2), t8, walking backward.
+        All six actions are legal, and every one of them keeps the key for four more turns.</p>
+      </div>
+      <div>
+        <div class="acts"><h5>Same strip, two actions blocked</h5><div id="actsBlocked"></div></div>
+        <p class="muted" style="font-size:12.5px;margin:8px 0 0">Drawn from (8,3), one tile down, because the fixture has no
+        illegal action this turn. Juno 17 really does hold (7,3) at t7 and (9,3) really is a wall.</p>
+      </div>
+    </div>
+    <i class="callout" style="left:2%;top:5%">8</i>
+    <i class="callout" style="left:2%;top:64%">9</i>
+    <i class="callout" style="left:51%;top:30%">10</i>
+  </div>
+  <figcaption>The persistent strip. Six rows, one per action, generated from the same offers the D-pad already consumes. It
+  sits under the D-pad all match, not just during onboarding.</figcaption>
+</figure>
+<ul class="callouts">
+  <li><b>8</b>Every row names the tile and both world turns, so "t8 becomes t7" is stated rather than inferred from a direction arrow.</li>
+  <li><b>9</b>Invert is the row that needs the sentence most: it is the only action that does not spend a world turn, and the
+  only one that changes what later rows will say.</li>
+  <li><b>10</b>A blocked row keeps its place and gains the reason. Disappearing options teach nothing; a greyed row with
+  "Juno 17 holds (7,3)" teaches the tile rule in one reading.</li>
+</ul>
+
+<h2>Sixty-second interactive tutorial</h2>
+<div class="mk-prose"><p>A solo board with a scripted opponent, not a video. Every step is a real turn on a real engine, so
+the player commits eight times in a minute. Suggested board: 9 × 7, no walls, two colours.</p></div>
+<ol class="tut">
+  <li><b>Move once.</b> Only one tile is offered. You commit, the turn resolves, and a body is left behind on the tile you came from.<span class="sec">0:00 – 0:08 · teaches: actions leave bodies</span></li>
+  <li><b>Read your own number.</b> The tutorial asks "what is your personal index now?" and accepts a tap on the body. It is 1, not t1.<span class="sec">0:08 – 0:16 · teaches: index against world turn</span></li>
+  <li><b>Walk to the key.</b> Three free moves to a tile beside the center. The key attaches with the side square facing the center.<span class="sec">0:16 – 0:28 · teaches: grab tiles, key side</span></li>
+  <li><b>Get robbed.</b> The scripted opponent steps to the tile beyond your key side and takes it. The log line and the front triangle both appear.<span class="sec">0:28 – 0:36 · teaches: steals come from one specific tile</span></li>
+  <li><b>Watch the front walk.</b> Two turns of holding. The front advances two indices each turn and the strip shows the gap counting down.<span class="sec">0:36 – 0:44 · teaches: two indices a turn, gap equals turns</span></li>
+  <li><b>Turn around.</b> Invert is the only offered action. Your playhead stops, your direction flips, and your body count grows by one.<span class="sec">0:44 – 0:50 · teaches: inversion costs an index, not a turn</span></li>
+  <li><b>Steal it back.</b> Walking backward, you reach the opponent's recorded holder and rob a body that is not even live.<span class="sec">0:50 – 0:56 · teaches: recorded bodies are real targets</span></li>
+  <li><b>Win.</b> One more backward step lands you at t0 beside your spawn holding the key. The win banner names the three conditions it just checked.<span class="sec">0:56 – 1:04 · teaches: the win condition, in full</span></li>
+</ol>
+
+<h2>Trade-offs</h2>
+<div class="mk-pc">
+  <div class="pro"><h3>Pros</h3><ul>
+    <li>The action strip is useful forever, not just on turn one, so the teaching layer is not dead weight after the first match.</li>
+    <li>Rule cards fire on a real event, which is when the rule is finally interesting. Nobody reads them up front.</li>
+    <li>Five coach marks is small enough to finish. The dot row shows that from the first card.</li>
+    <li>The tutorial is real turns on the real engine. No separate scripted mode to keep in sync with the rules.</li>
+  </ul></div>
+  <div class="con"><h3>Cons</h3><ul>
+    <li>Coach marks need stable anchors. Every layout change in <span class="mono">ui.tsx</span> can move a spotlight off its target.</li>
+    <li>Six sentences take more vertical room than a D-pad. On a phone the strip has to collapse to the picked action plus a count.</li>
+    <li>"Shown once" needs storage. Clearing site data restarts the lessons, and a shared device shows them to the wrong person.</li>
+    <li>The tutorial needs a scripted opponent, which is a second kind of session next to peer matches.</li>
+  </ul></div>
+</div>
+
+<h2>What it answers</h2>
+<div class="mk-prose">
+<p>Serves <strong>illegal moves and their reason on inspection</strong> from the opposite side to page 09: not on inspection but
+before you try, as a listed row with the reason attached. Restates <strong>the personal-index gap for an inbound front</strong>
+in a sentence a first-time player can act on. Uses the <strong>timeline strip with each playhead and direction</strong> as the
+subject of step 2 rather than assuming it is self-evident.</p>
+<p>It also brushes <strong>should a player see their own known future</strong>: the action strip already tells you the world turn
+you will land on, which is the smallest possible version of showing the future, and it does not feel like cheating.</p>
+<p>Leaves open: nothing here teaches erasure, restoration, cycles, or weapons, and the five-step frame will not stretch to cover
+them when they land.</p>
+</div>
+
+<h2>Cost</h2>
+<div class="mk-prose">
+<p><strong>S for the action strip</strong>, which is a map over <span class="mono">view.actions</span> into sentences, plus
+<span class="mono">style.css</span>. Nothing new from the engine: the offers already carry
+<span class="mono">action</span>, <span class="mono">t</span>, <span class="mono">x</span>, <span class="mono">y</span>,
+<span class="mono">move</span>, and <span class="mono">reason</span>.
+<strong>M for rule cards</strong>: each one needs a trigger predicate over the view plus a seen-flag in local storage.
+<strong>M to L for coach marks</strong>, mostly because anchoring to live DOM nodes wants refs and a small positioning
+helper, and the tutorial wants a scripted opponent inside <span class="mono">transport.ts</span> that never touches the network.</p>
+</div>
+</main>
+<script src="shared/fixture.js"></script><script src="shared/board.js"></script><script src="shared/nav.js"></script>
+<script>
+(function(){
+  var F = window.FIX, C = window.COLORS;
+  document.getElementById('hpill').style.background = C.C.hex;
+  document.getElementById('hpill').style.color = C.C.ink;
+  document.getElementById('hme').textContent = 'index ' + F.me.p + ' · t' + F.me.t + ' · backward · (' + F.me.x + ',' + F.me.y + ')';
+
+  // Log: the last resolved meta-turn.
+  var last = F.events.filter(function(e){ return e.turn === 16; });
+  var lg = document.getElementById('logList');
+  last.forEach(function(e){
+    var txt = e.kind === 'moved' ? 'moved to (' + e.x + ',' + e.y + ') at t' + e.t
+      : e.kind === 'held' ? 'held (' + e.x + ',' + e.y + ')'
+      : e.kind === 'inverted' ? 'turned around at (' + e.x + ',' + e.y + ')'
+      : e.kind === 'grab' ? 'took the key at (' + e.x + ',' + e.y + ')' : e.kind;
+    var li = document.createElement('li');
+    li.innerHTML = '<span class="m">17</span><span class="sw" style="background:' + C[e.color].hex + '"></span>' +
+      '<span>' + F.names[e.color] + ' ' + txt + '</span>';
+    lg.appendChild(li);
+  });
+
+  var api = MK.board(document.getElementById('board'), {focusT:F.me.t, lookBack:4, cell:36});
+  MK.strip(document.getElementById('strip'), {focusT:F.me.t, lookBack:4});
+
+  // ---- coach marks
+  var stage = document.getElementById('stage'), host = document.getElementById('board');
+  function rel(el){ var a = stage.getBoundingClientRect(), r = el.getBoundingClientRect();
+    return {x:r.left - a.left, y:r.top - a.top, w:r.width, h:r.height}; }
+  function tile(x, y, pad){
+    var r = rel(host), sc = r.w / (F.w * api.s), p = pad || 0;
+    return {x:r.x + x*api.s*sc - p, y:r.y + y*api.s*sc - p, w:api.s*sc + 2*p, h:api.s*sc + 2*p};
+  }
+  function node(el, pad){ var r = rel(el), p = pad || 0; return {x:r.x - p, y:r.y - p, w:r.w + 2*p, h:r.h + 2*p}; }
+
+  var steps = [
+    function(){ return tile(F.me.x, F.me.y, 5); },
+    function(){ return node(document.getElementById('strip'), 6); },
+    function(){ return tile(F.center[0], F.center[1], 5); },
+    function(){ return node(document.getElementById('btnInv'), 5); },
+    function(){ return node(document.getElementById('btnCommit'), 5); }
+  ];
+  function layout(){
+    var s = document.getElementById('scrim'), c = document.getElementById('coach'), r = steps[0]();
+    s.style.left = r.x + 'px'; s.style.top = r.y + 'px'; s.style.width = r.w + 'px'; s.style.height = r.h + 'px';
+    var sw = stage.getBoundingClientRect().width;
+    var cx = Math.min(sw - 274, r.x + r.w + 14);
+    c.style.left = cx + 'px'; c.style.top = Math.max(6, r.y - 34) + 'px';
+    Array.prototype.forEach.call(stage.querySelectorAll('.mark'), function(m){ m.remove(); });
+    steps.forEach(function(fn, i){
+      var q = fn(), m = document.createElement('i');
+      m.className = 'callout mark'; m.textContent = i + 1;
+      m.style.left = (q.x + q.w / 2 - 10) + 'px';
+      m.style.top = (q.y - 12) + 'px';
+      stage.appendChild(m);
+    });
+  }
+  layout(); window.addEventListener('resize', layout);
+
+  // ---- rule card art
+  function svgAt(i){ return document.querySelectorAll('#p14 .rc .art svg')[i]; }
+  function E(tag, a, t){ var n = document.createElementNS('http://www.w3.org/2000/svg', tag);
+    for (var k in a) n.setAttribute(k, a[k]); if (t != null) n.textContent = t; return n; }
+  (function(){ // a. inverted: forward run then a turn back over your own bodies
+    var s = svgAt(0);
+    for (var i = 0; i < 5; i++){
+      s.appendChild(E('rect', {x:18 + i*42, y:14, width:34, height:24, rx:4, fill:'var(--surface-2)'}));
+      s.appendChild(E('text', {x:35 + i*42, y:48, 'text-anchor':'middle', 'font-family':'var(--mono)', 'font-size':9,
+        fill:'var(--text-muted)'}, 't' + (4 + i)));
+    }
+    s.appendChild(E('circle', {cx:186, cy:26, r:9, fill:C.C.hex}));
+    s.appendChild(E('circle', {cx:186, cy:26, r:9, fill:'none', stroke:C.C.hex, 'stroke-width':2}));
+    s.appendChild(E('circle', {cx:144, cy:26, r:9, fill:'none', stroke:C.C.hex, 'stroke-width':2}));
+    s.appendChild(E('path', {d:'M182,8 C160,-2 134,-2 130,14', fill:'none', stroke:'var(--text-primary)', 'stroke-width':1.4}));
+    s.appendChild(E('path', {d:'M130,16 l5,-7 l-9,0 z', fill:'var(--text-primary)'}));
+    s.appendChild(E('text', {x:228, y:30, 'text-anchor':'middle', 'font-family':'var(--mono)', 'font-size':9,
+      fill:'var(--text-muted)'}, 'now'));
+  })();
+  (function(){ // b. front four turns out
+    var s = svgAt(1);
+    for (var i = 0; i < 5; i++){
+      var on = i === 0;
+      s.appendChild(E('circle', {cx:24 + i*40, cy:24, r:8, fill:'none', stroke:C.C.hex, 'stroke-width':2}));
+      s.appendChild(E('rect', {x:30 + i*40, y:12, width:7, height:7, rx:1.5, fill:'var(--key)'}));
+      s.appendChild(E('text', {x:24 + i*40, y:46, 'text-anchor':'middle', 'font-family':'var(--mono)', 'font-size':9,
+        fill: on ? C.A.hex : 'var(--text-muted)'}, on ? 'front' : (i === 4 ? 'you' : i)));
+    }
+    s.appendChild(E('path', {d:'M18,36 l12,0 l-6,-9 z', fill:C.A.hex}));
+    s.appendChild(E('path', {d:'M36,24 L176,24', stroke:C.A.hex, 'stroke-width':1.2, 'stroke-dasharray':'4 4'}));
+    s.appendChild(E('text', {x:222, y:28, 'text-anchor':'middle', 'font-family':'var(--mono)', 'font-size':11,
+      fill:C.A.hex}, '4 turns'));
+  })();
+  (function(){ // c. at t0
+    var s = svgAt(2);
+    s.appendChild(E('rect', {x:16, y:10, width:34, height:30, rx:4, fill:'var(--surface-2)', stroke:'var(--bad-br)',
+      'stroke-width':1.5, 'stroke-dasharray':'4 3'}));
+    s.appendChild(E('text', {x:33, y:50, 'text-anchor':'middle', 'font-family':'var(--mono)', 'font-size':9, fill:'var(--bad-br)'}, 't0'));
+    for (var i = 1; i < 4; i++){
+      s.appendChild(E('rect', {x:16 + i*40, y:10, width:34, height:30, rx:4, fill:'var(--surface-2)'}));
+      s.appendChild(E('text', {x:33 + i*40, y:50, 'text-anchor':'middle', 'font-family':'var(--mono)', 'font-size':9,
+        fill:'var(--text-muted)'}, 't' + i));
+    }
+    s.appendChild(E('circle', {cx:33, cy:25, r:9, fill:'none', stroke:C.P.hex, 'stroke-width':2}));
+    s.appendChild(E('path', {d:'M12,25 L2,25', stroke:'var(--bad-br)', 'stroke-width':1.6}));
+    s.appendChild(E('path', {d:'M2,19 L12,31 M2,31 L12,19', stroke:'var(--bad-br)', 'stroke-width':1.6}));
+    s.appendChild(E('text', {x:186, y:22, 'text-anchor':'middle', 'font-family':'var(--mono)', 'font-size':10,
+      fill:'var(--good)'}, 'invert: legal'));
+    s.appendChild(E('text', {x:186, y:36, 'text-anchor':'middle', 'font-family':'var(--mono)', 'font-size':10,
+      fill:'var(--bad-br)'}, 'move, hold: no'));
+  })();
+
+  // ---- action strip from FIX.actions
+  var WORD = {W:['↑','Up'], A:['←','Left'], S:['↓','Down'], D:['→','Right'], H:['·','Hold'], I:['↺','Turn around']};
+  var KEYS = {W:'W', A:'A', S:'S', D:'D', H:'Enter', I:'—'};
+  function sentence(a, from){
+    var to = '(' + a.x + ',' + a.y + ')';
+    if (a.action === 'I') return 'Stay on ' + from + ' and stay at t' + a.t + '. Your direction flips to forward.';
+    if (a.action === 'H') return 'Stay on ' + from + '. t' + F.me.t + ' becomes t' + a.t + '.';
+    return 'Step to ' + to + '. t' + F.me.t + ' becomes t' + a.t + '.';
+  }
+  function row(host, o){
+    var d = document.createElement('div');
+    d.className = 'arow' + (o.reason ? ' no' : '') + (o.pick ? ' pick' : '');
+    d.innerHTML = '<kbd>' + o.key + '</kbd><span class="g">' + o.glyph + '</span>' +
+      '<span class="txt"><b style="font-weight:500">' + o.label + ':</b> ' + o.text + '</span>' +
+      '<span class="chip">' + o.chip + '</span>';
+    host.appendChild(d);
+  }
+  var from = '(' + F.me.x + ',' + F.me.y + ')', real = document.getElementById('actsReal');
+  F.actions.forEach(function(a){
+    row(real, {key:KEYS[a.action], glyph:WORD[a.action][0], label:WORD[a.action][1], text:sentence(a, from),
+      pick:a.action === 'H', chip:a.action === 'I' ? 'no world turn' : 'costs a world turn'});
+  });
+  var blocked = [
+    {k:'W', g:'↑', l:'Up', t:'Step to (8,2). t8 becomes t7.', c:'costs a world turn'},
+    {k:'A', g:'←', l:'Left', t:'Blocked: Juno 17 holds (7,3) at t7.', c:'illegal', r:1},
+    {k:'S', g:'↓', l:'Down', t:'Step to (8,4), the center. t8 becomes t7.', c:'costs a world turn'},
+    {k:'D', g:'→', l:'Right', t:'Blocked: wall at (9,3).', c:'illegal', r:1},
+    {k:'Enter', g:'·', l:'Hold', t:'Stay on (8,3). t8 becomes t7.', c:'costs a world turn'},
+    {k:'—', g:'↺', l:'Turn around', t:'Stay on (8,3) and stay at t8. Your direction flips to forward.', c:'no world turn'}
+  ];
+  var bh = document.getElementById('actsBlocked');
+  blocked.forEach(function(b){ row(bh, {key:b.k, glyph:b.g, label:b.l, text:b.t, chip:b.c, reason:b.r}); });
+})();
+</script>
+</body></html>

@@ -1,0 +1,328 @@
+<!doctype html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
+<title>17 Index ramp &amp; body glyphs · tbtt mockups</title><link rel="stylesheet" href="shared/mock.css">
+<style>
+#p17 .hold{position:relative;line-height:0}
+#p17 table.glyphs td,#p17 table.glyphs th{vertical-align:middle}
+#p17 table.glyphs td.g{width:64px;text-align:center}
+#p17 table.glyphs td.g div{display:inline-block}
+#p17 table.glyphs td.nm{width:190px;color:var(--text-primary)}
+#p17 table.glyphs td.nt{color:var(--text-secondary)}
+#p17 .ramps{display:grid;grid-template-columns:repeat(3,1fr);gap:16px}
+@media(max-width:1100px){#p17 .ramps{grid-template-columns:1fr}}
+#p17 .ramps .fig{margin:0}
+#p17 .pairhead{font-size:12.5px;color:var(--text-muted);font-family:var(--mono);margin:0 0 6px}
+#p17 .scale{display:flex;gap:2px;align-items:center;margin-top:9px;font-size:11px;color:var(--text-muted);font-family:var(--mono)}
+#p17 .scale i{display:block;width:100%;height:14px;border-radius:2px}
+#p17 .scale .band{display:flex;gap:2px;flex:1}
+#p17 .scale .band > span{flex:1;display:block}
+#p17 .livePulse{animation:p17p 2.2s ease-in-out infinite}
+@keyframes p17p{0%,100%{opacity:.95;stroke-width:2.2}50%{opacity:.35;stroke-width:4.4}}
+#p17 .num{opacity:0;transition:opacity .12s}
+#p17 .chip:hover .num{opacity:1}
+#p17 .chip{cursor:pointer}
+#p17 figure.fig{margin-bottom:26px}
+#p17 .rec{font-size:13.5px}
+@media(prefers-reduced-motion:reduce){#p17 .livePulse{animation:none}}
+</style></head>
+<body><main class="mk-page" id="p17">
+<h1>Index ramp &amp; body glyphs</h1>
+<p class="mk-lede">Two open questions meet on one chip. Is a personal-index colour ramp needed to read target value at a glance, and what marks an urgent threat without stealing a channel the four player colours already use? This page builds the glyph alphabet first, then tries three ramps on the fixture board, then proposes a chip that answers both without a ramp.</p>
+<div class="mk-meta"><span class="req">UI req: player identity and personal index on every body</span><span class="req">UI req: personal-index gap for an inbound front</span><span>Open question: is a personal-index colour ramp needed</span><span>Open question: what distinguishes urgent threats</span></div>
+
+<h2>Glyph alphabet at three cell sizes</h2>
+<p class="mk-prose" style="margin-top:0">44px is a comfortable desktop cell on a 16&times;9 board. 28px is what a 16&times;9 board gets in a 480px phone column. 18px is a 24&times;16 board on the same phone. Every glyph below is the same drawing scaled; nothing is redrawn for small sizes, which is the honest test.</p>
+<figure class="fig">
+  <div class="frame" style="padding:14px 16px"><table class="cmp glyphs"><thead><tr><th>Glyph</th><th>44px</th><th>28px</th><th>18px</th><th>What survives at 18px</th></tr></thead><tbody id="galpha"></tbody></table></div>
+  <figcaption>Body shape, fill and hue survive every size. Numerals stop at 28px, where an index is 7px tall. Anything that needs two marks on one chip, the key square plus a number, or a front bar plus a countdown, collides below 28px.</figcaption>
+</figure>
+
+<h2>Three ramps on the fixture board</h2>
+<p class="mk-prose" style="margin-top:0">Tiles (2,1) to (9,6) at focus t8 with three turns of look-back, labels off. The focus body sits at the tile centre; t7, t6 and t5 sit in the corners as smaller chips. Indices in view run 5 to 17 and the ramp is normalised to 17, the current meta-turn. This is the generous case: the cap is 43, so in a full match every step below shrinks by two and a half times.</p>
+<div class="ramps">
+  <figure class="fig">
+    <p class="pairhead">A · lightness within the player hue</p>
+    <div class="frame"><div class="hold" id="rA"></div></div>
+    <div class="scale" id="sA"><span>0</span><span class="band"></span><span>17</span></div>
+    <figcaption>Hue and saturation fixed, lightness from 22% at index 0 to 66% at index 17. Older is darker.</figcaption>
+  </figure>
+  <figure class="fig">
+    <p class="pairhead">B · saturation within the player hue</p>
+    <div class="frame"><div class="hold" id="rB"></div></div>
+    <div class="scale" id="sB"><span>0</span><span class="band"></span><span>17</span></div>
+    <figcaption>Hue and lightness fixed, saturation from 16% of the base at index 0 to full at index 17.</figcaption>
+  </figure>
+  <figure class="fig">
+    <p class="pairhead">C · neutral age halo, thickness only</p>
+    <div class="frame"><div class="hold" id="rC"></div></div>
+    <div class="scale" id="sC"><span>0</span><span class="band"></span><span>17</span></div>
+    <figcaption>Colour untouched. A neutral ring outside the chip grows from 0.6px at index 0 to 5px at index 17.</figcaption>
+  </figure>
+</div>
+<div class="note">Cover the numbers on page 00 and try to rank two bodies of the same colour in each panel. A works for Coral and Amber and fails for Teal, whose hue has little lightness room before it reads as a different colour. B is close to invisible for Purple. C is readable in all four but reads as importance, not as age, which is a problem given what the ring is competing with in the next figure.</div>
+
+<h2>The proposal</h2>
+<figure class="fig">
+  <div class="frame"><div class="hold" id="prop"></div></div>
+  <figcaption>No ramp. Hue means identity, fill means direction, and personal index is a numeral that appears on the focus layer, on the live body, and anywhere you hover or tap. Recorded history keeps colour, shape and direction and drops its number. Hover any chip in this figure to bring its index back.</figcaption>
+  <ul class="callouts">
+    <li><b>1</b>The live body gets a double outer ring and a slow pulse. It is the only chip that moves, so it is found without scanning, and the ring is neutral in thickness rather than in hue.</li>
+    <li><b>2</b>Recorded bodies keep their number only while hovered. Coral 8 at (4,4) is a plain chip until you point at it.</li>
+    <li><b>3</b>Urgency is a separate, neutral channel: a warn-coloured bar on the leading edge of the body plus the gap numeral. Amber's front reaches Coral index 14 in 4 turns.</li>
+    <li><b>4</b>Key custody stays a yellow square on the side the key came from, unchanged. It is the one thing a player must read every turn and it already has a dedicated shape.</li>
+    <li><b>5</b>A stack keeps the wider pill and shows first and last only when the tile is hovered.</li>
+  </ul>
+</figure>
+
+<h2>Recommendation</h2>
+<div class="mk-prose rec">
+<p><strong>Do not add a personal-index colour ramp.</strong> It fails on three counts. The lightness axis is already spent: age within the look-back window uses opacity, and stacking a second lightness signal on top means one body can be dark because it is old in world time or dark because it is low in personal index. The four hues do not have equal room, Teal and Purple lose a ramp that Coral and Amber keep, so the same index reads differently per player. And the range is wrong: with a cap of 43 a ramp must resolve 44 steps, where the eye gets about five reliably, so a ramp would say "low, middle, high" and the number already says 14.</p>
+<p><strong>Index is a numeral, shown where it matters.</strong> On the focus layer and on the live body always; on recorded bodies on hover and tap. That keeps the board quiet at 28px and keeps the answer exact when asked. It also matches how the number is used: you compare two specific bodies, you do not scan for the highest.</p>
+<p><strong>Urgency gets a neutral channel, never a hue.</strong> A warn-coloured edge bar plus the gap numeral, on the body a front will hit. Because it is the only warn-coloured thing on the board, it survives to 18px as a bar even when its numeral does not, and it does not compete with the four player colours or with the key's yellow, which sits inside the chip rather than on its edge.</p>
+<p>If target value does turn out to need a glance-level signal once weapons exist, the honest lever is <strong>size, not colour</strong>: a body worth more downstream bodies gets a larger pill. Size survives 18px, is hue-independent, and cannot be confused with age.</p>
+</div>
+
+<h2>Trade-offs</h2>
+<div class="mk-pc">
+  <div class="pro"><h3>Pros</h3><ul>
+    <li>Nothing is added to the colour system, so the four hues keep their whole range for identity.</li>
+    <li>The board gets quieter. Today every history dot and every focus chip carries ink; here only the focus layer and the live bodies do.</li>
+    <li>The live body becomes findable in one look, which is the most common question at the start of a turn.</li>
+    <li>Threat has its own colour and its own shape, so "am I about to lose the key" is answered without reading a panel.</li>
+    <li>Everything degrades predictably: at 18px you lose numerals and keep identity, direction, key and threat.</li>
+  </ul></div>
+  <div class="con"><h3>Cons</h3><ul>
+    <li>Hover is not a touch gesture. Tap-to-reveal needs a real tap target, and a recorded chip at 28px is below the 44px minimum.</li>
+    <li>Hiding numbers on recorded bodies makes comparing two distant bodies a two-step job instead of a glance.</li>
+    <li>The pulse is motion on a board that is otherwise still, which is a cost for motion-sensitive players. It needs a reduced-motion fallback, here a static double ring.</li>
+    <li>A warn-coloured edge bar is a fifth colour on the board. It is neutral against the four player hues but not against the key's yellow, and the two sit close on Amber chips.</li>
+    <li>It leaves the ramp question technically unanswered rather than settled: it argues the question is the wrong one, which is only convincing once weapons exist to test it.</li>
+  </ul></div>
+</div>
+
+<h2>What it answers</h2>
+<div class="mk-prose">
+<p>It closes <strong>is a personal-index colour ramp needed for target value at a glance</strong> with a no, and shows the work: three ramps drawn on the real board, at the generous normalisation, with the specific hue that fails in each. It gives a concrete answer to <strong>what visual treatment distinguishes urgent threats without overloading player colours</strong>: one neutral warn channel carrying an edge bar and a numeral, reserved for fronts.</p>
+<p>It partly serves <strong>identity and personal index on every body</strong>, and is honest that it trades glanceability of the index for a quieter board. It does not address <strong>how touch users inspect a history body</strong>, which the hover-to-reveal rule makes more urgent, not less. Page 03's ribbons and page 09's inspector are the places that has to be solved.</p>
+</div>
+
+<h2>Cost</h2>
+<div class="mk-prose">
+<p><strong>S.</strong> This is the smallest change on the board of any direction here, and it is all in <code>ui.tsx</code> and <code>style.css</code>. Drop the label on bodies whose <code>t</code> is not the focus turn, add a <code>:hover</code> and <code>:focus-visible</code> rule to bring it back, add a second ring element on bodies with <code>live</code>, and add a keyframe pulse behind a <code>prefers-reduced-motion</code> guard. The glyph alphabet above is documentation, not code.</p>
+<p>The urgency bar needs one thing the view does not hand over cleanly today. <code>view.fronts</code> gives a front's world turn, tile and gap, but the bar belongs on a specific body, so the renderer has to match the front's <code>(t,x,y)</code> back to a body of the target colour. That is a lookup the board already does for keys, so it is a few lines, not an engine change. Ruling out the ramp is what saves the real cost: no palette work, no per-hue tuning, no colour-blind pass on 44 steps.</p>
+</div>
+</main>
+<script src="shared/fixture.js"></script><script src="shared/board.js"></script><script src="shared/nav.js"></script>
+<script>
+(function(){
+  const F=MK.F, C=MK.C, el=MK.el, focusT=F.me.t, ME=F.me.color;
+  const PMAX=F.turn; // 17, the current meta-turn: the generous normalisation
+
+  function hexToHsl(hex){
+    const r=parseInt(hex.slice(1,3),16)/255, g=parseInt(hex.slice(3,5),16)/255, b=parseInt(hex.slice(5,7),16)/255;
+    const mx=Math.max(r,g,b), mn=Math.min(r,g,b), l=(mx+mn)/2; let h=0,s=0;
+    if(mx!==mn){ const d=mx-mn; s=l>0.5?d/(2-mx-mn):d/(mx+mn);
+      h = mx===r ? (g-b)/d+(g<b?6:0) : mx===g ? (b-r)/d+2 : (r-g)/d+4; h*=60; }
+    return [h, s*100, l*100];
+  }
+  const HSL={}; for(const k in C) HSL[k]=hexToHsl(C[k].hex);
+  const hsl=(h,s,l)=>'hsl('+h.toFixed(1)+' '+Math.max(0,Math.min(100,s)).toFixed(1)+'% '+Math.max(0,Math.min(100,l)).toFixed(1)+'%)';
+  function rampLight(color,p){ const a=HSL[color]; return hsl(a[0],a[1],22+(p/PMAX)*44); }
+  function rampSat(color,p){ const a=HSL[color]; return hsl(a[0],a[1]*(0.16+0.84*p/PMAX),a[2]); }
+
+  // ---------- glyph alphabet ----------
+  let uid=0;
+  function glyph(kind,s){
+    const svg=el('svg',{viewBox:'0 0 '+s+' '+s,width:s,height:s,style:'display:block'});
+    svg.appendChild(el('rect',{x:0.5,y:0.5,width:s-1,height:s-1,rx:3,fill:'var(--surface-1)',stroke:'var(--border)','stroke-width':0.7}));
+    const c=s/2, hue=C.C.hex, ink=C.C.ink, other=C.A.hex;
+    const sw=s*0.06, fs=s*0.26;
+    function pill(o){
+      const w=(o.w||0.70)*s, h=0.70*s, x=c+(o.ox||0)*s-w/2, y=c+(o.oy||0)*s-h/2;
+      const g=el('g',{opacity:o.op==null?1:o.op});
+      g.appendChild(el('rect',{x:x,y:y,width:w,height:h,rx:h/2,fill:o.fill,stroke:o.stroke||hue,
+        'stroke-width':o.sw||sw,'stroke-dasharray':o.dash||null}));
+      if(o.label!=null) g.appendChild(el('text',{x:c+(o.ox||0)*s,y:c+(o.oy||0)*s+fs*0.35,'text-anchor':'middle',
+        'font-family':'var(--mono)','font-size':o.fs||fs,'font-weight':500,fill:o.ink||ink,text:o.label}));
+      svg.appendChild(g); return g;
+    }
+    if(kind==='single') pill({fill:hue,label:'8'});
+    if(kind==='stack')  pill({w:0.88,fill:hue,label:'15…15',fs:fs*0.86});
+    if(kind==='rec')    pill({fill:hue,op:0.62,label:'8'});
+    if(kind==='live'){
+      svg.appendChild(el('rect',{x:c-s*0.44,y:c-s*0.42,width:s*0.88,height:s*0.84,rx:s*0.42,
+        fill:'none',stroke:hue,'stroke-width':s*0.05,opacity:0.85,class:'livePulse'}));
+      pill({fill:hue,label:'17'});
+    }
+    if(kind==='fwd'){ pill({fill:hue,label:'8'}); }
+    if(kind==='back'){ pill({fill:'transparent',label:'8',ink:'var(--text-primary)'}); }
+    if(kind==='mixed'){
+      const id='mx'+(++uid);
+      svg.appendChild(el('defs',{},[el('linearGradient',{id:id},[
+        el('stop',{offset:'50%','stop-color':hue}),el('stop',{offset:'50%','stop-color':'transparent'})])]));
+      pill({w:0.88,fill:'url(#'+id+')',label:'8·9',fs:fs*0.9,ink:'var(--text-primary)'});
+    }
+    if(kind==='key'){
+      pill({fill:hue,label:'14'});
+      const m=s*0.16,pad=s*0.04;
+      svg.appendChild(el('rect',{x:s-pad-m,y:c-m/2,width:m,height:m,rx:1.5,fill:'var(--key)',stroke:'var(--surface-0)','stroke-width':0.7}));
+      svg.appendChild(el('rect',{x:pad,y:s-pad-m,width:m,height:m,rx:1.5,fill:'var(--key)',stroke:'var(--surface-0)','stroke-width':0.7,opacity:0.45}));
+    }
+    if(kind==='front'){
+      pill({fill:hue,label:'14'});
+      svg.appendChild(el('rect',{x:c-s*0.35,y:c-s*0.42,width:s*0.70,height:s*0.10,rx:s*0.05,fill:'var(--warn)'}));
+      svg.appendChild(el('circle',{cx:s-s*0.20,cy:s*0.20,r:s*0.17,fill:'var(--warn)'}));
+      svg.appendChild(el('text',{x:s-s*0.20,y:s*0.20+fs*0.32,'text-anchor':'middle','font-family':'var(--mono)',
+        'font-size':fs*0.82,'font-weight':600,fill:'#1a1200',text:'4'}));
+    }
+    if(kind==='stuck'){
+      pill({fill:'transparent',label:'8',ink:'var(--text-primary)',dash:s*0.09+' '+s*0.07});
+      for(const sgn of [-1,1]) svg.appendChild(el('rect',{x:c+sgn*s*0.40-(sgn>0?s*0.06:0),y:c-s*0.22,
+        width:s*0.06,height:s*0.44,rx:1,fill:'var(--text-muted)'}));
+    }
+    if(kind==='horizon'){
+      svg.appendChild(el('rect',{x:s*0.14,y:s*0.14,width:s*0.72,height:s*0.72,rx:3,fill:'none',
+        stroke:'var(--btn-border)','stroke-width':Math.max(1,s*0.045),'stroke-dasharray':(s*0.11)+' '+(s*0.09)}));
+    }
+    return svg;
+  }
+  const ALPHA=[
+    ['single','Single body','Shape and hue. The index is gone.'],
+    ['stack','Stack, first…last','Reads as a wider pill, which is the whole signal.'],
+    ['live','Live body','The ring survives; it is the most legible mark here.'],
+    ['rec','Recorded body','Only as a contrast step against a live neighbour.'],
+    ['fwd','Walking your direction','Fill survives at any size.'],
+    ['back','Walking the other way','Outline survives, but on a dark tile it is thin.'],
+    ['mixed','Mixed-direction stack','The half fill is 9px wide and starts to read as a solid.'],
+    ['key','Holding the key, by side','A 3px square. Present but no longer on a side.'],
+    ['front','Hit by a front, with gap','The bar survives; the countdown badge does not.'],
+    ['stuck','Stuck','The clamps merge into the pill outline.'],
+    ['horizon','Beyond horizon','Dashes become a dotted grey square; still clearly empty.']
+  ];
+  const tb=document.getElementById('galpha');
+  for(const [kind,name,note] of ALPHA){
+    const tr=document.createElement('tr');
+    const td0=document.createElement('td'); td0.className='nm'; td0.textContent=name; tr.appendChild(td0);
+    for(const s of [44,28,18]){
+      const td=document.createElement('td'); td.className='g';
+      const d=document.createElement('div'); d.appendChild(glyph(kind,s)); td.appendChild(d); tr.appendChild(td);
+    }
+    const td4=document.createElement('td'); td4.className='nt'; td4.textContent=note; tr.appendChild(td4);
+    tb.appendChild(tr);
+  }
+
+  // ---------- chip layer on a cropped board ----------
+  const AGE=[{ox:0,oy:0,f:0.62},{ox:-0.29,oy:-0.29,f:0.32},{ox:0.29,oy:-0.29,f:0.29},{ox:0.29,oy:0.29,f:0.26}];
+  const CROP=[2,1,8,6];
+
+  function chips(api, paint){
+    const s=api.s;
+    for(let k=3;k>=0;k--){
+      const t=focusT-k; if(t<0) continue;
+      const byTile=new Map();
+      for(const b of F.bodies){
+        if(b.t!==t) continue;
+        if(b.x<CROP[0]||b.x>=CROP[0]+CROP[2]||b.y<CROP[1]||b.y>=CROP[1]+CROP[3]) continue;
+        const kk=b.x+','+b.y; if(!byTile.has(kk)) byTile.set(kk,[]); byTile.get(kk).push(b);
+      }
+      for(const arr of byTile.values()){
+        arr.sort((a,b)=>a.p-b.p);
+        const a=AGE[k], b0=arr[0];
+        const cx=api.cx(b0.x)+a.ox*s, cy=api.cy(b0.y)+a.oy*s;
+        const many=arr.length>1;
+        const w=(many?a.f*1.3:a.f)*s, h=a.f*s;
+        paint(api,{arr:arr,b0:b0,cx:cx,cy:cy,w:w,h:h,age:k,many:many});
+      }
+    }
+  }
+
+  function baseChip(api,o,fill,stroke,extra){
+    const dirs=new Set(o.arr.map(b=>b.dir===F.me.dir?'m':'o'));
+    const g=el('g',{class:'chip',title:o.arr.map(b=>F.names[b.color]+' · index '+b.p+' · t'+b.t+(b.live?' · current':'')).join('\n')});
+    g.appendChild(el('rect',{x:o.cx-o.w/2,y:o.cy-o.h/2,width:o.w,height:o.h,rx:o.h/2,
+      fill: dirs.size>1 ? 'var(--surface-2)' : dirs.has('m') ? fill : 'transparent',
+      stroke:stroke,'stroke-width':Math.max(1,o.h*0.10)}));
+    if(extra) extra(g);
+    return g;
+  }
+
+  function ramp(hostId, scaleId, mode){
+    const host=document.getElementById(hostId);
+    const api=MK.board(host,{focusT:focusT,lookBack:3,cell:52,labels:false,trails:false,hideBodies:true,keys:false,fronts:false});
+    chips(api,(api,o)=>{
+      const col=o.b0.color, p=o.arr[o.arr.length-1].p;
+      let fill=C[col].hex, stroke=C[col].hex, extra=null;
+      if(mode==='light'){ fill=rampLight(col,p); stroke=rampLight(col,Math.min(PMAX,p+4)); }
+      if(mode==='sat'){ fill=rampSat(col,p); stroke=rampSat(col,Math.min(PMAX,p+4)); }
+      if(mode==='halo'){ extra=(g)=>g.insertBefore(el('rect',{x:o.cx-o.w/2-3,y:o.cy-o.h/2-3,width:o.w+6,height:o.h+6,
+        rx:(o.h+6)/2,fill:'none',stroke:'var(--text-primary)','stroke-width':0.6+(p/PMAX)*4.4,opacity:0.5}),g.firstChild); }
+      api.layers.bodies.appendChild(baseChip(api,o,fill,stroke,extra));
+    });
+    api.svg.setAttribute('viewBox',(CROP[0]*api.s)+' '+(CROP[1]*api.s)+' '+(CROP[2]*api.s)+' '+(CROP[3]*api.s));
+    // scale strip
+    const band=document.querySelector('#'+scaleId+' .band');
+    for(let p=0;p<=PMAX;p++){
+      const sp=document.createElement('span'); const i=document.createElement('i');
+      i.style.background = mode==='light'?rampLight('C',p): mode==='sat'?rampSat('C',p):'transparent';
+      if(mode==='halo'){ i.style.border='1px solid var(--text-primary)'; i.style.borderWidth=(0.4+(p/PMAX)*3.4).toFixed(1)+'px'; i.style.background=C.C.hex; }
+      sp.appendChild(i); band.appendChild(sp);
+    }
+  }
+  ramp('rA','sA','light'); ramp('rB','sB','sat'); ramp('rC','sC','halo');
+
+  // ---------- the proposal ----------
+  (function(){
+    const host=document.getElementById('prop');
+    const api=MK.board(host,{focusT:focusT,lookBack:3,cell:52,labels:false,trails:false,hideBodies:true,keys:false,fronts:false});
+    const f=F.fronts[0];
+    chips(api,(api,o)=>{
+      const col=o.b0.color, hue=C[col].hex, live=o.arr.some(b=>b.live);
+      const lab=o.arr.length>2 ? o.arr[0].p+'…'+o.arr[o.arr.length-1].p : o.arr.map(b=>b.p).join('·');
+      const hitFront = f && o.arr.some(b=>b.color===f.target && b.t===f.t && b.x===f.x && b.y===f.y);
+      const g=baseChip(api,o,hue,hue,(g)=>{
+        if(live){
+          g.insertBefore(el('rect',{x:o.cx-o.w/2-5,y:o.cy-o.h/2-5,width:o.w+10,height:o.h+10,rx:(o.h+10)/2,
+            fill:'none',stroke:hue,'stroke-width':2.2,opacity:0.9,class:'livePulse'}),g.firstChild);
+          g.insertBefore(el('rect',{x:o.cx-o.w/2-2.5,y:o.cy-o.h/2-2.5,width:o.w+5,height:o.h+5,rx:(o.h+5)/2,
+            fill:'none',stroke:hue,'stroke-width':1.4,opacity:0.55}),g.firstChild);
+        }
+        if(hitFront){
+          g.appendChild(el('rect',{x:o.cx-o.w*0.42,y:o.cy-o.h/2-1.5,width:o.w*0.84,height:4.5,rx:2.2,fill:'var(--warn)'}));
+          const bx=o.cx+o.w*0.46, by=o.cy-o.h*0.62;
+          g.appendChild(el('circle',{cx:bx,cy:by,r:9,fill:'var(--warn)'}));
+          g.appendChild(el('text',{x:bx,y:by+4,'text-anchor':'middle','font-family':'var(--mono)','font-size':12,
+            'font-weight':600,fill:'#1a1200',text:f.gap}));
+        }
+        for(const b of o.arr){
+          const kk=MK.heldBy(b); if(!kk) continue;
+          const m=Math.max(6,o.h*0.30);
+          g.appendChild(el('rect',{x:o.cx+(kk.side[0]===1?o.w/2-m-1.5:-o.w/2+1.5),y:o.cy-m/2,
+            width:m,height:m,rx:1.5,fill:'var(--key)',stroke:'var(--surface-0)','stroke-width':0.8}));
+          break;
+        }
+      });
+      const showAlways = live || o.age===0;
+      g.appendChild(el('text',{x:o.cx,y:o.cy+o.h*0.20,'text-anchor':'middle','font-family':'var(--mono)',
+        'font-size':Math.max(9,o.h*0.42),'font-weight':500,
+        fill: o.arr.every(b=>b.dir===F.me.dir) ? C[col].ink : 'var(--text-primary)',
+        text:lab, class: showAlways?null:'num'}));
+      api.layers.bodies.appendChild(g);
+    });
+    api.svg.setAttribute('viewBox',(CROP[0]*api.s)+' '+(CROP[1]*api.s)+' '+(CROP[2]*api.s)+' '+(CROP[3]*api.s));
+
+    function mark(n,x,y,ox,oy){
+      const s=api.s, X=api.cx(x)+(ox||0), Y=api.cy(y)+(oy||0);
+      const i=document.createElement('i'); i.className='callout'; i.textContent=n;
+      i.style.left=(100*(X-CROP[0]*s)/(CROP[2]*s))+'%';
+      i.style.top=(100*(Y-CROP[1]*s)/(CROP[3]*s))+'%';
+      i.style.transform='translate(-50%,-50%)';
+      host.appendChild(i);
+    }
+    mark(1,8,2,0,-36);
+    mark(2,4,4,-34,4);
+    mark(3,7,4,34,-30);
+    mark(4,7,3,34,-8);
+    mark(5,4,4,20,-34);
+  })();
+})();
+</script>
+</body></html>

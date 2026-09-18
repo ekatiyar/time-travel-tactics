@@ -1,0 +1,250 @@
+<!doctype html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
+<title>02 Timeline instrument · tbtt mockups</title><link rel="stylesheet" href="shared/mock.css">
+<style>
+.p02 .tl{display:block;width:100%;height:auto;font-family:var(--mono)}
+.p02 .tl text{fill:var(--text-secondary);font-size:10px}
+.p02 .tl .lbl{font-size:12px;fill:var(--text-primary);font-family:system-ui,sans-serif}
+.p02 .tl .grid{stroke:var(--border);stroke-width:1}
+.p02 .tl .focus{fill:var(--accent-br);opacity:.16}
+.p02 .tl .win{fill:var(--text-secondary);opacity:.07}
+.p02 .tl .fog{fill:url(#fog)}
+.p02 .tl .leg{fill:none;stroke-width:2.5;stroke-linejoin:round;stroke-linecap:round}
+.p02 .tl .bead{stroke-width:1.5}
+.p02 .tl .keybead{fill:var(--key);stroke:var(--surface-0);stroke-width:1}
+.p02 .tl .front{fill:var(--A)}
+.p02 .tl .eta{fill:var(--surface-0);font-size:9px;font-weight:600}
+.p02 .tl .handle{fill:var(--surface-2);stroke:var(--accent-br);stroke-width:1.5;cursor:ew-resize}
+.p02 .tl .custody{stroke:var(--surface-0);stroke-width:1}
+.p02 .tl .broken{fill:url(#hatch)}
+.p02 .ctl{display:flex;gap:10px;align-items:center;font-size:12.5px;color:var(--text-secondary);margin-top:8px;flex-wrap:wrap}
+.p02 .ctl .btn{padding:3px 9px;font-size:12px}
+.p02 .mini{background:var(--surface-2);border:1px solid var(--border);border-radius:8px;padding:6px 8px}
+</style></head>
+<body><main class="mk-page p02">
+<h1>Timeline instrument</h1>
+<p class="mk-lede">Promote the strip from a row of 5px dots to the second half of the game view: one row per player, each player's zig-zag through world time laid out as legs, the key's own timeline as a custody band, and fronts shown where they will land. The board answers "where"; this answers "when".</p>
+<div class="mk-meta"><span class="req">UI req: timeline strip with each playhead and direction</span><span class="req">UI req: personal-index gap for an inbound front</span><span class="req">UI req: fronts, and the hole between them</span><span>Open q: is the opponent front readout clear at a glance?</span><span>Open q: how should fronts read on the strip?</span></div>
+
+<figure class="fig">
+  <div class="frame" id="f1">
+    <i class="callout" style="left:4.8%;top:2%">1</i>
+    <i class="callout" style="left:67%;top:6%">2</i>
+    <i class="callout" style="left:48.9%;top:32%">3</i>
+    <i class="callout" style="left:30.7%;top:57%">4</i>
+    <i class="callout" style="left:77.6%;top:24.6%">5</i>
+    <i class="callout" style="left:21.6%;top:83%">6</i>
+    <i class="callout" style="left:45%;top:89%">7</i>
+  </div>
+  <figcaption>Full instrument at desktop width. World turn on the x axis from t0 to the cap. Coral (you) is the top row. Focus column is t8; the look-back window is shaded 4 turns behind it.</figcaption>
+</figure>
+<ul class="callouts">
+  <li><b>1</b>Key custody band. Index 0 to 5 the key sits at the center. Amber holds from 6. Coral's grab at 11 is hatched because Amber's front will break it.</li>
+  <li><b>2</b>Amber's front, drawn on the custody band at index 11 and again on Coral's row at the body it will hit, with the ETA badge "4".</li>
+  <li><b>3</b>Each player's row is split into legs. A leg is the run between inversions. Coral's forward leg runs t0 to t12, then the backward leg runs t12 back to t8 on its own lane below. Overlaps read as two lanes instead of a smear.</li>
+  <li><b>4</b>Beads are bodies. Filled means walking in your direction, hollow means opposing, matching the board. Every fourth bead carries its personal index. Hovering shows all.</li>
+  <li><b>5</b>Horizon fog. Turns beyond t12 are unavailable, drawn as hatching out to the cap at 43. The cap itself is a hard line.</li>
+  <li><b>6</b>Live body marker with a direction chevron. Purple is far back at t2; Amber and Teal share t7 and get a "meet" tie line, because they can interact.</li>
+  <li><b>7</b>Drag handle for the focus turn. Dragging the shaded window edge changes look-back. This replaces both range sliders.</li>
+</ul>
+
+<h2>Variants</h2>
+<div class="variants">
+  <figure class="fig"><div class="frame" id="f2"></div><figcaption><strong>Personal-index axis.</strong> Same rows, but x is the player's own index. Fronts move at a constant two per turn here, so the gap is literally the distance between the wedge and the live bead. Inversions become a fold marker rather than a change of direction.</figcaption></figure>
+  <figure class="fig"><div class="frame" id="f3"></div><figcaption><strong>Compact dock.</strong> A 56px version for a bottom dock (see page 01): only live playheads, fronts, and the custody band. Expands to the full instrument on hover or when scrubbing.</figcaption></figure>
+</div>
+
+<h2>Interaction</h2>
+<div class="mk-prose"><ul>
+<li><strong>Scrub</strong> by dragging the focus handle or clicking a column. The board re-renders at that world turn. The row for your colour stays highlighted so you never lose your own line.</li>
+<li><strong>Hover a bead</strong> to highlight the same body on the board and show a compact inspector (page 09).</li>
+<li><strong>Hover a front</strong> to draw its projected path on both the strip and the board, with the meta-turn at which it lands.</li>
+<li><strong>Click a custody segment</strong> to focus the world turn where that grab happened.</li>
+<li><strong>Keyboard:</strong> <kbd>[</kbd> and <kbd>]</kbd> step the focus turn, <kbd>Home</kbd> returns to your present.</li>
+</ul></div>
+
+<h2>Trade-offs</h2>
+<div class="mk-pc">
+  <div class="pro"><h3>Pros</h3><ul>
+    <li>Every UI requirement about time is satisfied in one place: playheads, direction, fronts, gaps, and the eventual holes.</li>
+    <li>Inversion legs make "I can overlap my own past" visible before the player tries it.</li>
+    <li>The custody band explains bootstrap's odd rule that an earlier grab beats a later one, which the current triangle does not.</li>
+    <li>Scales with the cap: 43 turns at 1400px is 26px per turn; 400 turns needs zoom, which the fog already implies.</li>
+  </ul></div>
+  <div class="con"><h3>Cons</h3><ul>
+    <li>Vertical cost: four rows plus the band is about 260px. On laptops the board shrinks unless the layout is board-first with a collapsible dock.</li>
+    <li>Lanes per leg grow with repeated inversions. Teal inverted three times at t9 and needs four lanes in one column. Cap lanes at 4 and collapse the rest into a stack glyph.</li>
+    <li>Two axes (world turn vs personal index) are both useful. Offering both risks confusion; pick world turn as default and expose the other as a toggle for the front readout.</li>
+  </ul></div>
+</div>
+
+<h2>What it answers</h2>
+<div class="mk-prose"><p>Directly answers the open question about the front readout: the wedge sits on the body it will hit, and the ETA badge counts meta-turns, not indices. It answers "how should fronts read on the strip" for bootstrap and sketches the erasure/restoration hole as a shaded span between two wedges for the weapons mode. It leaves open whether an opponent's horizon should show; here rows only draw what your horizon reveals.</p></div>
+
+<h2>Cost</h2>
+<div class="mk-prose"><p><strong>M.</strong> Pure view work in <code>ui.tsx</code> and <code>style.css</code>. Everything drawn here comes from the existing View: bodies with p, t, dir, live; keys by index; fronts with t, target, gap; keyAtCenter. The custody band needs the key's holder per index, which the mode view does not expose yet. That is a small addition to the bootstrap view. Drag scrubbing replaces the two range inputs.</p></div>
+</main>
+<script src="shared/fixture.js"></script><script src="shared/board.js"></script><script src="shared/nav.js"></script>
+<script>
+(function(){
+  const F = FIX, C = COLORS, el = MK.el;
+  const rows = ['C','A','T','P'];
+  const legsOf = (color) => {
+    const bodies = MK.path(color); const legs = []; let cur = [];
+    for (let i = 0; i < bodies.length; i++) {
+      const b = bodies[i], prev = bodies[i-1];
+      if (prev && prev.dir !== b.dir) { legs.push(cur); cur = [prev]; }
+      cur.push(b);
+    }
+    legs.push(cur); return legs;
+  };
+  function defs(svg){
+    svg.appendChild(el('defs',{},[
+      el('pattern',{id:'hatch',width:6,height:6,patternUnits:'userSpaceOnUse',patternTransform:'rotate(45)'},[el('rect',{width:6,height:6,fill:'var(--surface-2)'}),el('rect',{width:2,height:6,fill:'var(--text-muted)',opacity:.6})]),
+      el('pattern',{id:'fog',width:8,height:8,patternUnits:'userSpaceOnUse',patternTransform:'rotate(45)'},[el('rect',{width:8,height:8,fill:'var(--surface-1)'}),el('rect',{width:1.5,height:8,fill:'var(--border)'})])
+    ]));
+  }
+  // Full instrument, x = world turn
+  function full(container, W){
+    const left = 64, right = 16, cap = F.cap, hor = F.me.horizon;
+    const usable = W - left - right;
+    // Give explored turns 70% of width, fog the rest.
+    const colW = (usable * 0.72) / (hor + 1);
+    const fogW = usable - colW * (hor + 1);
+    const X = (t) => left + t * colW + colW / 2;
+    const bandTop = 30, bandH = 16, rowTop = 60, rowH = 66, laneH = 13;
+    const H = rowTop + rows.length * rowH + 30;
+    const svg = el('svg',{viewBox:`0 0 ${W} ${H}`,class:'tl'}); defs(svg);
+    // window + focus
+    const lo = Math.max(0, F.me.t - 4);
+    svg.appendChild(el('rect',{class:'win',x:X(lo)-colW/2,y:bandTop-6,width:colW*(F.me.t-lo+1),height:H-bandTop-14}));
+    svg.appendChild(el('rect',{class:'focus',x:X(F.me.t)-colW/2,y:bandTop-6,width:colW,height:H-bandTop-14}));
+    // fog beyond horizon
+    svg.appendChild(el('rect',{class:'fog',x:X(hor)+colW/2,y:bandTop-6,width:fogW,height:H-bandTop-14,rx:3}));
+    svg.appendChild(el('text',{x:X(hor)+colW/2+fogW/2,y:bandTop+bandH+8,'text-anchor':'middle',text:'unexplored · t13 … t'+cap}));
+    svg.appendChild(el('line',{x1:W-right,x2:W-right,y1:bandTop-6,y2:H-14,stroke:'var(--bad-br)','stroke-width':2}));
+    svg.appendChild(el('text',{x:W-right-3,y:H-2,'text-anchor':'end',text:'cap '+cap}));
+    // axis
+    for (let t=0;t<=hor;t++){
+      svg.appendChild(el('line',{class:'grid',x1:X(t),x2:X(t),y1:bandTop-6,y2:H-14,opacity:.5}));
+      svg.appendChild(el('text',{x:X(t),y:H-2,'text-anchor':'middle',text:'t'+t,fill:t===F.me.t?'var(--text-primary)':undefined}));
+    }
+    // key custody band
+    svg.appendChild(el('text',{class:'lbl',x:left-8,y:bandTop+12,'text-anchor':'end',text:'key'}));
+    const seg = (a,b,fill,cls) => svg.appendChild(el('rect',{class:'custody '+(cls||''),x:X(a)-colW/2,y:bandTop,width:colW*(b-a+1),height:bandH,rx:3,fill}));
+    seg(0,5,'var(--key)'); seg(6,10,C.A.hex); seg(11,12,C.C.hex,'broken');
+    svg.appendChild(el('text',{x:X(2.5),y:bandTop+12,'text-anchor':'middle',text:'at center',fill:'#1a1200'}));
+    svg.appendChild(el('text',{x:X(8),y:bandTop+12,'text-anchor':'middle',text:'Juno',fill:C.A.ink}));
+    svg.appendChild(el('text',{x:X(11.5),y:bandTop+12,'text-anchor':'middle',text:'Rook',fill:'var(--text-primary)'}));
+    // grab anchors
+    for (const g of [[6,'A'],[11,'C']]) svg.appendChild(el('circle',{cx:X(g[0])-colW/2,cy:bandTop+bandH/2,r:4,fill:C[g[1]].hex,stroke:'var(--surface-0)'}));
+    // front on band with arrow
+    svg.appendChild(el('path',{class:'front',d:`M${X(11)-colW/2-6},${bandTop-4} l12,0 l-6,-8 z`}));
+    svg.appendChild(el('path',{d:`M${X(11)+2},${bandTop-8} h${colW*1.5} l-5,-4 m5,4 l-5,4`,fill:'none',stroke:C.A.hex,'stroke-width':1.5}));
+    svg.appendChild(el('text',{x:X(11)+colW*1.5+8,y:bandTop-5,text:'+2 / turn',fill:C.A.hex}));
+    // rows
+    rows.forEach((color, ri) => {
+      const top = rowTop + ri*rowH, col = C[color];
+      svg.appendChild(el('line',{class:'grid',x1:left,x2:W-right,y1:top-4,y2:top-4}));
+      svg.appendChild(el('circle',{cx:left-52,cy:top+8,r:5,fill:col.hex}));
+      svg.appendChild(el('text',{class:'lbl',x:left-42,y:top+12,text:F.names[color]+(color===F.me.color?' (you)':'')}));
+      const live = MK.live(color);
+      svg.appendChild(el('text',{x:left-52,y:top+28,text:'p'+live.p+' · '+(live.dir===1?'fwd':'back')}));
+      const legs = legsOf(color);
+      legs.forEach((leg, li) => {
+        const lane = Math.min(li, 3), y = top + 8 + lane*laneH;
+        const pts = leg.map(b => `${X(b.t)},${y}`).join(' ');
+        svg.appendChild(el('polyline',{class:'leg',points:pts,stroke:col.hex,opacity: li===legs.length-1?1:.55}));
+        // direction chevrons along leg
+        const first = leg[0], last = leg[leg.length-1];
+        if (leg.length>1){ const d = last.t>first.t?1:-1; const mx = X((first.t+last.t)/2);
+          svg.appendChild(el('path',{d:`M${mx-4*d},${y-4} l${4*d},4 l${-4*d},4`,fill:'none',stroke:col.hex,'stroke-width':2})); }
+        if (li>0){ // fold marker at inversion
+          const t=first.t; svg.appendChild(el('path',{d:`M${X(t)+ (leg[1]&&leg[1].t<t? 6:-6)},${y-laneH} a6,${laneH/2} 0 0 1 0,${laneH}`,fill:'none',stroke:col.hex,'stroke-width':2.5})); }
+        for (const b of leg){
+          const mine = b.dir===F.me.dir;
+          const keyed = MK.heldBy(b);
+          if (b.live){
+            svg.appendChild(el('circle',{cx:X(b.t),cy:y,r:7,fill:mine?col.hex:'var(--surface-1)',stroke:col.hex,'stroke-width':2.5}));
+            svg.appendChild(el('text',{x:X(b.t),y:y+3.5,'text-anchor':'middle',text:b.p,fill:mine?col.ink:'var(--text-primary)',style:'font-size:8.5px;font-weight:600'}));
+          } else {
+            svg.appendChild(el('circle',{class:'bead',cx:X(b.t),cy:y,r:3.5,fill:mine?col.hex:'var(--surface-1)',stroke:col.hex,title:`${F.names[color]} ${b.p} · t${b.t}`}));
+            if (b.p%4===0) svg.appendChild(el('text',{x:X(b.t),y:y-6,'text-anchor':'middle',text:b.p,style:'font-size:8px'}));
+          }
+          if (keyed) svg.appendChild(el('rect',{class:'keybead',x:X(b.t)-3,y:y+5,width:6,height:6,rx:1}));
+        }
+      });
+      // front on Coral's row: at body p14 (t11), projected to live
+      if (color==='C'){
+        const f = F.fronts[0]; const hit = MK.path('C').find(b=>b.t===f.t && b.p>=14);
+        const y = top+8; // forward leg lane
+        svg.appendChild(el('path',{class:'front',d:`M${X(hit.t)-7},${y-9} l14,0 l-7,-10 z`}));
+        svg.appendChild(el('circle',{cx:X(hit.t)+16,cy:y-12,r:7,fill:C.A.hex}));
+        svg.appendChild(el('text',{class:'eta',x:X(hit.t)+16,y:y-9,'text-anchor':'middle',text:f.gap}));
+        // projected path to live body: forward to t12 then back along lane 1
+        const live = MK.live('C');
+        svg.appendChild(el('path',{d:`M${X(hit.t)},${y} L${X(12)},${y} L${X(12)},${y+laneH} L${X(live.t)+9},${y+laneH}`,fill:'none',stroke:C.A.hex,'stroke-width':1.5,'stroke-dasharray':'3 3',opacity:.8}));
+        svg.appendChild(el('text',{x:X(12)-60,y:y+laneH+16,text:'lands meta-turn '+(F.turn+f.gap),fill:C.A.hex}));
+      }
+    });
+    // meet tie between Amber and Teal at t7
+    const ya = rowTop+1*rowH+8+laneH, yt = rowTop+2*rowH+8+laneH*3; // approximate lanes for live legs
+    svg.appendChild(el('line',{x1:X(7),x2:X(7),y1:rowTop+rowH+8,y2:rowTop+2*rowH+8+laneH*3,stroke:'var(--good)','stroke-width':2,'stroke-dasharray':'2 3'}));
+    svg.appendChild(el('text',{x:X(7)+5,y:rowTop+2*rowH-6,text:'can meet',fill:'var(--good)'}));
+    // focus handle
+    svg.appendChild(el('rect',{class:'handle',x:X(F.me.t)-9,y:H-26,width:18,height:12,rx:3}));
+    svg.appendChild(el('text',{x:X(F.me.t),y:H-17,'text-anchor':'middle',text:'⋮',fill:'var(--accent-br)'}));
+    container.appendChild(svg);
+  }
+  // Personal-index axis
+  function personal(container, W){
+    const left = 60, right = 12, maxP = 20, colW = (W-left-right)/(maxP+1), X = p => left + p*colW + colW/2;
+    const rowTop = 26, rowH = 40, H = rowTop + rows.length*rowH + 16;
+    const svg = el('svg',{viewBox:`0 0 ${W} ${H}`,class:'tl'}); defs(svg);
+    for (let p=0;p<=maxP;p++){ if(p%2===0) svg.appendChild(el('text',{x:X(p),y:H-3,'text-anchor':'middle',text:'p'+p})); }
+    svg.appendChild(el('text',{x:left,y:12,text:'x axis = personal index · fronts move 2 per meta-turn, players 1',fill:'var(--text-muted)'}));
+    rows.forEach((color,ri)=>{
+      const top = rowTop+ri*rowH+14, col=C[color], bodies = MK.path(color);
+      svg.appendChild(el('text',{class:'lbl',x:left-8,y:top+4,'text-anchor':'end',text:F.names[color]}));
+      svg.appendChild(el('line',{x1:X(0),x2:X(bodies.length-1),y1:top,y2:top,stroke:col.hex,'stroke-width':2.5,opacity:.6}));
+      for (const b of bodies){
+        const mine=b.dir===F.me.dir;
+        if (b.live) svg.appendChild(el('circle',{cx:X(b.p),cy:top,r:6,fill:mine?col.hex:'var(--surface-1)',stroke:col.hex,'stroke-width':2.5}));
+        else svg.appendChild(el('circle',{class:'bead',cx:X(b.p),cy:top,r:3,fill:mine?col.hex:'var(--surface-1)',stroke:col.hex}));
+        if (MK.heldBy(b)) svg.appendChild(el('rect',{class:'keybead',x:X(b.p)-3,y:top+6,width:6,height:6,rx:1}));
+        const prev = bodies[b.p-1];
+        if (prev && prev.dir!==b.dir) svg.appendChild(el('path',{d:`M${X(b.p)-colW/2},${top-9} l0,18`,stroke:col.hex,'stroke-width':2}));
+      }
+      if (color==='C'){
+        svg.appendChild(el('path',{class:'front',d:`M${X(14)-6},${top-8} l12,0 l-6,-9 z`}));
+        svg.appendChild(el('path',{d:`M${X(14)},${top-20} L${X(21)},${top-20}`,stroke:C.A.hex,'stroke-width':1.5,'stroke-dasharray':'3 3'}));
+        svg.appendChild(el('text',{x:X(17.5),y:top-23,'text-anchor':'middle',text:'gap 4 turns',fill:C.A.hex}));
+        svg.appendChild(el('text',{x:X(18.5),y:top+4,text:'← you, +1/turn',fill:'var(--text-muted)'}));
+      }
+    });
+    container.appendChild(svg);
+  }
+  // Compact dock
+  function dock(container, W){
+    const left=40,right=12,hor=F.me.horizon,cap=F.cap,colW=(W-left-right)*0.72/(hor+1),X=t=>left+t*colW+colW/2,H=56;
+    const svg = el('svg',{viewBox:`0 0 ${W} ${H}`,class:'tl'}); defs(svg);
+    svg.appendChild(el('rect',{class:'fog',x:X(hor)+colW/2,y:6,width:(W-right)-(X(hor)+colW/2),height:34,rx:3}));
+    svg.appendChild(el('rect',{class:'focus',x:X(F.me.t)-colW/2,y:6,width:colW,height:34}));
+    svg.appendChild(el('rect',{x:X(0)-colW/2,y:8,width:colW*6,height:6,rx:2,fill:'var(--key)'}));
+    svg.appendChild(el('rect',{x:X(6)-colW/2,y:8,width:colW*5,height:6,rx:2,fill:C.A.hex}));
+    svg.appendChild(el('rect',{class:'broken',x:X(11)-colW/2,y:8,width:colW*2,height:6,rx:2}));
+    svg.appendChild(el('path',{class:'front',d:`M${X(11)-colW/2-5},20 l10,0 l-5,-7 z`}));
+    svg.appendChild(el('text',{x:X(11)-colW/2+8,y:20,text:'4',fill:C.A.hex,style:'font-weight:600'}));
+    for (const c of rows){ const b=MK.live(c); const mine=b.dir===F.me.dir;
+      svg.appendChild(el('circle',{cx:X(b.t),cy:30,r:5,fill:mine?C[c].hex:'var(--surface-1)',stroke:C[c].hex,'stroke-width':2}));
+      svg.appendChild(el('path',{d:b.dir===1?`M${X(b.t)+8},26 l4,4 l-4,4`:`M${X(b.t)-8},26 l-4,4 l4,4`,fill:'none',stroke:C[c].hex,'stroke-width':1.5}));
+    }
+    for (let t=0;t<=hor;t++) if (t%2===0) svg.appendChild(el('text',{x:X(t),y:52,'text-anchor':'middle',text:t}));
+    svg.appendChild(el('text',{x:left-6,y:14,'text-anchor':'end',text:'key'})); svg.appendChild(el('text',{x:left-6,y:34,'text-anchor':'end',text:'now'}));
+    container.appendChild(svg);
+  }
+  full(document.getElementById('f1'), 1400);
+  personal(document.getElementById('f2'), 680);
+  dock(document.getElementById('f3'), 680);
+})();
+</script>
+</body></html>

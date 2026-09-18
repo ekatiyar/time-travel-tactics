@@ -1,0 +1,408 @@
+<!doctype html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
+<title>12 Split presents · tbtt mockups</title><link rel="stylesheet" href="shared/mock.css">
+<style>
+#p12{--meet:var(--text-primary)}
+#p12 .frame{background:var(--surface-0)}
+#p12 .chips{display:flex;gap:9px;flex-wrap:wrap;padding:0 2px 9px}
+#p12 .chip{display:flex;align-items:center;gap:8px;background:var(--surface-1);border:1px solid var(--border);
+  border-radius:10px;padding:6px 11px 6px 9px;color:var(--text-muted);font:inherit;font-size:13px;cursor:pointer;text-align:left}
+#p12 .chip:hover{border-color:var(--btn-border)}
+#p12 .chip .nm{color:var(--text-secondary)}
+#p12 .chip .t{font-family:var(--mono);font-size:13px;color:var(--text-secondary)}
+#p12 .chip .sub{font-size:11px;color:var(--text-muted);display:block;line-height:1.25}
+#p12 .chip.on{border-color:var(--meet);color:var(--text-primary);background:var(--surface-2)}
+#p12 .chip.on .nm,#p12 .chip.on .t{color:var(--text-primary)}
+#p12 .chip .kd{width:8px;height:8px;border-radius:2px;background:var(--key);flex:none}
+#p12 .stat{font-size:13px;color:var(--text-secondary);padding:0 2px 9px 34px;min-height:19px}
+#p12 .stat b{color:var(--text-primary);font-weight:500}
+#p12 .sideby{display:grid;grid-template-columns:minmax(340px,1.05fr) minmax(320px,1fr);gap:22px;align-items:start}
+@media(max-width:940px){#p12 .sideby{grid-template-columns:1fr}}
+#p12 table.cmp td.v{font-family:var(--mono);font-size:12px}
+#p12 table.cmp td.no{color:var(--bad-br)}
+#p12 table.cmp td.yes{color:var(--good)}
+#p12 .lgd{display:flex;flex-wrap:wrap;gap:6px 18px;font-size:12px;color:var(--text-secondary);padding:9px 2px 0}
+#p12 .lgd span{display:inline-flex;align-items:center;gap:7px}
+#p12 .breathe{animation:p12b 2.6s ease-in-out infinite}
+@keyframes p12b{0%,100%{opacity:.35}50%{opacity:.95}}
+#p12 .hint{font-size:12px;color:var(--text-muted);padding:8px 2px 0}
+</style></head>
+<body><main class="mk-page" id="p12">
+<h1>Split presents</h1>
+<p class="mk-lede">After an inversion the players stop sharing a now. Rook is at world turn 8, Juno and Ash are at 7, Mira is
+at 2. The board draws one world turn at a time and says nothing about whose present that turn is, so it is easy to plan a
+move against a body whose player left four turns ago. This page adds a lens: a chip per playhead, a strip that shows all
+four at once, and a forecast of who can meet whom.</p>
+<div class="mk-meta">
+  <span class="req">UI req: a timeline strip with each playhead and direction</span>
+  <span class="req">UI req: player identity and personal index on every body</span>
+  <span>Rule: you can act on a live body only at a shared world turn</span>
+  <span>Open q: should players see an opponent's horizon</span>
+</div>
+
+<figure class="fig">
+  <div class="frame" id="f1frame">
+    <div class="chips" id="f1chips"></div>
+    <div class="stat" id="f1stat"></div>
+    <div id="f1"></div>
+    <div class="lgd">
+      <span><i style="width:13px;height:13px;border-radius:50%;border:2px solid var(--text-primary);display:inline-block"></i>a live body: somebody's present</span>
+      <span><i style="width:13px;height:13px;border-radius:50%;background:var(--text-muted);display:inline-block"></i>no ring: a recorded body, a leftover that still blocks and can still be robbed</span>
+    </div>
+    <div class="hint">Click a chip to move the focus to that player's present.</div>
+    <i class="callout">1</i><i class="callout">2</i><i class="callout">3</i><i class="callout">4</i><i class="callout">5</i>
+  </div>
+  <ul class="callouts">
+    <li><b>1</b>Your chip. World turn 8, walking backward, holding the key. It is lit because the board is focused on your present, which is the only turn where your own actions happen.</li>
+    <li><b>2</b>Juno's chip: t7, forward, one turn behind you. Dim, because the focus is not there. Click it and the board jumps to t7, where Juno and Ash are standing right now.</li>
+    <li><b>3</b>Mira's chip: t2, backward, six turns behind. Nothing either of you does can touch the other, and the chip says so without making you count.</li>
+    <li><b>4</b>The count of presents at the focused turn. One here, which is the whole problem: you are alone in your now, so no live opponent can be blocked, shot or raced this turn.</li>
+    <li><b>5</b>The focus badge. The board still shows exactly one world turn, as the design doc requires. The lens only adds whose now it is.</li>
+  </ul>
+  <figcaption>Focus t8. A solid white ring means a live body, somebody's present. Everything else on the board is recorded:
+  real, blocking, robbable, but nobody is home. In bootstrap that distinction matters, because you can steal from a recorded
+  body at your own world turn, but you can only contest a tile with, race, or later shoot a player whose playhead is in the turn you are in.</figcaption>
+</figure>
+
+<h2>Four playheads, one strip</h2>
+<figure class="fig">
+  <div class="frame"><div id="f2"></div>
+    <i class="callout">1</i><i class="callout">2</i><i class="callout">3</i><i class="callout">4</i>
+  </div>
+  <ul class="callouts">
+    <li><b>1</b>The focus column, t8. One playhead in it, yours. Every other mark in that column on the board is a recorded body.</li>
+    <li><b>2</b>Juno and Ash sit in the same cell at t7 and both walk forward, so they stay together turn after turn. The bracket says it once instead of making you compare two rows.</li>
+    <li><b>3</b>Ghost ticks project four turns ahead, labelled by meta-turn. Juno reaches t8 on m18: the turn after you left it. That near miss is the thing the current strip cannot show.</li>
+    <li><b>4</b>Your horizon stops at t12. Juno and Ash reach t11 by m21 and step past t12 two turns after that, and from then on the lens cannot say where their presents are, only that they are gone from view.</li>
+  </ul>
+  <figcaption>One row per player, world turns across. The filled marker is the playhead now, the chevron is its direction,
+  and the four hollow ticks are where it lands on meta-turns 18 to 21 if nobody inverts. Mira's ticks pile up at t0 because
+  a backward player at t0 cannot move or hold backward: its only legal action is to invert.</figcaption>
+</figure>
+
+<h2>Who can meet whom</h2>
+<div class="sideby">
+  <figure class="fig" style="margin-top:0">
+    <div class="frame"><div id="f3"></div>
+      <i class="callout">1</i><i class="callout">2</i><i class="callout">3</i>
+    </div>
+    <ul class="callouts" style="columns:1">
+      <li><b>1</b>You and Juno cross here, between meta-turn 17 and 18. You step from t8 to t7 while Juno steps from t7 to t8. You trade turns and never stand in the same one.</li>
+      <li><b>2</b>Juno and Ash draw one line. Same turn, same direction, every meta-turn.</li>
+      <li><b>3</b>Mira flattens at t0 on meta-turn 19. A backward playhead at t0 can only invert, and that flip changes the parity of every gap it has.</li>
+    </ul>
+    <figcaption>Meta-turns down, world turns across. Each line is a playhead. Lines that cross without sharing a cell are
+    players who pass each other.</figcaption>
+  </figure>
+  <div class="mk-prose">
+    <h3 style="margin-top:0">The forecast, if nobody inverts</h3>
+    <table class="cmp">
+      <tr><th>Pair</th><th style="width:74px">Gap now</th><th>What happens</th><th style="width:82px">Shared turn</th></tr>
+      <tr><td>Rook &larr; / Juno &rarr;</td><td class="v">1, closing</td><td>They swap turns on m17 and keep going.</td><td class="no">never</td></tr>
+      <tr><td>Rook &larr; / Ash &rarr;</td><td class="v">1, closing</td><td>Same swap on m17, eight tiles apart.</td><td class="no">never</td></tr>
+      <tr><td>Rook &larr; / Mira &larr;</td><td class="v">6, parallel</td><td>Both walk backward, so the gap holds at 6. Mira's forced flip at t0 on m19 leaves a gap of 5.</td><td class="no">never</td></tr>
+      <tr><td>Juno &rarr; / Ash &rarr;</td><td class="v">0</td><td>Same turn, same direction, locked together.</td><td class="yes">now, every turn</td></tr>
+      <tr><td>Juno &rarr; / Mira &larr;</td><td class="v">5, widening</td><td>Walking apart. After Mira's flip both go forward, 10 apart.</td><td class="no">never</td></tr>
+      <tr><td>Ash &rarr; / Mira &larr;</td><td class="v">5, widening</td><td>Same as Juno's, since Ash and Juno are the same line.</td><td class="no">never</td></tr>
+    </table>
+    <p style="margin-top:14px">Five of six pairs never meet, and the table shows why in one number. Two playheads walking
+    toward each other close by two turns a meta-turn, so they land on the same turn only when the gap between them is
+    <strong>even</strong>. Yours to Juno is 1. You pass.</p>
+    <p>The only thing that changes parity is an action that does not spend a world turn: an <strong>inversion</strong>, or
+    being stuck. If Juno inverts on meta-turn 17 it stays at t7 while you arrive there, and you are suddenly in the same
+    now, both walking backward, locked together the way Juno and Ash are. One key press turns a near miss into a chase.</p>
+    <p>That is worth showing before the move, not after. The lens makes the gap and its parity visible, so "invert to
+    meet" and "invert to escape" become readable plays rather than accidents.</p>
+  </div>
+</div>
+
+<h2>Trade-offs</h2>
+<div class="mk-pc">
+  <div class="pro"><h3>Pros</h3><ul>
+    <li>The rule the design doc states in one line, that you reach another player only at a shared world turn, becomes something you can see instead of something you work out.</li>
+    <li>Four chips cost one row of chrome and answer the commonest question a split present raises: is anyone home in this turn?</li>
+    <li>Clicking a chip reuses the world-turn control that already exists, so the lens is navigation as well as readout.</li>
+    <li>The live and recorded distinction is drawn once, in a neutral treatment, and does not compete with the threat palette on page 10.</li>
+    <li>Parity makes inversion legible as a tool: the one action that does not spend a world turn is the one that decides who you can reach.</li>
+  </ul></div>
+  <div class="con"><h3>Cons</h3><ul>
+    <li>The forecast is a projection. It assumes nobody inverts, nobody is blocked and nobody is stuck, and all three happen. A confident wrong table is worse than none.</li>
+    <li>The chip row grows with the roster, and at six or eight players it stops being scannable.</li>
+    <li>It half-answers the horizon question by construction: chips go blank when an opponent walks past t12, which may leak more than it should or less than players want.</li>
+    <li>Chips both display and navigate. That makes them a control users press by accident while reading.</li>
+    <li>Another white ring on bodies that already carry colour, fill style, a personal index and sometimes a key mark.</li>
+  </ul></div>
+</div>
+
+<h2>What it answers</h2>
+<div class="mk-prose">
+<p>Serves the requirement for a timeline strip with each playhead and its direction, and puts the split-present rule from
+the design doc on screen: one combined board at a chosen world turn, with the lens saying whose present that turn is.
+It also makes the case that the strip is not optional decoration in a game with inversion, since with four playheads and
+one board there is otherwise no way to know whether a body you are planning against still has a player behind it.</p>
+<p>It bears directly on the open question of whether players should see an opponent's horizon. The lens can only report a
+present it is allowed to see, so it goes blank on Juno and Ash from meta-turn 23, when they pass t12. That is a defensible
+default but it is a decision, not a fact, and it should be made deliberately.</p>
+<p>It leaves open how the lens survives more than four players, and how a touch user reaches a chip without triggering a
+focus change. It also leaves the projection problem open: the forecast is only honest while it is labelled a projection,
+and nothing here proves players will read that label.</p>
+</div>
+
+<h2>Cost</h2>
+<div class="mk-prose">
+<p><strong>Chips and the same-turn ring: S,</strong> in <code>ui.tsx</code> and <code>style.css</code> only. The session view
+already carries every player's live body with its world turn and direction, so lighting a chip is a comparison against the
+focus turn, and clicking one sets the focus the world-turn control already sets.</p>
+<p><strong>Playhead rows: M,</strong> and they are the same component page 02 proposes. If that instrument lands, this lens
+is a second reading of its data rather than new drawing code.</p>
+<p><strong>The forecast: M,</strong> and mostly care rather than code. Projecting each playhead forward is a loop over
+direction; the work is labelling it a projection, stopping it at the horizon, and deciding whether to hide an opponent's
+row once their present passes t12. That last choice belongs in the design doc before it belongs in the UI.</p>
+</div>
+</main>
+<script src="shared/fixture.js"></script><script src="shared/board.js"></script><script src="shared/nav.js"></script>
+<script>
+(function () {
+  var F = MK.F, C = MK.C, el = MK.el;
+  var ORDER = ['C', 'A', 'T', 'P'];
+  var live = {}; ORDER.forEach(function (c) { live[c] = MK.live(c); });
+
+  function hatchDef(svg, id) {
+    svg.insertBefore(el('defs', {}, [el('pattern', {
+      id: id, width: 7, height: 7, patternUnits: 'userSpaceOnUse', patternTransform: 'rotate(45)'
+    }, [el('line', { x1: 0, y1: 0, x2: 0, y2: 7, stroke: 'var(--text-muted)', 'stroke-width': 2.4, opacity: 0.4 })])]), svg.firstChild);
+  }
+  function findCallout(frame, n) {
+    var all = frame.querySelectorAll('.callout');
+    for (var i = 0; i < all.length; i++) if (all[i].textContent === n) return all[i];
+    return null;
+  }
+  function place(frame, svg, map) {
+    var fr = frame.getBoundingClientRect(), sv = svg.getBoundingClientRect(), vb = svg.viewBox.baseVal;
+    var kx = sv.width / vb.width, ky = sv.height / vb.height;
+    for (var n in map) {
+      var c = findCallout(frame, n); if (!c) continue;
+      c.style.left = (sv.left - fr.left + (map[n][0] + (map[n][2] || 0)) * kx - 10) + 'px';
+      c.style.top = (sv.top - fr.top + (map[n][1] + (map[n][3] || 0)) * ky - 10) + 'px';
+    }
+  }
+  function placeOn(frame, target, n, dx, dy) {
+    var fr = frame.getBoundingClientRect(), tr = target.getBoundingClientRect(), c = findCallout(frame, n);
+    if (!c) return;
+    c.style.left = (tr.left - fr.left + tr.width / 2 - 10 + (dx || 0)) + 'px';
+    c.style.top = (tr.top - fr.top + tr.height / 2 - 10 + (dy || 0)) + 'px';
+  }
+  var arrow = function (d) { return d === 1 ? '→' : '←'; };
+
+  /* ================= figure 1: the present lens ================= */
+  var frame1 = document.getElementById('f1frame');
+  var chipHost = document.getElementById('f1chips');
+  var statHost = document.getElementById('f1stat');
+  var focus = F.me.t;
+
+  ORDER.forEach(function (c) {
+    var b = live[c], holds = !!MK.heldBy(b);
+    var d = b.t - F.me.t;
+    var rel = c === F.me.color ? 'your present' : d === 0 ? 'your turn too' : Math.abs(d) + (Math.abs(d) === 1 ? ' turn ' : ' turns ') + (d > 0 ? 'ahead of you' : 'behind you');
+    var btn = document.createElement('button');
+    btn.className = 'chip'; btn.setAttribute('data-c', c); btn.setAttribute('data-t', b.t);
+    btn.innerHTML = '<i class="sw" style="background:' + C[c].hex + '"></i>' +
+      '<span><span class="nm">' + F.names[c] + '</span> <span class="t">t' + b.t + ' ' + arrow(b.dir) + ' p' + b.p + '</span>' +
+      '<span class="sub">' + rel + '</span></span>' + (holds ? '<i class="kd" title="holds the key"></i>' : '');
+    btn.onclick = function () { focus = b.t; render(); };
+    chipHost.appendChild(btn);
+  });
+
+  var NOTE = {
+    8: 'You are alone in your own present. Juno and Ash arrive here next turn, one turn after you have gone.',
+    7: 'Juno and Ash are both here, and both walking forward. You arrive next turn, one turn after they have gone.',
+    2: 'Mira is here, six world turns behind you, walking backward toward t0.'
+  };
+
+  function render() {
+    var api = MK.board(document.getElementById('f1'), {
+      focusT: focus, lookBack: 2, cell: 44, keys: true, fronts: true, trails: true, labels: true
+    });
+    var s = api.s, cx = api.cx, cy = api.cy;
+    var here = F.bodies.filter(function (b) { return b.live && b.t === focus; });
+
+    // Same-turn glow: a live body is somebody's present.
+    here.forEach(function (b) {
+      var g = el('g', { title: F.names[b.color] + ' · index ' + b.p + ' · present at t' + b.t });
+      g.appendChild(el('circle', { cx: cx(b.x), cy: cy(b.y), r: s * 0.52, fill: 'none', stroke: 'var(--meet)', 'stroke-width': 1.6, 'stroke-dasharray': '3 4', opacity: 0.55, class: 'breathe' }));
+      g.appendChild(el('circle', { cx: cx(b.x), cy: cy(b.y), r: s * 0.43, fill: 'none', stroke: 'var(--meet)', 'stroke-width': 2.4 }));
+      g.appendChild(el('text', {
+        x: cx(b.x), y: b.y * s + s + 9, 'text-anchor': 'middle', 'font-size': 8.6,
+        'font-family': 'var(--mono)', fill: 'var(--text-secondary)',
+        text: F.names[b.color].toLowerCase() + ' is here'
+      }));
+      api.layers.top.appendChild(g);
+    });
+
+    // Focus badge, top left of the board.
+    var bg = el('g', {});
+    bg.appendChild(el('rect', { x: s * 0.16, y: s * 0.16, width: s * 2.9, height: s * 0.52, rx: 6, fill: 'var(--surface-2)', stroke: 'var(--border)' }));
+    bg.appendChild(el('text', {
+      x: s * 0.38, y: s * 0.555, 'font-size': s * 0.22, 'font-family': 'var(--mono)', fill: 'var(--text-primary)',
+      text: 'focus t' + focus + ' · ' + here.length + ' of 4 here'
+    }));
+    api.layers.top.appendChild(bg);
+
+    // Chips light when their player's present is the focused turn.
+    [].forEach.call(chipHost.children, function (btn) {
+      btn.classList.toggle('on', +btn.getAttribute('data-t') === focus);
+    });
+    var names = here.map(function (b) { return F.names[b.color]; });
+    var lead = here.length === 0 ? 'No player is present at this turn.'
+      : here.length === 1 ? '<b>' + names[0] + ' is the only present here.</b>'
+        : '<b>' + names.slice(0, -1).join(', ') + ' and ' + names[names.length - 1] + ' share this turn.</b>';
+    statHost.innerHTML = 'Focus t' + focus + '. ' + lead + ' ' + (NOTE[focus] || 'Everything else at this turn is recorded.');
+
+    place(frame1, api.svg, { '5': [s * 3.46, s * 0.42, 0, 0] });
+    ['1', '2', '3'].forEach(function (n, i) {
+      placeOn(frame1, chipHost.children[i === 2 ? 3 : i], n, 0, -20);
+    });
+    placeOn(frame1, statHost, '4', -statHost.getBoundingClientRect().width / 2 + 14, -4);
+  }
+  render();
+
+  /* ================= figure 2: four playhead rows ================= */
+  (function () {
+    var W = 1160, L = 132, colW = 60, HOR = 12;
+    var X = function (t) { return L + t * colW + colW / 2; };
+    var rowTop = 62, rowH = 50, H = rowTop + ORDER.length * rowH + 34;
+    var svg = el('svg', { viewBox: '0 0 ' + W + ' ' + H, width: '100%', style: 'display:block;max-width:100%;height:auto' });
+    hatchDef(svg, 'p12h2');
+    var tail = L + (HOR + 1) * colW, R = W - 16;
+
+    // Focus column and the shared-turn column.
+    svg.appendChild(el('rect', { x: X(8) - colW / 2, y: 40, width: colW, height: H - 62, rx: 4, fill: 'var(--surface-2)' }));
+    svg.appendChild(el('rect', { x: X(7) - colW / 2 + 2, y: rowTop + rowH - 6, width: colW - 4, height: rowH + 12, rx: 4, fill: 'var(--text-primary)', opacity: 0.07 }));
+    svg.appendChild(el('rect', { x: tail, y: 40, width: R - tail, height: H - 62, rx: 4, fill: 'url(#p12h2)', stroke: 'var(--border)' }));
+    svg.appendChild(el('text', { x: (tail + R) / 2, y: 32, 'text-anchor': 'middle', 'font-size': 10.5, 'font-family': 'var(--mono)', fill: 'var(--text-muted)', text: 't13 … t43 · past your horizon' }));
+    for (var t = 0; t <= HOR; t++) {
+      svg.appendChild(el('text', {
+        x: X(t), y: 32, 'text-anchor': 'middle', 'font-size': 11, 'font-family': 'var(--mono)',
+        fill: t === 8 ? 'var(--text-primary)' : 'var(--text-muted)', text: 't' + t
+      }));
+    }
+
+    // One row per player: the playhead now, its direction, and four projected turns.
+    ORDER.forEach(function (c, i) {
+      var b = live[c], y = rowTop + i * rowH + 16, col = C[c];
+      svg.appendChild(el('text', { x: 10, y: y + 4, 'font-size': 12, fill: 'var(--text-secondary)', text: F.names[c] }));
+      svg.appendChild(el('rect', { x: 10, y: y - 18, width: 9, height: 9, rx: 2, fill: col.hex }));
+      svg.appendChild(el('text', { x: 24, y: -10 + y, 'font-size': 10.5, 'font-family': 'var(--mono)', fill: 'var(--text-muted)', text: 't' + b.t + ' ' + arrow(b.dir) + ' p' + b.p }));
+      svg.appendChild(el('line', { x1: L, y1: y, x2: R - 4, y2: y, stroke: 'var(--border)', 'stroke-width': 1 }));
+
+      // Projected ticks for meta-turns 18 to 21, assuming nobody inverts.
+      var tt = b.t, dir = b.dir, byT = {}, ord = [];
+      for (var k = 1; k <= 4; k++) {
+        if (tt === 0 && dir === -1) { dir = 1; } else { tt += dir; }
+        if (!byT[tt]) { byT[tt] = []; ord.push(tt); }
+        byT[tt].push(17 + k);
+      }
+      ord.forEach(function (tv) {
+        var past = tv > HOR, ms = byT[tv].map(function (m) { return 'm' + m; }).join(', ');
+        svg.appendChild(el('circle', {
+          cx: X(Math.min(tv, HOR + 0.6)), cy: y, r: 5, fill: 'var(--surface-0)',
+          stroke: past ? 'var(--text-muted)' : col.hex, 'stroke-width': 1.5, opacity: past ? 0.6 : 0.9,
+          'stroke-dasharray': past ? '2 2' : null,
+          title: F.names[c] + ' is at t' + tv + ' on ' + ms.replace(/m/g, 'meta-turn ')
+        }));
+        svg.appendChild(el('text', {
+          x: X(Math.min(tv, HOR + 0.6)), y: y + 18, 'text-anchor': 'middle', 'font-size': 9,
+          'font-family': 'var(--mono)', fill: past ? 'var(--text-muted)' : 'var(--text-secondary)', opacity: 0.85,
+          text: ms
+        }));
+      });
+      // The playhead now.
+      svg.appendChild(el('circle', { cx: X(b.t), cy: y, r: 8.5, fill: col.hex, stroke: 'var(--surface-0)', 'stroke-width': 1.5 }));
+      var ax = X(b.t) + b.dir * 17;
+      svg.appendChild(el('path', {
+        d: 'M' + (ax - b.dir * 5) + ',' + (y - 5) + ' l' + (b.dir * 5) + ',5 l' + (-b.dir * 5) + ',5',
+        fill: 'none', stroke: col.hex, 'stroke-width': 2.2, 'stroke-linecap': 'round', 'stroke-linejoin': 'round'
+      }));
+    });
+
+    // Juno and Ash occupy the same cell at t7.
+    var yA = rowTop + 1 * rowH + 16, yT = rowTop + 2 * rowH + 16;
+    svg.appendChild(el('path', {
+      d: 'M' + (X(7) - 22) + ',' + (yA - 10) + ' h-8 v' + (yT - yA + 20) + ' h8',
+      fill: 'none', stroke: 'var(--good)', 'stroke-width': 1.6
+    }));
+    svg.appendChild(el('text', { x: X(7) - 34, y: (yA + yT) / 2 + 4, 'text-anchor': 'end', 'font-size': 10.5, 'font-family': 'var(--mono)', fill: 'var(--good)', text: 'shared present' }));
+    svg.appendChild(el('text', { x: X(8), y: 52, 'text-anchor': 'middle', 'font-size': 10.5, 'font-family': 'var(--mono)', fill: 'var(--text-primary)', text: 'focus' }));
+    svg.appendChild(el('text', { x: X(0) - 4, y: H - 12, 'font-size': 10.5, 'font-family': 'var(--mono)', fill: 'var(--text-muted)', text: 'Mira stacks at t0: a backward playhead there can only invert' }));
+
+    var host = document.getElementById('f2');
+    host.appendChild(svg);
+    place(host.parentNode, svg, {
+      '1': [X(8), 52, 0, -22], '2': [X(7) - 34, (yA + yT) / 2, -110, 0],
+      '3': [X(8), yA, 30, -16], '4': [tail + 60, 40, 0, 14]
+    });
+  })();
+
+  /* ================= figure 3: playheads through meta time ================= */
+  (function () {
+    var W = 640, L = 46, colW = 36, MTOP = 44, mH = 34, MS = 17, ME = 23;
+    var H = MTOP + (ME - MS) * mH + 34;
+    var X = function (t) { return L + t * colW + colW / 2; };
+    var Y = function (m) { return MTOP + (m - MS) * mH; };
+    var svg = el('svg', { viewBox: '0 0 ' + W + ' ' + H, width: '100%', style: 'display:block;max-width:100%;height:auto' });
+    hatchDef(svg, 'p12h3');
+
+    // Projected world turn per meta-turn, assuming nobody inverts.
+    var walk = {};
+    ORDER.forEach(function (c) {
+      var b = live[c], tt = b.t, dir = b.dir, row = [tt];
+      for (var m = MS + 1; m <= ME; m++) {
+        if (tt === 0 && dir === -1) dir = 1; else tt += dir;
+        row.push(tt);
+      }
+      walk[c] = row;
+    });
+
+    var hx = X(12) + colW / 2;
+    svg.appendChild(el('rect', { x: hx, y: 26, width: W - 10 - hx, height: H - 50, rx: 4, fill: 'url(#p12h3)', stroke: 'var(--border)' }));
+    svg.appendChild(el('text', { x: (hx + W - 10) / 2, y: 18, 'text-anchor': 'middle', 'font-size': 9.5, 'font-family': 'var(--mono)', fill: 'var(--text-muted)', text: 'past t12' }));
+    for (var t = 0; t <= 12; t += 2) svg.appendChild(el('text', { x: X(t), y: 18, 'text-anchor': 'middle', 'font-size': 9.5, 'font-family': 'var(--mono)', fill: 'var(--text-muted)', text: 't' + t }));
+    for (var m = MS; m <= ME; m++) {
+      svg.appendChild(el('line', { x1: L, y1: Y(m), x2: W - 10, y2: Y(m), stroke: 'var(--border)', 'stroke-width': 1, opacity: 0.5 }));
+      svg.appendChild(el('text', { x: 8, y: Y(m) + 4, 'font-size': 9.5, 'font-family': 'var(--mono)', fill: m === MS ? 'var(--text-primary)' : 'var(--text-muted)', text: 'm' + m }));
+    }
+
+    ORDER.forEach(function (c) {
+      var off = c === 'A' ? -3.5 : c === 'T' ? 3.5 : 0;
+      var pts = walk[c].map(function (tt, i) { return (X(tt) + off) + ',' + Y(MS + i); }).join(' ');
+      svg.appendChild(el('polyline', { points: pts, fill: 'none', stroke: C[c].hex, 'stroke-width': 2.4, 'stroke-linejoin': 'round', opacity: 0.95 }));
+      walk[c].forEach(function (tt, i) {
+        svg.appendChild(el('circle', {
+          cx: X(tt) + off, cy: Y(MS + i), r: i === 0 ? 5 : 3.2, fill: i === 0 ? C[c].hex : 'var(--surface-0)',
+          stroke: C[c].hex, 'stroke-width': 1.6, title: F.names[c] + ' at t' + tt + ' on meta-turn ' + (MS + i)
+        }));
+      });
+      if (c !== 'T') svg.appendChild(el('text', {
+        x: X(walk[c][0]) + (c === 'A' ? 6 : 0), y: Y(MS) - 13, 'text-anchor': c === 'A' ? 'end' : 'middle',
+        'font-size': 9.5, 'font-family': 'var(--mono)', fill: c === 'A' ? 'var(--text-secondary)' : C[c].hex,
+        text: c === 'A' ? 'Juno + Ash' : F.names[c]
+      }));
+    });
+
+    // The crossing: you step down to t7 as Juno steps up to t8.
+    var mx = (X(7) + X(8)) / 2, my = (Y(17) + Y(18)) / 2;
+    svg.appendChild(el('circle', { cx: mx, cy: my, r: 11, fill: 'var(--surface-0)', stroke: 'var(--bad-br)', 'stroke-width': 1.6, 'stroke-dasharray': '3 3' }));
+    svg.appendChild(el('path', { d: 'M' + (mx - 4) + ',' + (my - 4) + ' l8,8 m0,-8 l-8,8', fill: 'none', stroke: 'var(--bad-br)', 'stroke-width': 2, 'stroke-linecap': 'round' }));
+    svg.appendChild(el('text', { x: mx + 16, y: my + 4, 'font-size': 10, 'font-family': 'var(--mono)', fill: 'var(--bad-br)', text: 'pass, never share' }));
+    svg.appendChild(el('rect', { x: X(0) - 7, y: Y(19) - 2, width: 14, height: Y(20) - Y(19) + 4, rx: 7, fill: 'none', stroke: 'var(--text-muted)', 'stroke-width': 1.4, 'stroke-dasharray': '3 3' }));
+
+    var host = document.getElementById('f3');
+    host.appendChild(svg);
+    place(host.parentNode, svg, {
+      '1': [mx, my, -30, -18], '2': [X(walk.A[3]), Y(20), 24, 2], '3': [X(0), (Y(19) + Y(20)) / 2, 22, 0]
+    });
+  })();
+
+  window.addEventListener('resize', render);
+})();
+</script>
+</body></html>

@@ -1,0 +1,369 @@
+<!doctype html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
+<title>13 Setup &amp; lobby · tbtt mockups</title><link rel="stylesheet" href="shared/mock.css"><style>
+#p13 .setup{display:grid;grid-template-columns:minmax(0,1fr) minmax(0,1.05fr);gap:18px;align-items:start}
+@media(max-width:940px){#p13 .setup{grid-template-columns:1fr}}
+#p13 .panel{background:var(--surface-1);border:1px solid var(--border);border-radius:12px;padding:14px}
+#p13 h4{margin:0 0 8px;font:500 11.5px/1 system-ui;color:var(--text-muted);letter-spacing:.04em;text-transform:uppercase}
+#p13 .modes{display:grid;grid-template-columns:1fr 1fr;gap:10px}
+#p13 .mode{border:1px solid var(--btn-border);border-radius:10px;padding:11px;cursor:pointer;background:var(--surface-2)}
+#p13 .mode.on{border-color:var(--accent-br);background:var(--accent-bg)}
+#p13 .mode .mh{display:flex;align-items:center;gap:8px;margin-bottom:5px}
+#p13 .mode b{font-weight:500;font-size:14px}
+#p13 .mode p{margin:0;font-size:12.5px;line-height:1.45;color:var(--text-secondary)}
+#p13 .ico{width:26px;height:26px;flex:none}
+#p13 .presets{display:flex;gap:8px;flex-wrap:wrap}
+#p13 .preset{border:1px solid var(--btn-border);border-radius:9px;padding:7px 11px;background:transparent;color:inherit;
+  cursor:pointer;font:inherit;font-size:13px;text-align:left;line-height:1.3}
+#p13 .preset.on{border-color:var(--accent-br);background:var(--accent-bg)}
+#p13 .preset small{display:block;font-family:var(--mono);font-size:11px;color:var(--text-muted)}
+#p13 details.adv{margin-top:12px;border-top:1px solid var(--border);padding-top:10px}
+#p13 details.adv summary{cursor:pointer;font-size:13px;color:var(--text-secondary);list-style:none}
+#p13 details.adv summary::-webkit-details-marker{display:none}
+#p13 details.adv summary:before{content:"▸ ";color:var(--text-muted)}
+#p13 details.adv[open] summary:before{content:"▾ "}
+#p13 .f{display:flex;align-items:center;gap:8px;font-size:13px;color:var(--text-secondary);margin:9px 0 0}
+#p13 .f .box{margin-left:auto;width:132px;padding:5px 8px;border-radius:7px;border:1px solid var(--border);
+  background:var(--surface-2);font-family:var(--mono);font-size:12.5px;color:var(--text-primary)}
+#p13 .prevhead{display:flex;align-items:baseline;gap:8px;margin-bottom:8px}
+#p13 .prevhead .dim{font-family:var(--mono);font-size:12px;color:var(--text-muted);margin-left:auto}
+#p13 .prev{background:var(--surface-0);border:1px solid var(--border);border-radius:9px;padding:7px;position:relative}
+#p13 .seeds{display:flex;gap:7px;align-items:center;margin-top:10px;flex-wrap:wrap}
+#p13 .seedchip{border:1px solid var(--btn-border);border-radius:8px;padding:4px;background:transparent;cursor:pointer;
+  display:flex;flex-direction:column;align-items:center;gap:3px;font:inherit}
+#p13 .seedchip.on{border-color:var(--accent-br);background:var(--accent-bg)}
+#p13 .seedchip span{font-family:var(--mono);font-size:10.5px;color:var(--text-secondary)}
+#p13 .seedchip .thumb{width:86px}
+#p13 .summary{margin-top:11px;font-size:12.5px;color:var(--text-secondary);line-height:1.5;
+  border-top:1px solid var(--border);padding-top:9px}
+#p13 .summary b{color:var(--text-primary);font-weight:500}
+
+#p13 .lobby{position:relative}
+#p13 .seat{position:absolute;z-index:4;background:var(--surface-3);border:1px solid var(--btn-border);border-radius:9px;
+  padding:7px 9px;width:198px;box-shadow:0 5px 16px rgba(0,0,0,.4)}
+#p13 .seat.you{border-color:var(--C)}
+#p13 .seat .sh{display:flex;align-items:center;gap:7px;font-size:13px}
+#p13 .seat .sh b{font-weight:500}
+#p13 .seat .tag{margin-left:auto;font-family:var(--mono);font-size:10px;color:var(--text-muted)}
+#p13 .seat .nm{margin-top:6px;display:flex;align-items:center;gap:6px}
+#p13 .seat .nm input{flex:1;min-width:0;font:inherit;font-size:13px;padding:4px 7px;border-radius:6px;
+  border:1px solid var(--border);background:var(--surface-2);color:var(--text-primary)}
+#p13 .seat .taken{margin-top:5px;font-size:12px;color:var(--text-secondary)}
+#p13 .seat.open{border-style:dashed;background:color-mix(in srgb,var(--surface-3) 80%,transparent)}
+#p13 .seat.open .sit{margin-top:5px;font-size:12.5px;color:var(--accent-br)}
+#p13 .spawnlab{position:absolute;z-index:3;font:500 11px/1 var(--mono);transform:translate(-50%,-50%);pointer-events:none}
+#p13 .share{display:grid;grid-template-columns:1fr auto;gap:12px;align-items:start;margin-top:12px}
+@media(max-width:760px){#p13 .share{grid-template-columns:1fr}}
+#p13 .sheet{display:flex;gap:9px}
+#p13 .tile{flex:1;border:1px solid var(--btn-border);border-radius:10px;padding:9px;background:var(--surface-2);
+  display:flex;flex-direction:column;gap:6px;cursor:pointer}
+#p13 .tile b{font-weight:500;font-size:12.5px}
+#p13 .tile small{font-family:var(--mono);font-size:11px;color:var(--text-muted);word-break:break-all;line-height:1.35}
+#p13 .qr{width:74px;height:74px;display:grid;grid-template-columns:repeat(11,1fr);gap:0;background:#fff;padding:5px;border-radius:5px}
+#p13 .qr i{background:transparent}#p13 .qr i.on{background:#111}
+#p13 .conn{display:flex;align-items:center;gap:8px;font-size:13px;color:var(--text-secondary);margin-top:11px}
+#p13 .dot{width:9px;height:9px;border-radius:50%;background:var(--good);box-shadow:0 0 0 3px color-mix(in srgb,var(--good) 25%,transparent)}
+#p13 .dot.wait{background:var(--warn);box-shadow:0 0 0 3px color-mix(in srgb,var(--warn) 25%,transparent);animation:p13pulse 1.6s infinite}
+@keyframes p13pulse{0%,100%{opacity:1}50%{opacity:.35}}
+#p13 .ready{display:grid;grid-template-columns:minmax(0,1fr) 250px;gap:16px;align-items:center}
+@media(max-width:820px){#p13 .ready{grid-template-columns:1fr}}
+#p13 .count{text-align:center}
+#p13 .count .ring{position:relative;width:132px;height:132px;margin:0 auto}
+#p13 .count .ring svg{transform:rotate(-90deg)}
+#p13 .count .ring b{position:absolute;inset:0;display:flex;align-items:center;justify-content:center;
+  font:300 46px/1 system-ui;color:var(--text-primary)}
+#p13 .count .ring circle.run{stroke-dasharray:364;animation:p13ring 3s linear infinite}
+@keyframes p13ring{from{stroke-dashoffset:0}to{stroke-dashoffset:364}}
+#p13 .roster{display:flex;flex-direction:column;gap:6px;margin:0;padding:0;list-style:none}
+#p13 .roster li{display:flex;align-items:center;gap:8px;font-size:13px;padding:5px 8px;border-radius:8px;background:var(--surface-2)}
+#p13 .roster li .ok{margin-left:auto;font-size:11.5px;color:var(--good);font-family:var(--mono)}
+</style></head>
+<body><main class="mk-page" id="p13">
+<h1>Setup &amp; lobby</h1>
+<p class="mk-lede">Today setup is seven form fields and a colour list: you pick numbers, press Create match, and only then find
+out what the board looks like. This direction shows the board while you choose it, turns the mode select into two cards that
+state the win condition, and moves seating onto the board so your colour and your corner are the same decision.</p>
+<div class="mk-meta"><span class="req">UI req: one combined board for present and history</span><span>Open question: should the first boards be corridors, small grids, or both</span><span>Open question: minimum board size</span></div>
+
+<figure class="fig">
+  <div class="frame">
+    <div class="setup">
+      <div>
+        <div class="panel">
+          <h4>Mode</h4>
+          <div class="modes">
+            <div class="mode on" id="mBoot"><div class="mh"><svg class="ico" viewBox="0 0 26 26"><rect x="10" y="10" width="6" height="6" rx="1" fill="var(--key)"/><rect x="2" y="2" width="7" height="7" rx="1.5" fill="none" stroke="var(--C)" stroke-width="1.6" stroke-dasharray="3 2.5"/><path d="M9.5 9.5 L4 4.6" stroke="var(--C)" stroke-width="1.4"/></svg><b>Bootstrap</b></div>
+              <p>One key at the center. Grab it, carry it back to t0 on a tile beside your own spawn, and you win.</p></div>
+            <div class="mode" id="mSand"><div class="mh"><svg class="ico" viewBox="0 0 26 26"><circle cx="13" cy="13" r="8.5" fill="none" stroke="var(--text-secondary)" stroke-width="1.6"/><path d="M13 7.5 V13 L17 15.5" stroke="var(--text-secondary)" stroke-width="1.6" fill="none"/></svg><b>Sandbox</b></div>
+              <p>Movement, inversion and history only. No key and no winner. The match ends at the turn cap.</p></div>
+          </div>
+        </div>
+        <div class="panel">
+          <h4>Board size</h4>
+          <div class="presets">
+            <button class="preset" data-w="9" data-h="7">Small<small>9 × 7</small></button>
+            <button class="preset on" data-w="16" data-h="9">Standard<small>16 × 9</small></button>
+            <button class="preset" data-w="24" data-h="13">Large<small>24 × 13</small></button>
+          </div>
+          <details class="adv" open>
+            <summary>Advanced</summary>
+            <label class="f">Walls <span class="box">11 %</span></label>
+            <label class="f">Turn cap <span class="box">43</span></label>
+            <label class="f">Players <span class="box">4 colours</span></label>
+            <label class="f">Seed <span class="box">demo</span></label>
+            <label class="f">Exact size <span class="box">16 × 9</span></label>
+          </details>
+        </div>
+      </div>
+      <div class="panel">
+        <div class="prevhead"><h4 style="margin:0">Board preview</h4><span class="dim" id="dimOut">16 × 9 · 11% walls · seed demo</span></div>
+        <div class="prev"><div id="prevBig"></div></div>
+        <div class="seeds" id="seedRow"></div>
+        <div class="summary" id="sumOut"></div>
+        <button class="btn primary" style="width:100%;margin-top:11px">Create match</button>
+      </div>
+    </div>
+    <i class="callout" style="left:9%;top:6%">1</i>
+    <i class="callout" style="left:9%;top:39%">2</i>
+    <i class="callout" style="left:9%;top:56%">3</i>
+    <i class="callout" style="left:53%;top:12%">4</i>
+    <i class="callout" style="left:53%;top:63%">5</i>
+  </div>
+  <figcaption>Setup. The preview is the fixture board: 16 × 9, 11% walls, seed <span class="mono">demo</span>, the same 15 walls
+  every other page draws. Presets and seed chips redraw it live.</figcaption>
+</figure>
+<ul class="callouts">
+  <li><b>1</b>Mode as two cards with the win condition written out. The current dropdown says "Bootstrap: bring the key home" in
+  a control too narrow to read the rest of.</li>
+  <li><b>2</b>Three presets cover the real choices. The exact numbers stay reachable, one fold below.</li>
+  <li><b>3</b>Advanced holds what setup asks for today: walls, cap, players, seed, exact size. Nobody needs those to start a first match.</li>
+  <li><b>4</b>The preview shows walls, the four dashed spawn squares, and the key on the center tile, so a bad seed is visible
+  before the match exists rather than after.</li>
+  <li><b>5</b>Three seed thumbnails, so rerolling is a comparison instead of a slot machine. Click one to take it.</li>
+</ul>
+
+<figure class="fig">
+  <div class="frame">
+    <div class="lobby">
+      <div id="prevLobby"></div>
+      <div class="seat you" style="left:13%;top:2.5%">
+        <div class="sh"><span class="sw" style="background:var(--C)"></span><b>Coral</b><span class="tag">you · spawn (1,1)</span></div>
+        <div class="nm"><input value="Rook" maxlength="12"></div>
+      </div>
+      <div class="seat open" style="right:13%;top:2.5%">
+        <div class="sh"><span class="sw" style="background:var(--T)"></span><b>Teal</b><span class="tag">spawn (14,1)</span></div>
+        <div class="sit">Sit here, or click the dashed square</div>
+      </div>
+      <div class="seat" style="left:13%;bottom:2.5%">
+        <div class="sh"><span class="sw" style="background:var(--A)"></span><b>Amber</b><span class="tag">spawn (1,7)</span></div>
+        <div class="taken">Juno is here.</div>
+      </div>
+      <div class="seat open" style="right:13%;bottom:2.5%">
+        <div class="sh"><span class="sw" style="background:var(--P)"></span><b>Purple</b><span class="tag">spawn (14,7)</span></div>
+        <div class="sit">Sit here</div>
+      </div>
+    </div>
+    <div class="share">
+      <div class="sheet">
+        <div class="tile" style="border-color:var(--accent-br);background:var(--accent-bg)"><b>Copy join link</b>
+          <small>…github.io/time-travel-tactics/#m=Bg16x9w11-demo</small></div>
+        <div class="tile"><b>QR</b><div class="qr" id="qr"></div></div>
+        <div class="tile"><b>Room code</b><small style="font-size:16px;letter-spacing:.08em;color:var(--text-primary)">K7P-402</small>
+          <small>Read it out loud. Same match.</small></div>
+      </div>
+      <div>
+        <div class="conn"><span class="dot"></span>Connected. Juno is here.</div>
+        <div class="conn"><span class="dot wait"></span>Waiting on 2 seats. Anyone with the link can take one.</div>
+        <div class="conn" style="color:var(--text-muted)">Leave a seat and it opens again.</div>
+      </div>
+    </div>
+    <i class="callout" style="left:11%;top:4.5%">6</i>
+    <i class="callout" style="left:84%;top:12%">7</i>
+    <i class="callout" style="left:13%;top:71.5%">8</i>
+    <i class="callout" style="left:1.5%;top:83%">9</i>
+    <i class="callout" style="left:68%;top:83%">10</i>
+  </div>
+  <figcaption>Lobby. Seats sit at their spawn corners on the same preview, so choosing Coral and choosing the top-left corner
+  are one action. Two seats are filled, two are open.</figcaption>
+</figure>
+<ul class="callouts">
+  <li><b>6</b>Your name is inline under your own seat, not in a shared field at the bottom of the card. It is obvious whose name it is.</li>
+  <li><b>7</b>The dashed spawn square on the board is the click target, in the colour it seats you as. It already exists in the
+  play view, so the lobby teaches the mark you will use all match.</li>
+  <li><b>8</b>Taken seats show the peer's name, not just "occupied", so you know who you are waiting for.</li>
+  <li><b>9</b>One share sheet, three ways out: link for chat, QR for the phone next to you, room code for the voice call.</li>
+  <li><b>10</b>Status as a dot plus a plain sentence. "Connected" alone never said whether the match could start.</li>
+</ul>
+
+<figure class="fig">
+  <div class="frame">
+    <div class="ready">
+      <div>
+        <div class="prev" style="max-width:520px"><div id="prevReady"></div></div>
+      </div>
+      <div>
+        <div class="count"><div class="ring"><svg viewBox="0 0 132 132" width="132" height="132">
+          <circle cx="66" cy="66" r="58" fill="none" stroke="var(--surface-3)" stroke-width="8"/>
+          <circle class="run" cx="66" cy="66" r="58" fill="none" stroke="var(--good)" stroke-width="8" stroke-linecap="round"/>
+        </svg><b>3</b></div>
+        <p class="sec" style="font-size:13px;margin:8px 0 0">All four seats filled. Starting.</p>
+        <button class="btn" style="margin-top:8px">Cancel</button></div>
+      </div>
+    </div>
+    <ul class="roster" style="margin-top:14px">
+      <li><span class="sw" style="background:var(--P)"></span>Purple · <b style="font-weight:500">Mira</b> <span class="ok">ready</span></li>
+      <li><span class="sw" style="background:var(--C)"></span>Coral · <b style="font-weight:500">Rook</b> <span class="muted">(you)</span> <span class="ok">ready</span></li>
+      <li><span class="sw" style="background:var(--T)"></span>Teal · <b style="font-weight:500">Ash</b> <span class="ok">ready</span></li>
+      <li><span class="sw" style="background:var(--A)"></span>Amber · <b style="font-weight:500">Juno</b> <span class="ok">ready</span></li>
+    </ul>
+    <i class="callout" style="left:80%;top:14%">11</i>
+    <i class="callout" style="left:1%;top:62%">12</i>
+  </div>
+  <figcaption>Ready. Every spawn square is now filled in its colour, the countdown runs for three seconds, and Cancel gives the
+  seat back if someone is not there yet.</figcaption>
+</figure>
+<ul class="callouts">
+  <li><b>11</b>Three seconds is long enough to stop the start and short enough that nobody presses a second Ready button.</li>
+  <li><b>12</b>The roster reads in priority order once the match starts, which is the order the board already uses to break
+  contested tiles. Same list, one less thing to learn.</li>
+</ul>
+
+<h2>Trade-offs</h2>
+<div class="mk-pc">
+  <div class="pro"><h3>Pros</h3><ul>
+    <li>You see the board before committing to it. Wall generation is seeded, so a preview is exact, not indicative.</li>
+    <li>Colour and corner become one choice, which is how players think about a board anyway.</li>
+    <li>Mode cards state the win condition. The dropdown label could not.</li>
+    <li>Three share routes cover chat, a phone in the room, and a voice call.</li>
+  </ul></div>
+  <div class="con"><h3>Cons</h3><ul>
+    <li>The preview needs wall generation in the client before a match exists. Today generation happens inside match creation.</li>
+    <li>Seat-on-board wants a board large enough to hold four labels. On a phone the corners collide and it falls back to a list.</li>
+    <li>Presets hide that boards can be 5 × 5 to 24 × 13, which is where the interesting questions are.</li>
+    <li>A real QR code is a dependency. The placeholder here is decoration.</li>
+  </ul></div>
+</div>
+
+<h2>What it answers</h2>
+<div class="mk-prose">
+<p>Not a UI requirement from the design doc, which is about reading the match, not starting one. It feeds two open questions:
+<strong>should the first boards be corridors, small grids, or both</strong> becomes answerable by rerolling and looking, and
+<strong>is the 5 × 5 minimum worth keeping</strong> becomes visible, because a small preview shows the wall percentage
+saturating. It also makes <strong>should walls be mirrored</strong> a thing you can see rather than reason about.</p>
+<p>Leaves open: nothing about in-match reading. Ready state assumes everyone is present at once, which peer sessions do not
+guarantee; late joiners still need a rule.</p>
+</div>
+
+<h2>Cost</h2>
+<div class="mk-prose">
+<p><strong>M.</strong> Mode cards, presets, the fold-out, the share sheet, and the countdown are
+<span class="mono">ui.tsx</span> plus <span class="mono">style.css</span>. Seat-on-board reuses the existing board component
+with bodies hidden. The one thing that is not free is the preview: it needs the engine's wall generator callable from
+<span class="mono">ConfigInput</span> without constructing a <span class="mono">Match</span>, so the setup form can draw a board
+it has not created. That is a small export, not a rules change. A real QR code needs a generator, roughly 3 kB, or drop the tile.</p>
+</div>
+</main>
+<script src="shared/fixture.js"></script><script src="shared/board.js"></script><script src="shared/nav.js"></script>
+<script>
+(function(){
+  var F = window.FIX, C = window.COLORS, NS = 'http://www.w3.org/2000/svg';
+  function hash(s){ var h = 2166136261; for (var i=0;i<s.length;i++){ h ^= s.charCodeAt(i); h = Math.imul(h, 16777619); } return h >>> 0; }
+  function rng(seed){ var a = hash(seed); return function(){ a |= 0; a = a + 0x6D2B79F5 | 0;
+    var t = Math.imul(a ^ a >>> 15, 1 | a); t = t + Math.imul(t ^ t >>> 7, 61 | t) ^ t; return ((t ^ t >>> 14) >>> 0) / 4294967296; }; }
+
+  // Mock of the engine's generator: keep spawns, their four neighbours and the center clear.
+  function makeBoard(w, h, seed, pct){
+    if (w === F.w && h === F.h && seed === 'demo') return {w:w, h:h, walls:F.walls.slice(), spawns:F.spawns, center:F.center};
+    var spawns = {C:[1,1], P:[w-2,h-2], T:[w-2,1], A:[1,h-2]}, center = [Math.floor(w/2), Math.floor(h/2)];
+    var keep = {}; keep[center[0]+','+center[1]] = 1;
+    for (var k in spawns){ var s = spawns[k];
+      [[0,0],[1,0],[-1,0],[0,1],[0,-1]].forEach(function(d){ keep[(s[0]+d[0])+','+(s[1]+d[1])] = 1; }); }
+    var free = []; for (var y=0;y<h;y++) for (var x=0;x<w;x++) if (!keep[x+','+y]) free.push([x,y]);
+    var r = rng(seed + ':' + w + 'x' + h), n = Math.min(free.length, Math.round(w*h*pct/100));
+    for (var i=free.length-1;i>0;i--){ var j = Math.floor(r()*(i+1)), t = free[i]; free[i] = free[j]; free[j] = t; }
+    return {w:w, h:h, walls:free.slice(0, n), spawns:spawns, center:center};
+  }
+  function el(tag, a){ var n = document.createElementNS(NS, tag); for (var k in a) n.setAttribute(k, a[k]); return n; }
+  function draw(host, b, o){
+    o = o || {}; var s = o.cell || 20, gap = 2;
+    var svg = el('svg', {viewBox:'0 0 '+(b.w*s)+' '+(b.h*s), width:'100%', style:'display:block;max-width:100%;height:auto'});
+    var wall = {}; b.walls.forEach(function(p){ wall[p[0]+','+p[1]] = 1; });
+    for (var y=0;y<b.h;y++) for (var x=0;x<b.w;x++){
+      var isW = wall[x+','+y];
+      svg.appendChild(el('rect', {x:x*s+gap/2, y:y*s+gap/2, width:s-gap, height:s-gap, rx:2,
+        fill:isW ? 'var(--wall)' : 'var(--surface-1)', opacity:isW ? 0.38 : 1}));
+    }
+    if (o.key !== false) svg.appendChild(el('rect', {x:b.center[0]*s+s*0.35, y:b.center[1]*s+s*0.35,
+      width:s*0.3, height:s*0.3, rx:2, fill:'var(--key)', stroke:'var(--surface-0)', 'stroke-width':0.6}));
+    for (var c in b.spawns){ var sp = b.spawns[c], filled = o.filled && o.filled.indexOf(c) >= 0;
+      svg.appendChild(el('rect', {x:sp[0]*s+1.5, y:sp[1]*s+1.5, width:s-3, height:s-3, rx:2,
+        fill: filled ? C[c].hex : 'none', 'fill-opacity': filled ? 0.9 : 0,
+        stroke:C[c].hex, 'stroke-width':o.thick || 1.6, 'stroke-dasharray': filled ? 'none' : (o.thick ? '5 3.5' : '3 2.5')}));
+    }
+    host.innerHTML = ''; host.appendChild(svg); return svg;
+  }
+  // text nodes need content set after creation
+  function drawWithPlus(host, b, o){
+    var svg = draw(host, b, o);
+    if (!o || !o.thick) return svg;
+    var s = o.cell || 20;
+    for (var c in b.spawns){ if (o.filled && o.filled.indexOf(c) >= 0) continue;
+      var sp = b.spawns[c], t = el('text', {x:sp[0]*s+s/2, y:sp[1]*s+s/2+s*0.15, 'text-anchor':'middle',
+        'font-family':'var(--mono)', 'font-size':s*0.5, fill:C[c].hex, 'font-weight':600});
+      t.textContent = '+'; svg.appendChild(t); }
+    return svg;
+  }
+
+  var state = {w:16, h:9, seed:'demo', pct:11};
+  var SEEDS = ['demo', 'k4t9v', 'q2mhz'];
+  function refresh(){
+    var b = makeBoard(state.w, state.h, state.seed, state.pct);
+    drawWithPlus(document.getElementById('prevBig'), b, {cell:26});
+    document.getElementById('dimOut').textContent = state.w + ' × ' + state.h + ' · ' + state.pct + '% walls · seed ' + state.seed;
+    var tiles = state.w * state.h;
+    document.getElementById('sumOut').innerHTML =
+      '<b>' + tiles + ' tiles</b>, ' + b.walls.length + ' walls, center at (' + b.center[0] + ',' + b.center[1] + '). ' +
+      'Walls ignored, Coral reaches a grab tile in <b>' + (Math.abs(b.center[0]-1) + Math.abs(b.center[1]-1) - 1) +
+      ' steps</b> and Purple in <b>' + (Math.abs(b.center[0]-(b.w-2)) + Math.abs(b.center[1]-(b.h-2)) - 1) + '</b>.';
+    var row = document.getElementById('seedRow'); row.innerHTML = '';
+    SEEDS.forEach(function(sd){
+      var btn = document.createElement('button');
+      btn.className = 'seedchip' + (sd === state.seed ? ' on' : '');
+      var th = document.createElement('div'); th.className = 'thumb';
+      var lab = document.createElement('span'); lab.textContent = sd;
+      btn.appendChild(th); btn.appendChild(lab); row.appendChild(btn);
+      draw(th, makeBoard(state.w, state.h, sd, state.pct), {cell:9});
+      btn.onclick = function(){ state.seed = sd; refresh(); };
+    });
+    var rr = document.createElement('button'); rr.className = 'btn'; rr.style.fontSize = '12.5px'; rr.style.padding = '6px 10px';
+    rr.textContent = 'Reroll'; rr.onclick = function(){
+      SEEDS = [state.seed, Math.random().toString(36).slice(2, 7), Math.random().toString(36).slice(2, 7)]; refresh(); };
+    row.appendChild(rr);
+  }
+  Array.prototype.forEach.call(document.querySelectorAll('#p13 .preset'), function(b){
+    b.onclick = function(){
+      Array.prototype.forEach.call(document.querySelectorAll('#p13 .preset'), function(o){ o.classList.remove('on'); });
+      b.classList.add('on'); state.w = +b.dataset.w; state.h = +b.dataset.h; refresh(); };
+  });
+  document.getElementById('mBoot').onclick = function(){ this.classList.add('on'); document.getElementById('mSand').classList.remove('on'); };
+  document.getElementById('mSand').onclick = function(){ this.classList.add('on'); document.getElementById('mBoot').classList.remove('on'); };
+  refresh();
+
+  drawWithPlus(document.getElementById('prevLobby'), makeBoard(16, 9, 'demo', 11), {cell:40, thick:3, filled:['C','A']});
+  drawWithPlus(document.getElementById('prevReady'), makeBoard(16, 9, 'demo', 11), {cell:26, thick:3, filled:['C','P','T','A']});
+
+  // QR placeholder: deterministic pattern with three finder squares.
+  (function(){
+    var q = document.getElementById('qr'), r = rng('K7P-402'), N = 11;
+    for (var i=0;i<N*N;i++){
+      var x = i % N, y = Math.floor(i / N), on;
+      var fx = (x < 3 && y < 3) || (x > N-4 && y < 3) || (x < 3 && y > N-4);
+      var fr = (x === 0 || x === 2 || y === 0 || y === 2) && x < 3 && y < 3;
+      on = fx ? ((x===1&&y===1) || x===0 || x===2 || y===0 || y===2) : r() > 0.52;
+      if ((x > N-4 && y < 3)) on = (x===N-2&&y===1) || x===N-3 || x===N-1 || y===0 || y===2;
+      if ((x < 3 && y > N-4)) on = (x===1&&y===N-2) || x===0 || x===2 || y===N-3 || y===N-1;
+      var c = document.createElement('i'); if (on) c.className = 'on'; q.appendChild(c);
+    }
+  })();
+})();
+</script>
+</body></html>

@@ -1,0 +1,421 @@
+<!doctype html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
+<title>06 Key &amp; front language · tbtt mockups</title><link rel="stylesheet" href="shared/mock.css">
+<style>
+#p06 .frame{background:var(--surface-0)}
+#p06 .ladwrap{overflow-x:auto}
+#p06 .steps{display:flex;gap:8px;align-items:center;flex-wrap:wrap;margin:0 0 10px}
+#p06 .steps .btn{font-size:12.5px;padding:5px 10px;font-family:var(--mono)}
+#p06 .steps .now{font-size:12.5px;color:var(--text-secondary);margin-left:6px}
+#p06 .hud{max-width:400px;background:var(--surface-1);border:1px solid var(--border);border-radius:12px;padding:14px 15px}
+#p06 .hud h4{margin:0 0 10px;font:500 13px/1.2 system-ui;color:var(--text-secondary)}
+#p06 .hud .line{display:flex;gap:9px;align-items:flex-start;font-size:13.5px;margin-bottom:9px;line-height:1.45}
+#p06 .hud .line i{flex:none;width:14px;height:14px;margin-top:3px;border-radius:3px}
+#p06 .hud .line b{font-weight:500;color:var(--text-primary)}
+#p06 .hud .line span{color:var(--text-secondary)}
+#p06 .kglyph{background:var(--key);position:relative}
+#p06 .kglyph::after{content:"";position:absolute;right:-5px;top:4px;border:3px solid transparent;border-left:4px solid var(--key)}
+#p06 .fglyph{width:0!important;height:0!important;border-left:7px solid transparent;border-right:7px solid transparent;border-bottom:12px solid var(--A);border-radius:0!important}
+#p06 .sglyph{border:2px dashed var(--key);background:transparent;border-radius:50%!important}
+#p06 .mini{display:grid;grid-template-columns:repeat(5,1fr);gap:4px;margin-top:12px}
+#p06 .mini div{background:var(--surface-2);border-radius:6px;padding:6px 5px;font-size:10.5px;line-height:1.3;color:var(--text-secondary)}
+#p06 .mini div b{display:block;font-family:var(--mono);font-size:10.5px;color:var(--text-muted);font-weight:400}
+#p06 .mini div.hot{background:color-mix(in srgb,var(--A) 22%,var(--surface-2));color:var(--text-primary)}
+#p06 .sideby{display:grid;grid-template-columns:minmax(360px,1fr) minmax(320px,1.1fr);gap:20px;align-items:start}
+@media(max-width:860px){#p06 .sideby{grid-template-columns:1fr}}
+#p06 .pulse{animation:p06pulse 2.6s ease-in-out infinite}
+#p06 .pulse2{animation:p06pulse 2.6s ease-in-out infinite;animation-delay:.5s}
+#p06 .pulse3{animation:p06pulse 2.6s ease-in-out infinite;animation-delay:1s}
+@keyframes p06pulse{0%,100%{opacity:.35}50%{opacity:.95}}
+#p06 .ringpulse{animation:p06ring 3s ease-in-out infinite;transform-origin:center}
+@keyframes p06ring{0%,100%{opacity:.30}50%{opacity:.75}}
+#p06 .lgd{display:flex;flex-wrap:wrap;gap:6px 16px;font-size:12px;color:var(--text-secondary);margin-top:10px}
+#p06 .lgd span{display:inline-flex;align-items:center;gap:6px}
+</style></head>
+<body><main class="mk-page" id="p06">
+<h1>Key &amp; front language</h1>
+<p class="mk-lede">Today the key is a small yellow square on one edge of a body, a front is a small triangle, and the
+number of turns until that front reaches you lives only in hover text. This page gives the key, the side it came from,
+the tile it can be stolen from, and the front that is coming for it one shared language, and puts the countdown on the board.</p>
+<div class="mk-meta"><span class="req">UI req: the personal-index gap for an inbound front</span><span class="req">UI req: erasure and restoration fronts, with the hole</span><span>Open question: how fronts read on the board and strip</span></div>
+
+<figure class="fig">
+  <div class="frame"><div id="f1"></div>
+    <i class="callout" style="left:55.3%;top:20.1%">1</i>
+    <i class="callout" style="left:50.4%;top:24.0%">2</i>
+    <i class="callout" style="left:62.3%;top:24.4%">3</i>
+    <i class="callout" style="left:41.3%;top:33.7%">4</i>
+    <i class="callout" style="left:41.3%;top:49.0%">5</i>
+    <i class="callout" style="left:41.3%;top:27.2%">6</i>
+    <i class="callout" style="left:52.8%;top:60.5%">7</i>
+  </div>
+  <ul class="callouts">
+    <li><b>1</b>Key token: a lit yellow block with a notch on the side the key came from. Yours points right, toward the center it was lifted from.</li>
+    <li><b>2</b>A short chain ties the token to the body carrying it. A key is always on a body or on the center tile, never loose.</li>
+    <li><b>3</b>The steal tile, (9,2). It is the single tile beyond your key side, so it is the only square a thief can use against this body. Drawn as a ring, not left to a rule in the manual.</li>
+    <li><b>4</b>The ribbon is the key's own timeline, not a walking route. These four coral markers are your bodies p14 to p17, standing at world turns 11, 10, 9 and 8.</li>
+    <li><b>5</b>Juno's front, a wedge washing over the oldest end of your ribbon. It faces the way it travels. Its key index is 10, which has no tile yet, so it is drawn on the body it takes first: p14 at t11, the tile where both grabs happened.</li>
+    <li><b>6</b>Chevrons show the direction of travel along the ribbon: toward your present, never away from it.</li>
+    <li><b>7</b>ETA badge on the board: 4 meta-turns. Fronts move two indices a turn and you move one, so the gap shrinks by one a turn.</li>
+  </ul>
+  <figcaption>Focus is t8, your present. The key rides four of your bodies at once, across four world turns, and one wedge is
+  walking down that ribbon. The board cannot show the whole key timeline, because the key visits (7,4) and (7,3) twice:
+  once under Juno at t6 and t7, once under you at t11 and t10. The ladder below can.</figcaption>
+</figure>
+
+<h2>Key custody ladder</h2>
+<p class="mk-prose">The key has one timeline of its own. Index 0 to 5 read "on the center tile at that world turn". After a grab,
+each later index reads the grabber's next body. Step through the meta-turns to watch Juno's front eat yours.</p>
+<figure class="fig">
+  <div class="steps" id="f2btns"></div>
+  <div class="frame ladwrap"><div id="f2"></div></div>
+  <div class="lgd">
+    <span><i style="width:13px;height:13px;border-radius:3px;background:var(--key);display:inline-block"></i>on the center tile</span>
+    <span><i style="width:13px;height:13px;border-radius:3px;background:var(--A);display:inline-block"></i>Juno holds</span>
+    <span><i style="width:13px;height:13px;border-radius:3px;background:var(--C);display:inline-block"></i>you hold</span>
+    <span><i style="width:13px;height:13px;border-radius:3px;background:var(--surface-3);border:1px dashed var(--btn-border);display:inline-block"></i>promised to an action not yet taken</span>
+    <span><i style="width:13px;height:13px;border-radius:3px;background:repeating-linear-gradient(45deg,var(--surface-3) 0 3px,transparent 3px 6px);border:1px solid var(--border);display:inline-block"></i>grab broken, key already gone</span>
+  </div>
+  <figcaption>Grab anchors sit above the index they were made at; the front wedge sits below. Your grab at index 11 outranks
+  nothing: Juno grabbed later in meta-time but earlier on the key's timeline, at index 6, so Juno's front runs into your
+  origin and yours can never run into Juno's. That asymmetry is the whole bootstrap race and the ladder is where it is visible.</figcaption>
+</figure>
+
+<h2>Inline readout</h2>
+<div class="sideby">
+  <figure class="fig" style="margin-top:0">
+    <div class="frame" style="padding:14px;display:flex;justify-content:center"><div class="hud">
+      <h4>Your key</h4>
+      <div class="line"><i class="kglyph"></i><span><b>You hold the key</b> on four bodies, p14 to p17, key side right.</span></div>
+      <div class="line"><i class="fglyph"></i><span><b>Juno's front hits you in 4 turns</b>, on meta-turn 20. It breaks your grab next turn and then strips two bodies a turn.</span></div>
+      <div class="line"><i class="sglyph"></i><span><b>Steal risk: clear.</b> The tile beyond your key side at t8 is (9,2). Juno arrives at t8 next turn but lands within one step of (7,3), three tiles short.</span></div>
+      <div class="mini">
+        <div class="hot"><b>m17</b>grab breaks, p14 and p15 drop the key</div>
+        <div><b>m18</b>p16 and p17 drop it</div>
+        <div><b>m19</b>one body left holding</div>
+        <div class="hot"><b>m20</b>front reaches your present</div>
+        <div><b>m21</b>you are empty-handed at t4</div>
+      </div>
+    </div></div>
+    <figcaption>Three lines and a five-column "if nothing changes" strip. Every number here is derivable from the view the
+    client already receives; none of it needs new engine state.</figcaption>
+  </figure>
+  <div class="mk-prose">
+    <h3>Why a countdown and not a triangle</h3>
+    <p>The gap is the one number a bootstrap player has to act on. It says how many actions are left to spend the key:
+    reach t0 beside your spawn, or hand the race to somebody else. Today that number is hover-only, so it is invisible on a
+    phone and invisible to anyone scanning the board.</p>
+    <p>The wedge shape carries direction, the badge carries time, the ribbon carries what is at stake. Reading any one of
+    them alone still tells you something true, which is the test a symbol set has to pass.</p>
+    <h3>It extends to weapons</h3>
+    <p>Bootstrap fronts only erase custody. The planned weapons mode adds fronts that erase bodies, and a second front
+    that restores them. Same wedge, same two-index rate, same badge. Fill tells the two apart, and the span between them
+    is drawn as a hole rather than as two unrelated markers.</p>
+  </div>
+</div>
+
+<h2>Variant: the erasure and restoration pair</h2>
+<div class="variants">
+  <figure class="fig">
+    <div class="frame"><div id="f3"></div></div>
+    <figcaption>One player's personal timeline in the planned weapons mode. A solid wedge in the shooter's colour erases
+    forward; a hollow wedge behind it restores. The six indices between them are the hole: greyed bodies, dashed outline,
+    no key and no shot. While the hole covers this player's present they take no turns and cannot be shot.</figcaption>
+  </figure>
+  <figure class="fig">
+    <div class="frame"><div id="f4"></div></div>
+    <figcaption>The same three glyphs at board scale, for comparison. Key front, erasure front, restoration front: one
+    wedge, three fills. A greyed body with a dashed outline is inside a hole; the ETA badge reads the same way for all three.</figcaption>
+  </figure>
+</div>
+
+<h2>Trade-offs</h2>
+<div class="mk-pc">
+  <div class="pro"><h3>Pros</h3><ul>
+    <li>The gap number lands on the board, where it is readable on touch and at a glance.</li>
+    <li>The steal tile stops being a rule you have to remember and becomes a square you can see.</li>
+    <li>One wedge with three fills covers bootstrap fronts and both planned weapon fronts, so the alphabet does not grow when weapons land.</li>
+    <li>The ladder shows a fact the board structurally cannot: the key revisits tiles, so custody is only legible on its own axis.</li>
+    <li>Nothing here needs new engine state. Keys, fronts, gap and key sides are already in the session view.</li>
+  </ul></div>
+  <div class="con"><h3>Cons</h3><ul>
+    <li>The ribbon crosses world turns on a board whose other marks are all at the focus turn. That is a new kind of line and it can be misread as a walking route.</li>
+    <li>Four glowing marks plus a ring plus chevrons is a lot of ink for one key. On a 5x5 board it would crowd badly.</li>
+    <li>The ladder is a second chart to learn, and it needs horizontal room that portrait phones do not have.</li>
+    <li>A steal ring is drawn per key-holding body. With two holders and several recorded bodies that is many rings.</li>
+    <li>The glow and chain are decorative weight on a prototype whose current marks are deliberately flat.</li>
+  </ul></div>
+</div>
+
+<h2>What it answers</h2>
+<div class="mk-prose">
+<p>Answers the UI requirement to show the personal-index gap for an inbound front, and sketches the requirement for
+erasure and restoration fronts with the hole between them. Makes a first proposal on the open question of how fronts
+should read on the board and the strip: a wedge that faces its direction of travel, with the gap as a badge.</p>
+<p>Leaves open the question of whether an opponent front readout should count to their last visible body or to their
+present, because the ladder still shows what you can see, not what exists. It also does not settle how many rings and
+ribbons a small board can carry; the threat layer on page 10 proposes an intensity control for exactly that.</p>
+</div>
+
+<h2>Cost</h2>
+<div class="mk-prose">
+<p><strong>Board marks: S.</strong> Key token, notch, chain, steal ring, wedge and badge are all <code>ui.tsx</code> cell
+decorations plus <code>style.css</code>. The steal tile needs the tile beyond a holder's key side, which is one vector add
+from data already in <code>view.keys</code>.</p>
+<p><strong>Ribbon: M.</strong> Drawing the key's timeline across world turns means the board has to draw marks that do not
+belong to the focus turn. That is a real change to how the board composes, not a new mark.</p>
+<p><strong>Ladder: M.</strong> A new component. It needs the key timeline as indices with owners and front positions.
+<code>ModeView</code> currently exposes holders and front positions but not the index each holder sits at, so this needs a
+small view addition in <code>bootstrap.ts</code>: the index alongside each key entry, and each front's origin.</p>
+<p><strong>Erasure and restoration: L,</strong> and blocked on weapons existing at all.</p>
+</div>
+</main>
+<script src="shared/fixture.js"></script><script src="shared/board.js"></script><script src="shared/nav.js"></script>
+<script>
+(function () {
+  var F = MK.F, C = MK.C, el = MK.el;
+
+  /* ---------- figure 1: board ---------- */
+  var api = MK.board(document.getElementById('f1'), {
+    focusT: 8, lookBack: 0, cell: 46, keys: false, fronts: false, trails: false, labels: true
+  });
+  var s = api.s, cx = api.cx, cy = api.cy, ov = api.layers.overlay, top = api.layers.top;
+  var defs = el('defs', {}, [
+    el('filter', { id: 'p06glow', x: '-90%', y: '-90%', width: '280%', height: '280%' }, [
+      el('feGaussianBlur', { stdDeviation: 2.4, result: 'b' }),
+      el('feMerge', {}, [el('feMergeNode', { in: 'b' }), el('feMergeNode', { in: 'SourceGraphic' })])
+    ])
+  ]);
+  api.svg.insertBefore(defs, api.svg.firstChild);
+
+  // Key home on the center tile, now empty.
+  var ctr = F.center;
+  ov.appendChild(el('rect', {
+    x: cx(ctr[0]) - s * 0.17, y: cy(ctr[1]) - s * 0.17, width: s * 0.34, height: s * 0.34, rx: 3,
+    fill: 'none', stroke: 'var(--key)', 'stroke-width': 1.6, 'stroke-dasharray': '3 3', opacity: 0.6
+  }));
+  ov.appendChild(el('text', {
+    x: cx(ctr[0]), y: ctr[1] * s + s - 5, 'text-anchor': 'middle', 'font-size': 8.2,
+    'font-family': 'var(--mono)', fill: 'var(--text-muted)', text: 'key home'
+  }));
+
+  // The key's ribbon over your four bodies: p14 t11 -> p17 t8.
+  var ride = [
+    { x: 7, y: 4, p: 14, t: 11 }, { x: 7, y: 3, p: 15, t: 10 },
+    { x: 7, y: 2, p: 16, t: 9 }, { x: 8, y: 2, p: 17, t: 8 }
+  ];
+  var d = ride.map(function (r, i) { return (i ? 'L' : 'M') + cx(r.x) + ',' + cy(r.y); }).join(' ');
+  ov.appendChild(el('path', { d: d, fill: 'none', stroke: C.C.hex, 'stroke-width': s * 0.46, 'stroke-linecap': 'round', 'stroke-linejoin': 'round', opacity: 0.26 }));
+  ov.appendChild(el('path', { d: d, fill: 'none', stroke: 'var(--key)', 'stroke-width': 1.4, 'stroke-dasharray': '2 5', opacity: 0.6 }));
+
+  // Ghost bodies for the three recorded carriers (the live one is drawn by the renderer).
+  ride.slice(0, 3).forEach(function (r) {
+    var g = el('g', { title: 'Rook · index ' + r.p + ' · t' + r.t + ' · carries the key' });
+    g.appendChild(el('circle', { cx: cx(r.x), cy: cy(r.y), r: s * 0.29, fill: 'var(--surface-0)', stroke: C.C.hex, 'stroke-width': 2, 'stroke-dasharray': '4 3' }));
+    g.appendChild(el('text', { x: cx(r.x), y: cy(r.y) + s * 0.1, 'text-anchor': 'middle', 'font-size': s * 0.26, 'font-family': 'var(--mono)', fill: C.C.hex, text: r.p }));
+    g.appendChild(el('text', { x: r.x * s + 4, y: r.y * s + 11, 'font-size': 8.4, 'font-family': 'var(--mono)', fill: 'var(--text-muted)', text: 't' + r.t }));
+    g.appendChild(el('rect', { x: r.x * s + s - 3 - s * 0.15, y: cy(r.y) - s * 0.075, width: s * 0.15, height: s * 0.15, rx: 2, fill: 'var(--key)', opacity: 0.85 }));
+    ov.appendChild(g);
+  });
+
+  // Juno carried the key on these two tiles first, at t6 and t7. Corner ticks, top right.
+  [{ x: 7, y: 4, t: 6, p: 16 }, { x: 7, y: 3, t: 7, p: 17 }].forEach(function (r) {
+    var gx = r.x * s + s - 4, gy = r.y * s + 4;
+    ov.appendChild(el('path', {
+      d: 'M' + gx + ',' + gy + ' l0,10 l-10,-10 z', fill: C.A.hex, opacity: 0.9,
+      title: 'Juno · index ' + r.p + ' · t' + r.t + ' · carried the key here first'
+    }));
+    ov.appendChild(el('text', { x: gx - 6, y: gy + 9, 'text-anchor': 'end', 'font-size': 8.2, 'font-family': 'var(--mono)', fill: C.A.hex, opacity: 0.9, text: 't' + r.t }));
+  });
+
+  // The live key token: chained to the body, notch on the side it came from.
+  var k = ride[3], bcx = cx(k.x), bcy = cy(k.y);
+  var tkx = bcx + s * 0.36, tky = bcy - s * 0.30, tk = s * 0.19;
+  var kg = el('g', { title: 'key · held by Rook index 17 · side right, toward the center' });
+  kg.appendChild(el('circle', { cx: tkx, cy: tky, r: s * 0.26, fill: 'var(--key)', opacity: 0.16, class: 'ringpulse' }));
+  kg.appendChild(el('line', { x1: bcx + s * 0.23, y1: bcy - s * 0.19, x2: tkx - s * 0.08, y2: tky + s * 0.08, stroke: 'var(--key)', 'stroke-width': 2.2, 'stroke-linecap': 'round', 'stroke-dasharray': '1.5 3', opacity: 0.95 }));
+  kg.appendChild(el('rect', { x: tkx - tk / 2, y: tky - tk / 2, width: tk, height: tk, rx: 2, fill: 'var(--key)', stroke: 'var(--surface-0)', 'stroke-width': 0.8, filter: 'url(#p06glow)' }));
+  kg.appendChild(el('path', { d: 'M' + (tkx + tk / 2) + ',' + (tky - tk * 0.3) + ' l' + (tk * 0.5) + ',' + (tk * 0.3) + ' l' + (-tk * 0.5) + ',' + (tk * 0.3) + ' z', fill: 'var(--key)' }));
+  top.appendChild(kg);
+
+  // Key side, drawn as the line from the holder to the one tile a thief can use.
+  var st = [9, 2];
+  top.appendChild(el('line', { x1: bcx + s * 0.38, y1: bcy, x2: cx(st[0]) - s * 0.36, y2: cy(st[1]), stroke: 'var(--key)', 'stroke-width': 1.6, 'stroke-dasharray': '3 3', opacity: 0.7 }));
+  top.appendChild(el('path', { d: 'M' + (cx(st[0]) - s * 0.36) + ',' + (cy(st[1]) - 4) + ' l6,4 l-6,4 z', fill: 'var(--key)', opacity: 0.8 }));
+  top.appendChild(el('circle', { cx: cx(st[0]), cy: cy(st[1]), r: s * 0.31, fill: 'none', stroke: 'var(--key)', 'stroke-width': 2, 'stroke-dasharray': '5 4', opacity: 0.6, class: 'ringpulse', title: 'steal tile: an opponent standing here at t8 takes the key' }));
+  top.appendChild(el('circle', { cx: cx(st[0]), cy: cy(st[1]), r: s * 0.09, fill: 'none', stroke: 'var(--key)', 'stroke-width': 1.4, opacity: 0.6 }));
+  top.appendChild(el('text', { x: cx(st[0]), y: st[1] * s + s - 5, 'text-anchor': 'middle', 'font-size': 8.4, 'font-family': 'var(--mono)', fill: 'var(--key)', opacity: 0.9, text: 'steal' }));
+
+  // Juno's front: a wedge washing over the oldest end of the ribbon, facing the way it travels.
+  var f = F.fronts[0], fx = cx(f.x), fy = cy(f.y);
+  var fg = el('g', { title: "Juno's front · key index 10 · reaches your present in " + f.gap + ' turns' });
+  fg.appendChild(el('rect', { x: f.x * s + 2, y: cy(f.y) + s * 0.22, width: s - 4, height: s * 0.26, rx: 3, fill: C.A.hex, opacity: 0.18 }));
+  fg.appendChild(el('path', { d: 'M' + (fx - s * 0.38) + ',' + (fy + s * 0.44) + ' Q' + fx + ',' + (fy + s * 0.12) + ' ' + (fx + s * 0.38) + ',' + (fy + s * 0.44), fill: 'none', stroke: C.A.hex, 'stroke-width': s * 0.11, 'stroke-linecap': 'round' }));
+  top.appendChild(fg);
+
+  // Chevrons on the grid lines, pointing at your present.
+  [{ ux: 7.5, uy: 4.0, rot: 0, cls: 'pulse' }, { ux: 7.5, uy: 3.0, rot: 0, cls: 'pulse2' }, { ux: 8.0, uy: 2.5, rot: 90, cls: 'pulse3' }].forEach(function (c) {
+    top.appendChild(el('path', {
+      d: 'M-7,4 L0,-4 L7,4', fill: 'none', stroke: C.A.hex, 'stroke-width': 2.6, 'stroke-linecap': 'round',
+      transform: 'translate(' + (c.ux * s) + ',' + (c.uy * s) + ') rotate(' + c.rot + ')', class: c.cls
+    }));
+  });
+
+  // ETA badge, under the front.
+  var bx = 7.5 * s, by = 5.26 * s;
+  var bg = el('g', { title: f.gap + ' meta-turns until the front reaches your live body' });
+  bg.appendChild(el('line', { x1: bx, y1: 5.0 * s, x2: bx, y2: by - s * 0.2, stroke: C.A.hex, 'stroke-width': 1.4, opacity: 0.7 }));
+  bg.appendChild(el('circle', { cx: bx, cy: by, r: s * 0.21, fill: C.A.hex, stroke: 'var(--surface-0)', 'stroke-width': 1.5 }));
+  bg.appendChild(el('text', { x: bx, y: by + s * 0.09, 'text-anchor': 'middle', 'font-size': s * 0.26, 'font-weight': 600, 'font-family': 'var(--mono)', fill: C.A.ink, text: f.gap }));
+  bg.appendChild(el('text', { x: bx + s * 0.28, y: by + s * 0.1, 'font-size': 8.6, 'font-family': 'var(--mono)', fill: C.A.hex, text: 'turns to you' }));
+  top.appendChild(bg);
+
+  /* ---------- figure 2: custody ladder ---------- */
+  var STEPS = [
+    { label: 'now · meta-turn 17 still open', front: 10, live: 14, broken: false, grew: 0 },
+    { label: 'after meta-turn 17 · your grab breaks', front: 12, live: 15, broken: true, grew: 1 },
+    { label: 'after meta-turn 18', front: 14, live: 16, broken: true, grew: 2 },
+    { label: 'after meta-turn 19', front: 16, live: 17, broken: true, grew: 3 },
+    { label: 'after meta-turn 20 · you lose the key', front: 18, live: 18, broken: true, grew: 4 }
+  ];
+  var N = 20, LEFT = 82, RIGHT = 14, WID = 1290, COL = (WID - LEFT - RIGHT) / N;
+  var X = function (i) { return LEFT + i * COL; };
+  var host2 = document.getElementById('f2');
+
+  function ladder(k) {
+    var st = STEPS[k];
+    var svg = el('svg', { viewBox: '0 0 ' + WID + ' 174', width: '100%', style: 'display:block;min-width:900px' });
+    var dfs = el('defs', {}, [
+      el('pattern', { id: 'p06hatch', width: 7, height: 7, patternUnits: 'userSpaceOnUse', patternTransform: 'rotate(45)' }, [
+        el('rect', { width: 7, height: 7, fill: 'var(--surface-2)' }),
+        el('line', { x1: 0, y1: 0, x2: 0, y2: 7, stroke: 'var(--surface-3)', 'stroke-width': 3 })
+      ])
+    ]);
+    svg.appendChild(dfs);
+    var rowLab = function (y, t) { svg.appendChild(el('text', { x: LEFT - 10, y: y, 'text-anchor': 'end', 'font-size': 11, fill: 'var(--text-muted)', text: t })); };
+    rowLab(26, 'grabs'); rowLab(64, 'custody'); rowLab(98, 'index'); rowLab(122, 'front');
+
+    for (var i = 0; i < N; i++) {
+      var owner = i <= 5 ? 'K' : i <= st.front ? 'A' : 'C';
+      var p = owner === 'A' ? 10 + i : owner === 'C' ? 3 + i : null;
+      var exists = owner === 'K' ? true : p <= 17 + st.grew;
+      var lost = owner === 'A' && i >= 11;           // was yours, the front took it
+      var col = owner === 'K' ? 'var(--key)' : owner === 'A' ? C.A.hex : C.C.hex;
+      var x = X(i);
+      svg.appendChild(el('rect', {
+        x: x + 1.5, y: 42, width: COL - 3, height: 40, rx: 4,
+        fill: lost ? 'url(#p06hatch)' : exists ? col : 'var(--surface-2)',
+        opacity: lost ? 1 : exists ? 0.92 : 0.5,
+        stroke: exists && !lost ? 'none' : 'var(--btn-border)',
+        'stroke-width': 1, 'stroke-dasharray': exists ? 'none' : '3 3',
+        title: 'key index ' + i + ' · ' + (owner === 'K' ? 'on the center tile at t' + i : (owner === 'A' ? 'Juno' : 'Rook') + ' index ' + p)
+      }));
+      if (lost) svg.appendChild(el('rect', { x: x + 1.5, y: 42, width: COL - 3, height: 40, rx: 4, fill: C.A.hex, opacity: 0.22 }));
+      // what the index reads
+      var l1, l2;
+      if (lost) { l1 = 'C' + (3 + i); l2 = 'taken'; }
+      else if (owner === 'K') { l1 = 'center'; l2 = 't' + i; }
+      else if (owner === 'A') { l1 = 'A' + p; l2 = exists ? 't' + i : 'not yet'; }
+      else { l1 = 'C' + p; l2 = exists ? 't' + (22 - i) : 'not yet'; }
+      var ink = lost ? 'var(--text-muted)' : !exists ? 'var(--text-muted)'
+        : owner === 'K' ? '#3a2d05' : owner === 'A' ? C.A.ink : C.C.ink;
+      svg.appendChild(el('text', { x: x + COL / 2, y: 60, 'text-anchor': 'middle', 'font-size': 11.5, 'font-family': 'var(--mono)', fill: ink, text: l1 }));
+      svg.appendChild(el('text', { x: x + COL / 2, y: 74, 'text-anchor': 'middle', 'font-size': 9.5, 'font-family': 'var(--mono)', fill: ink, opacity: 0.85, text: l2 }));
+      svg.appendChild(el('text', { x: x + COL / 2, y: 98, 'text-anchor': 'middle', 'font-size': 11, 'font-family': 'var(--mono)', fill: 'var(--text-secondary)', text: i }));
+    }
+    // grab anchors
+    [{ i: 6, c: C.A.hex, t: 'Juno grabbed · m15' }, { i: 11, c: C.C.hex, t: 'you grabbed · m13' }].forEach(function (g) {
+      var x = X(g.i) + COL / 2, dead = g.i === 11 && st.broken;
+      svg.appendChild(el('path', { d: 'M' + (x - 6) + ',28 l12,0 l-6,10 z', fill: dead ? 'var(--text-muted)' : g.c }));
+      svg.appendChild(el('text', { x: x, y: 20, 'text-anchor': 'middle', 'font-size': 10, 'font-family': 'var(--mono)', fill: dead ? 'var(--text-muted)' : g.c, text: dead ? 'broken' : g.t }));
+    });
+    // live playheads
+    [{ i: 7 + st.grew, c: C.A.hex, t: 'Juno now' }, { i: st.live, c: C.C.hex, t: 'you now' }].forEach(function (m) {
+      var x = X(m.i) + COL / 2;
+      svg.appendChild(el('rect', { x: X(m.i) + 0.5, y: 41, width: COL - 1, height: 42, rx: 5, fill: 'none', stroke: 'var(--text-primary)', 'stroke-width': 2 }));
+      svg.appendChild(el('text', { x: x, y: 36, 'text-anchor': 'middle', 'font-size': 9.5, 'font-family': 'var(--mono)', fill: 'var(--text-primary)', text: m.t }));
+    });
+    // front wedge under the band, with its next step
+    var fx2 = X(st.front) + COL / 2;
+    svg.appendChild(el('path', { d: 'M' + (fx2 - 9) + ',124 l18,0 l-9,-14 z', fill: C.A.hex }));
+    if (k < 4) {
+      svg.appendChild(el('line', { x1: fx2 + 10, y1: 117, x2: X(st.front + 2) + COL / 2 - 10, y2: 117, stroke: C.A.hex, 'stroke-width': 1.6, 'stroke-dasharray': '3 3', opacity: 0.8 }));
+      svg.appendChild(el('path', { d: 'M' + (X(st.front + 2) + COL / 2 - 10) + ',113 l7,4 l-7,4 z', fill: C.A.hex, opacity: 0.8 }));
+    }
+    svg.appendChild(el('text', { x: fx2, y: 138, 'text-anchor': 'middle', 'font-size': 9.5, 'font-family': 'var(--mono)', fill: C.A.hex, text: 'front at ' + st.front }));
+    svg.appendChild(el('text', {
+      x: WID - RIGHT, y: 162, 'text-anchor': 'end', 'font-size': 11.5, fill: 'var(--text-secondary)',
+      text: 'front moves 2 indices a turn, you move 1, so the gap closes by 1: now ' + (st.live - st.front) + (st.live === st.front ? ' — key lost' : '')
+    }));
+    host2.innerHTML = '';
+    host2.appendChild(svg);
+  }
+
+  var btns = document.getElementById('f2btns');
+  var cur = 0, note = document.createElement('span');
+  note.className = 'now';
+  STEPS.forEach(function (st, i) {
+    var b = document.createElement('button');
+    b.className = 'btn' + (i === 0 ? ' sel' : '');
+    b.textContent = i === 0 ? 'now' : 'm' + (16 + i);
+    b.onclick = function () {
+      cur = i;
+      [].forEach.call(btns.querySelectorAll('.btn'), function (o, j) { o.classList.toggle('sel', j === i); });
+      note.textContent = STEPS[i].label; ladder(i);
+    };
+    btns.appendChild(b);
+  });
+  btns.appendChild(note);
+  note.textContent = STEPS[0].label;
+  ladder(0);
+
+  /* ---------- figure 3: erasure and restoration ---------- */
+  (function () {
+    var W = 660, L = 34, n = 16, cw = (W - L - 12) / n, lo = 10;
+    var svg = el('svg', { viewBox: '0 0 ' + W + ' 132', width: '100%', style: 'display:block' });
+    svg.appendChild(el('text', { x: L, y: 14, 'font-size': 11, fill: 'var(--text-muted)', text: "Ash's personal timeline · erasure front from Juno, restoration behind it" }));
+    for (var i = 0; i < n; i++) {
+      var p = lo + i, x = L + i * cw, hole = p >= 14 && p <= 19;
+      svg.appendChild(el('rect', {
+        x: x + 2, y: 30, width: cw - 4, height: 30, rx: 4,
+        fill: hole ? 'var(--surface-2)' : C.T.hex, opacity: hole ? 0.7 : 0.9,
+        stroke: hole ? 'var(--btn-border)' : 'none', 'stroke-dasharray': hole ? '3 3' : 'none', 'stroke-width': 1
+      }));
+      svg.appendChild(el('text', { x: x + cw / 2, y: 50, 'text-anchor': 'middle', 'font-size': 10.5, 'font-family': 'var(--mono)', fill: hole ? 'var(--text-muted)' : C.T.ink, text: p }));
+    }
+    var xa = function (p) { return L + (p - lo) * cw + cw / 2; };
+    svg.appendChild(el('path', { d: 'M' + (xa(19) - 9) + ',82 l18,0 l-9,-14 z', fill: C.A.hex, title: 'erasure front, index 19' }));
+    svg.appendChild(el('text', { x: xa(19), y: 95, 'text-anchor': 'middle', 'font-size': 9.5, 'font-family': 'var(--mono)', fill: C.A.hex, text: 'erase' }));
+    svg.appendChild(el('path', { d: 'M' + (xa(13) - 9) + ',82 l18,0 l-9,-14 z', fill: 'none', stroke: C.T.hex, 'stroke-width': 2, title: 'restoration front, index 13' }));
+    svg.appendChild(el('text', { x: xa(13), y: 95, 'text-anchor': 'middle', 'font-size': 9.5, 'font-family': 'var(--mono)', fill: C.T.hex, text: 'restore' }));
+    svg.appendChild(el('line', { x1: xa(14) - cw / 2 + 2, y1: 22, x2: xa(19) + cw / 2 - 2, y2: 22, stroke: 'var(--text-muted)', 'stroke-width': 1 }));
+    svg.appendChild(el('text', { x: (xa(14) + xa(19)) / 2, y: 118, 'text-anchor': 'middle', 'font-size': 11, fill: 'var(--text-secondary)', text: 'the hole: 6 erased indices, both edges moving at 2 a turn' }));
+    document.getElementById('f3').appendChild(svg);
+  })();
+
+  /* ---------- figure 4: glyph comparison ---------- */
+  (function () {
+    var svg = el('svg', { viewBox: '0 0 660 132', width: '100%', style: 'display:block' });
+    var kinds = [
+      { t: 'key front', fill: C.A.hex, stroke: C.A.hex, eta: 4, sub: 'custody moves to the grabber' },
+      { t: 'erasure front', fill: C.T.hex, stroke: C.T.hex, eta: 6, sub: 'bodies stop existing' },
+      { t: 'restoration front', fill: 'none', stroke: C.C.hex, eta: 2, sub: 'bodies come back as recorded' }
+    ];
+    kinds.forEach(function (k, i) {
+      var cxx = 110 + i * 215, cyy = 56;
+      svg.appendChild(el('rect', { x: cxx - 70, y: 18, width: 140, height: 76, rx: 8, fill: 'var(--surface-1)', stroke: 'var(--border)' }));
+      svg.appendChild(el('path', {
+        d: 'M' + (cxx - 34) + ',' + (cyy + 12) + ' Q' + cxx + ',' + (cyy - 26) + ' ' + (cxx + 34) + ',' + (cyy + 12),
+        fill: 'none', stroke: k.stroke, 'stroke-width': k.fill === 'none' ? 3 : 7, 'stroke-linecap': 'round',
+        'stroke-dasharray': k.fill === 'none' ? '6 4' : 'none'
+      }));
+      svg.appendChild(el('circle', { cx: cxx + 40, cy: cyy - 12, r: 11, fill: k.fill === 'none' ? 'var(--surface-2)' : k.stroke, stroke: k.stroke, 'stroke-width': 1.5 }));
+      svg.appendChild(el('text', { x: cxx + 40, y: cyy - 8, 'text-anchor': 'middle', 'font-size': 12, 'font-weight': 600, 'font-family': 'var(--mono)', fill: k.fill === 'none' ? k.stroke : (k.stroke === C.A.hex ? C.A.ink : C.T.ink), text: k.eta }));
+      svg.appendChild(el('text', { x: cxx, y: cyy + 30, 'text-anchor': 'middle', 'font-size': 11.5, fill: 'var(--text-primary)', text: k.t }));
+      svg.appendChild(el('text', { x: cxx, y: cyy + 44, 'text-anchor': 'middle', 'font-size': 10, fill: 'var(--text-muted)', text: k.sub }));
+    });
+    svg.appendChild(el('text', { x: 330, y: 118, 'text-anchor': 'middle', 'font-size': 11, fill: 'var(--text-secondary)', text: 'one wedge, one badge, three fills. Solid erases, hollow restores, thick-and-coloured moves a key.' }));
+    document.getElementById('f4').appendChild(svg);
+  })();
+})();
+</script>
+</body></html>

@@ -1,0 +1,349 @@
+<!doctype html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
+<title>09 Body inspector · tbtt mockups</title><link rel="stylesheet" href="shared/mock.css"><style>
+#p09 .insp-wrap{display:grid;grid-template-columns:minmax(0,1fr) 352px;gap:14px;align-items:start}
+@media(max-width:1080px){#p09 .insp-wrap{grid-template-columns:1fr}}
+#p09 .insp{background:var(--surface-1);border:1px solid var(--border);border-radius:10px;overflow:hidden}
+#p09 .insp header{display:flex;align-items:center;gap:8px;padding:9px 11px;border-bottom:1px solid var(--border);background:var(--surface-3)}
+#p09 .namepill{display:inline-flex;align-items:center;gap:6px;padding:2px 10px;border-radius:20px;font-size:12.5px;font-weight:500}
+#p09 .idx{font-family:var(--mono);font-size:12px;color:var(--text-secondary)}
+#p09 .insp header .x{margin-left:auto;border:none;background:none;color:var(--text-muted);font-size:17px;line-height:1;cursor:pointer}
+#p09 .rows{margin:0;padding:8px 11px}
+#p09 .rows > div{display:grid;grid-template-columns:82px 1fr;gap:8px;padding:4px 0;border-bottom:1px solid var(--border)}
+#p09 .rows > div:last-child{border-bottom:none}
+#p09 .rows dt{font-size:12px;color:var(--text-muted);padding-top:1px}
+#p09 .rows dd{margin:0;font-size:13px;color:var(--text-primary)}
+#p09 .rows dd small{display:block;color:var(--text-secondary);font-size:12px;line-height:1.4}
+#p09 .keysq{display:inline-block;width:10px;height:10px;border-radius:2px;background:var(--key);vertical-align:-1px;margin-right:4px}
+#p09 .tri{display:inline-block;width:0;height:0;border-left:5px solid transparent;border-right:5px solid transparent;border-bottom:9px solid var(--A);vertical-align:0}
+#p09 .tl{padding:9px 11px;border-top:1px solid var(--border);background:var(--surface-0)}
+#p09 .tl h4{margin:0 0 7px;font:500 11.5px/1 system-ui;color:var(--text-muted);letter-spacing:.03em;text-transform:uppercase}
+#p09 .beads{display:flex;gap:1px}
+#p09 .bead{flex:1 1 0;min-width:0;display:flex;flex-direction:column;align-items:center;gap:2px;position:relative;padding-top:9px}
+#p09 .bead b{font:500 9px/1 var(--mono);color:var(--text-muted)}
+#p09 .bead em{font:400 8px/1 var(--mono);color:var(--text-muted);font-style:normal}
+#p09 .bead i{width:11px;height:11px;border-radius:50%;border:1.5px solid var(--c);background:transparent}
+#p09 .bead.same i{background:var(--c)}
+#p09 .bead.key i{box-shadow:0 0 0 2px var(--key)}
+#p09 .bead.key em{color:var(--key)}
+#p09 .bead.sel b{color:var(--text-primary)}
+#p09 .bead.sel:before{content:"";position:absolute;inset:6px -1px -1px;border:1px solid var(--text-secondary);border-radius:5px}
+#p09 .bead.inv:after{content:"↺";position:absolute;top:0;font:400 9px/1 var(--mono);color:var(--text-primary)}
+#p09 .bead.front:after{content:"";position:absolute;top:1px;width:0;height:0;border-left:4px solid transparent;border-right:4px solid transparent;border-bottom:7px solid var(--fc,var(--A))}
+#p09 .bead.live i{outline:1px solid var(--text-primary);outline-offset:2px}
+#p09 .tlkey{display:flex;gap:11px;flex-wrap:wrap;margin-top:8px;font-size:11px;color:var(--text-muted)}
+#p09 .insp footer{display:flex;gap:6px;padding:9px 11px;border-top:1px solid var(--border)}
+#p09 .insp footer .btn{font-size:12.5px;padding:5px 9px}
+#p09 .hovercard{position:absolute;z-index:6;background:var(--surface-3);border:1px solid var(--btn-border);border-radius:8px;
+  padding:7px 9px;font-size:12.5px;line-height:1.45;width:216px;box-shadow:0 6px 18px rgba(0,0,0,.45);pointer-events:none}
+#p09 .hovercard .hh{display:flex;align-items:center;gap:6px;margin-bottom:3px}
+#p09 .hovercard .hh span{font-family:var(--mono);font-size:11px;color:var(--text-muted)}
+#p09 .hovercard p{margin:0;color:var(--text-secondary)}
+#p09 .ptr{position:absolute;width:13px;height:18px;z-index:7;pointer-events:none}
+#p09 .press{position:absolute;width:40px;height:40px;border-radius:50%;border:2px solid var(--text-primary);z-index:7;
+  opacity:.9;box-shadow:0 0 0 1px var(--surface-0);animation:p09press 1.8s ease-out infinite}
+#p09 .press:after{content:"hold";position:absolute;left:50%;top:44px;transform:translateX(-50%);font:500 10px/1 var(--mono);color:var(--text-primary)}
+@keyframes p09press{0%{transform:scale(1);opacity:.85}70%{transform:scale(.55);opacity:.5}100%{transform:scale(.55);opacity:0}}
+#p09 .pins{display:grid;grid-template-columns:1fr 1fr;gap:10px}
+@media(max-width:720px){#p09 .pins{grid-template-columns:1fr}}
+#p09 .verdict{margin-top:10px;border-left:3px solid var(--key);background:var(--surface-0);border-radius:0 8px 8px 0;
+  padding:8px 12px;font-size:13.5px;color:var(--text-primary)}
+#p09 .verdict b{font-weight:500}
+#p09 .pop{position:absolute;z-index:6;background:var(--surface-3);border:1px solid var(--bad-br);border-radius:8px;
+  padding:6px 9px;font-size:12.5px;width:214px;box-shadow:0 6px 18px rgba(0,0,0,.45)}
+#p09 .pop b{display:block;font-weight:500;color:var(--bad-br);font-size:11.5px;letter-spacing:.03em;text-transform:uppercase;margin-bottom:2px}
+#p09 .pop p{margin:0;color:var(--text-secondary);line-height:1.4}
+#p09 .pop.ok{border-color:var(--accent-br)} #p09 .pop.ok b{color:var(--accent-br)}
+#p09 .legend{display:flex;gap:14px;flex-wrap:wrap;margin-top:9px;font-size:12px;color:var(--text-muted)}
+</style></head>
+<body><main class="mk-page" id="p09">
+<h1>Body inspector</h1>
+<p class="mk-lede">Today a body is a hover title: one sentence, gone on mouse-out, unreachable on a touch screen. This direction
+makes a body a thing you open. One tap gives its index, its clock, its key, the front coming for it, and its whole personal
+timeline, and the same panel explains a tile you cannot move into.</p>
+<div class="mk-meta"><span class="req">UI req: illegal moves and their reason on inspection</span><span class="req">UI req: identity and personal index on every body</span><span class="req">UI req: personal-index gap for an inbound front</span><span>Open question: how should touch users inspect a history body</span></div>
+
+<figure class="fig">
+  <div class="frame">
+    <div class="insp-wrap">
+      <div id="bA"></div>
+      <aside class="insp">
+        <header><span class="namepill" id="pillA">Juno</span><span class="idx">index 16</span><button class="x">×</button></header>
+        <dl class="rows">
+          <div><dt>World turn</dt><dd>t6<small>Focus the board here</small></dd></div>
+          <div><dt>Direction</dt><dd>Forward<small>Opposite direction from you</small></dd></div>
+          <div><dt>Live</dt><dd>No, recorded<small>Juno's live body is index 17 at t7</small></dd></div>
+          <div><dt>Key</dt><dd><span class="keysq"></span>Held, right side<small>Picked up from the center on meta-turn 15. Juno carries it on indices 16 and 17.</small></dd></div>
+          <div><dt>Front</dt><dd>None inbound<small><span class="tri"></span> This grab started Juno's front. It sits on your body 14 at t11 (7,4) and reaches your present in 4 turns.</small></dd></div>
+          <div><dt>Steal</dt><dd>From (8,4)<small>The tile beyond its key side. Any colour but Juno can take it there at t6.</small></dd></div>
+        </dl>
+        <div class="tl">
+          <h4>Juno's personal timeline</h4>
+          <div class="beads" id="tlA"></div>
+          <div class="tlkey"><span>↺ inverted</span><span>yellow ring = holds key</span><span>▲ front origin</span><span>filled = your direction</span></div>
+        </div>
+        <footer><button class="btn sel">Pin</button><button class="btn">Follow this player</button><button class="btn">Focus t6</button></footer>
+      </aside>
+    </div>
+    <i class="callout" style="left:30%;top:35%">1</i>
+    <i class="callout" style="left:71.5%;top:6%">2</i>
+    <i class="callout" style="left:71.5%;top:33%">3</i>
+    <i class="callout" style="left:71.5%;top:47%">4</i>
+    <i class="callout" style="left:71.5%;top:74%">5</i>
+  </div>
+  <figcaption>Tap-to-open panel, desktop. Board focused on t6, four turns of history. The inspected body is Juno 16, the grab
+  that will cost you the key.</figcaption>
+</figure>
+<ul class="callouts">
+  <li><b>1</b>The inspected body keeps a ring on the board, so the panel and the board never disagree about what you are reading.</li>
+  <li><b>2</b>Name pill in the player colour, then the personal index. Those two identify a body everywhere else in the UI.</li>
+  <li><b>3</b>Key row states the side in words, not only as a square on a sprite, and says when the grab happened.</li>
+  <li><b>4</b>Front row carries the number the design doc asks for: 4 turns until your present loses the key.</li>
+  <li><b>5</b>Eighteen beads, one per personal index, with the world turn under each. Juno's two inversions and the two key indices are visible without reading the log.</li>
+</ul>
+
+<figure class="fig">
+  <div class="frame" style="position:relative">
+    <div class="mk-cols" style="gap:16px">
+      <div style="position:relative"><div id="bB"></div>
+        <div class="hovercard" id="hcB"></div><svg class="ptr" id="ptrB" viewBox="0 0 13 18"><path d="M1,1 L1,14 L4.6,10.8 L7,16.6 L9.4,15.5 L7,10 L11.6,10 Z" fill="#fff" stroke="#111" stroke-width="1"/></svg>
+        <p class="muted" style="font-size:12.5px;margin:8px 0 0">Desktop hover. The card follows the pointer, never covers the tile under it, and needs no click.</p>
+      </div>
+      <div style="position:relative"><div id="bC"></div>
+        <div class="hovercard" id="hcC"></div><div class="press" id="prC"></div>
+        <p class="muted" style="font-size:12.5px;margin:8px 0 0">Touch. A long press raises the same card above the thumb; lifting off opens the full panel.</p>
+      </div>
+    </div>
+    <i class="callout" style="left:25.5%;top:8%">6</i>
+    <i class="callout" style="left:75%;top:8%">7</i>
+  </div>
+  <figcaption>Hover variant. One compact card, two ways in: pointer hover on desktop, long press on touch.</figcaption>
+</figure>
+<ul class="callouts">
+  <li><b>6</b>Three lines only: who and index, clock and direction, then the one fact that matters here, the key and its side.</li>
+  <li><b>7</b>The press ring answers the open question about touch. Hover cannot exist on a phone, so the same card is on a
+  600&nbsp;ms hold, and the panel opens on release instead of replacing the board.</li>
+</ul>
+
+<figure class="fig">
+  <div class="frame">
+    <div class="pins" id="pinWrap">
+      <div class="insp" id="pin1"></div>
+      <div class="insp" id="pin2"></div>
+    </div>
+    <div class="verdict"><b>After 4 turns:</b> Juno's front reaches your present, your indices 14 to 17 stop reading the key, and
+    Juno 17 is the only live body still holding it. Your key is real until then: you can still win with it, and Juno can still lose it to a third grab.</div>
+    <i class="callout" style="left:2.5%;top:4%">8</i>
+    <i class="callout" style="left:51.5%;top:4%">9</i>
+  </div>
+  <figcaption>Pin mode. Pin one body, inspect another, and the two panels line up row for row. Coral 17 against Juno 17,
+  the question being who holds the real key four turns from now.</figcaption>
+</figure>
+<ul class="callouts">
+  <li><b>8</b>Pinned bodies keep their panel while you inspect elsewhere, so a comparison survives the next board click.</li>
+  <li><b>9</b>Rows are the same fields in the same order, so the difference is the only thing that moves: both hold a key, one
+  of the two keys stops being real in 4 turns.</li>
+</ul>
+
+<figure class="fig">
+  <div class="frame" style="position:relative">
+    <div id="bD"></div>
+    <div class="pop" id="popWall"><b>Blocked</b><p>Wall at (9,3). Walls block movement at every world turn.</p></div>
+    <div class="pop" id="popBody"><b>Blocked</b><p>Juno 17 holds (7,3) at t7. Different players cannot share a tile. A holder keeps its tile against you.</p></div>
+    <div class="pop ok" id="popOk"><b>Legal</b><p>Hold: stay at (8,2), t8 becomes t7. You keep the key.</p></div>
+    <i class="callout" style="left:61%;top:31%">10</i>
+    <i class="callout" style="left:24.5%;top:31%">11</i>
+  </div>
+  <figcaption>Inspecting a tile instead of a body. The same panel answers "why can I not go there". Note: from your real tile
+  (8,2) all six actions are legal this turn, so this frame draws you one tile down at (8,3), where left runs into Juno 17 and
+  right runs into the wall at (9,3). Both obstacles are real fixture data.</figcaption>
+</figure>
+<ul class="callouts">
+  <li><b>10</b><span>A wall reason is one word plus the rule. Today this text exists only as a <span class="mono">title</span>
+  attribute that reads "Blocked by wall", which a touch user can never see.</span></li>
+  <li><b>11</b>A body reason names the body, the tile, and the world turn, so you can inspect that body next and learn when it leaves.</li>
+</ul>
+
+<h2>Trade-offs</h2>
+<div class="mk-pc">
+  <div class="pro"><h3>Pros</h3><ul>
+    <li>Answers two UI requirements with one surface: identity plus index on a body, and the reason a move is illegal.</li>
+    <li>Works on touch, where the current title tooltip is simply unreachable.</li>
+    <li>The bead row shows inversions, key custody, and the front against one player at a glance. Nothing else in the UI does.</li>
+    <li>Pin turns "who wins the key race" from mental arithmetic into two columns.</li>
+  </ul></div>
+  <div class="con"><h3>Cons</h3><ul>
+    <li>A 352&nbsp;px panel steals board width on laptops; on a phone it has to become a bottom sheet, which is page 11's problem.</li>
+    <li>Click-to-inspect competes with click-to-move on the board. Needs a rule: inspect only outside your own turn, or only on a second tap.</li>
+    <li>Eighteen beads fit. Forty-three, the turn cap, do not. The row needs to collapse or scroll late in a match.</li>
+    <li>More surfaces telling the same story means more places for the front number to go stale.</li>
+  </ul></div>
+</div>
+
+<h2>What it answers</h2>
+<div class="mk-prose">
+<p>Closes <strong>illegal moves and their reason on inspection</strong>: the reason string the engine already produces gets a
+place to live that is not a tooltip. Closes <strong>identity and personal index on every body</strong> for stacked tiles, where
+the board can only print "16 … 18". Shows <strong>the personal-index gap for an inbound front</strong> as a sentence with the
+number in it. Proposes an answer to <strong>how should touch users inspect a history body</strong>: long press for the card,
+release for the panel, pin for comparison.</p>
+<p>Leaves open: erasure and restoration fronts, which will need a second front row and a hole marker on the bead strip; and the
+cycle countdown, which has no representation here yet.</p>
+</div>
+
+<h2>Cost</h2>
+<div class="mk-prose">
+<p><strong>M.</strong> The panel, the hover card, and the bead row are <span class="mono">ui.tsx</span> plus
+<span class="mono">style.css</span> only: every field shown comes from <span class="mono">SessionView</span> today, including
+<span class="mono">actions[].reason</span>, <span class="mono">keys[].side</span>, and <span class="mono">fronts[].gap</span>.
+Pin mode is a second selection in component state. The one engine-view change worth asking for is a link from a front to the
+body index it currently sits on, so the panel can say "on your body 14" without the UI searching bodies by position.</p>
+</div>
+</main>
+<script src="shared/fixture.js"></script><script src="shared/board.js"></script><script src="shared/nav.js"></script>
+<script>
+(function(){
+  var F = window.FIX, C = window.COLORS;
+
+  function inversions(color){
+    var p = MK.path(color), s = {};
+    for (var i=1;i<p.length;i++) if (p[i].t === p[i-1].t) s[p[i].p] = 1;
+    return s;
+  }
+  function keyIdx(color){
+    var s = {}; F.keys.forEach(function(k){ if (k.color===color) s[k.p]=k.side; }); return s;
+  }
+  function grabBody(color){
+    var e = F.events.filter(function(v){ return v.color===color && v.kind==='grab'; })[0];
+    if (!e) return null;
+    return MK.path(color).filter(function(b){ return b.t===e.t && b.x===e.x && b.y===e.y; }).pop();
+  }
+  // Coral's body the inbound front currently sits on, matched by the front's t/x/y.
+  function frontBody(f){
+    return MK.path(f.target).filter(function(b){ return b.t===f.t && b.x===f.x && b.y===f.y; }).pop();
+  }
+
+  function beads(host, color, o){
+    o = o || {};
+    var p = MK.path(color), inv = inversions(color), ks = keyIdx(color);
+    host.innerHTML = '';
+    p.forEach(function(b){
+      var d = document.createElement('span');
+      d.className = 'bead' + (b.dir===F.me.dir?' same':'') + (ks[b.p]?' key':'') + (inv[b.p]?' inv':'') +
+        (o.sel===b.p?' sel':'') + (o.front===b.p?' front':'') + (b.live?' live':'');
+      d.style.setProperty('--c', C[color].hex);
+      if (o.frontColor) d.style.setProperty('--fc', o.frontColor);
+      d.title = C[color].name + ' index ' + b.p + ' · t' + b.t + ' · ' + (b.dir===1?'forward':'backward');
+      d.innerHTML = '<b>'+b.p+'</b><i></i><em>t'+b.t+'</em>';
+      host.appendChild(d);
+    });
+  }
+
+  // ---- Figure 1: panel
+  var pill = document.getElementById('pillA');
+  pill.style.background = C.A.hex; pill.style.color = C.A.ink;
+  var aGrab = grabBody('A');
+  var bA = MK.board(document.getElementById('bA'), {focusT:6, lookBack:4, cell:40});
+  // ring the inspected body
+  (function(){
+    var s = bA.s, b = aGrab;
+    bA.layers.top.appendChild(MK.el('rect', {x:b.x*s+1, y:b.y*s+1, width:s-2, height:s-2, rx:4, fill:'none',
+      stroke:'var(--text-primary)', 'stroke-width':2}));
+    bA.layers.top.appendChild(MK.el('rect', {x:b.x*s+1, y:b.y*s+1, width:s-2, height:s-2, rx:4, fill:'none',
+      stroke:C.A.hex, 'stroke-width':2, 'stroke-dasharray':'4 4'}));
+  })();
+  beads(document.getElementById('tlA'), 'A', {sel:aGrab.p, front:aGrab.p, frontColor:C.A.hex});
+
+  // ---- Figure 2: hover + long press
+  function small(id, focusT){ return MK.board(document.getElementById(id), {focusT:focusT, lookBack:3, cell:26, labels:true}); }
+  var bB = small('bB', 6), bC = small('bC', 6);
+  function card(el, color, p, t, lines){
+    el.innerHTML = '<div class="hh"><span class="sw" style="background:'+C[color].hex+'"></span>'+
+      '<b style="font-weight:500">'+F.names[color]+' '+p+'</b><span>t'+t+'</span></div><p>'+lines+'</p>';
+  }
+  card(document.getElementById('hcB'), 'A', 16, 6, 'Forward, opposite to you. Recorded.<br>Holds the key on its right side.');
+  card(document.getElementById('hcC'), 'A', 16, 6, 'Forward, opposite to you. Recorded.<br>Holds the key on its right side.');
+  function place(boardApi, hostId, cardId, ptrId, dx, dy){
+    var host = document.getElementById(hostId), el = document.getElementById(cardId);
+    var svg = boardApi.svg, w = svg.getBoundingClientRect().width || 1;
+    var scale = w / (F.w * boardApi.s);
+    var px = (aGrab.x * boardApi.s + boardApi.s) * scale, py = (aGrab.y * boardApi.s) * scale;
+    el.style.left = Math.max(2, px + dx) + 'px';
+    el.style.top = Math.max(2, py + dy) + 'px';
+    if (ptrId) { var q = document.getElementById(ptrId); q.style.left = (px - 8) + 'px'; q.style.top = (py + 12) + 'px'; }
+    return {px:px, py:py};
+  }
+  function layout(){
+    var b = place(bB, 'bB', 'hcB', 'ptrB', 6, 26);
+    var c = place(bC, 'bC', 'hcC', null, -100, -74);
+    var pr = document.getElementById('prC');
+    pr.style.left = (c.px - 28) + 'px'; pr.style.top = (c.py - 2) + 'px';
+  }
+  layout(); window.addEventListener('resize', layout);
+
+  // ---- Figure 3: pinned comparison
+  var f = F.fronts[0], fb = frontBody(f);
+  function panel(host, color, p, opts){
+    var b = MK.path(color).filter(function(v){ return v.p===p; })[0];
+    var side = keyIdx(color)[p];
+    var sideWord = side ? (side[0]===1?'right':side[0]===-1?'left':side[1]===1?'bottom':'top') : null;
+    host.innerHTML =
+      '<header><span class="namepill" style="background:'+C[color].hex+';color:'+C[color].ink+'">'+F.names[color]+
+        (opts.you?' (you)':'')+'</span><span class="idx">index '+p+'</span>'+
+        (opts.pinned?'<span class="idx" style="margin-left:auto">PINNED</span>':'<span class="idx" style="margin-left:auto">inspecting</span>')+'</header>'+
+      '<dl class="rows">'+
+        '<div><dt>Position</dt><dd>('+b.x+','+b.y+') at t'+b.t+'</dd></div>'+
+        '<div><dt>Direction</dt><dd>'+(b.dir===1?'Forward':'Backward')+'</dd></div>'+
+        '<div><dt>Live</dt><dd>'+(b.live?'Yes, this is their present':'No, recorded')+'</dd></div>'+
+        '<div><dt>Key</dt><dd><span class="keysq"></span>Held, '+sideWord+' side<small>'+opts.keyNote+'</small></dd></div>'+
+        '<div><dt>Front</dt><dd>'+opts.front+'<small>'+opts.frontNote+'</small></dd></div>'+
+        '<div><dt>In 4 turns</dt><dd style="color:'+(opts.good?'var(--good)':'var(--bad-br)')+'">'+opts.then+'</dd></div>'+
+      '</dl>'+
+      '<div class="tl"><h4>'+F.names[color]+'’s personal timeline</h4><div class="beads"></div>'+
+      '<div class="tlkey"><span>↺ inverted</span><span>yellow ring = holds key</span><span>▲ front</span></div></div>';
+    beads(host.querySelector('.beads'), color, opts.beads);
+  }
+  panel(document.getElementById('pin1'), 'C', 17, {
+    you:true, pinned:true,
+    keyNote:'Grabbed at t11 on meta-turn 13, then carried backward through indices 14 to 17.',
+    front:'Inbound, 4 turns', frontNote:'Juno’s front sits on your body '+fb.p+' at t'+f.t+' ('+f.x+','+f.y+') and moves two indices a turn.',
+    then:'Key gone. Indices 14 to 17 stop reading it.', good:false,
+    beads:{sel:17, front:fb.p, frontColor:C.A.hex}
+  });
+  panel(document.getElementById('pin2'), 'A', 17, {
+    keyNote:'Grabbed at t6 on meta-turn 15 from the center, carried on indices 16 and 17.',
+    front:'None inbound', frontNote:'Its own front is the one travelling. Nothing is chasing Juno unless somebody grabs behind it.',
+    then:'Still holds the key. Could reach t0 beside (1,7) and win.', good:true,
+    beads:{sel:17, front:aGrab.p, frontColor:C.A.hex}
+  });
+
+  // ---- Figure 4: blocked tiles
+  var ghost = {x:8, y:3};
+  var bD = MK.board(document.getElementById('bD'), {focusT:7, lookBack:2, cell:42, labels:true,
+    onCell: function(r, x, y, isWall){
+      if (x===9 && y===3) { r.setAttribute('stroke','var(--bad-br)'); r.setAttribute('stroke-width','2'); r.setAttribute('opacity','0.6'); }
+      if (x===7 && y===3) { r.setAttribute('stroke','var(--bad-br)'); r.setAttribute('stroke-width','2'); }
+      if (x===8 && y===2) { r.setAttribute('fill','var(--accent-bg)'); r.setAttribute('stroke','var(--accent-br)'); r.setAttribute('stroke-width','1.5'); }
+      if (x===8 && y===4) { r.setAttribute('fill','var(--accent-bg)'); r.setAttribute('stroke','var(--accent-br)'); r.setAttribute('stroke-width','1.5'); }
+    }});
+  (function(){
+    var s = bD.s;
+    bD.layers.top.appendChild(MK.el('rect', {x:ghost.x*s+s*0.15, y:ghost.y*s+s*0.15, width:s*0.7, height:s*0.7, rx:s*0.35,
+      fill:'none', stroke:C.C.hex, 'stroke-width':2, 'stroke-dasharray':'4 3'}));
+    bD.layers.top.appendChild(MK.el('text', {x:ghost.x*s+s/2, y:ghost.y*s+s/2+4, 'text-anchor':'middle',
+      'font-family':'var(--mono)', 'font-size':11, fill:C.C.hex, text:'you'}));
+  })();
+  function popAt(id, x, y, dx, dy){
+    var el = document.getElementById(id), w = bD.svg.getBoundingClientRect().width || 1;
+    var scale = w / (F.w * bD.s);
+    el.style.left = Math.max(2, (x * bD.s) * scale + dx) + 'px';
+    el.style.top = Math.max(2, (y * bD.s) * scale + dy) + 'px';
+  }
+  function layoutD(){
+    popAt('popBody', 7, 3, -230, 0);
+    popAt('popWall', 9, 3, 96, 0);
+    popAt('popOk', 8, 2, 96, -70);
+  }
+  layoutD(); window.addEventListener('resize', layoutD);
+})();
+</script>
+</body></html>

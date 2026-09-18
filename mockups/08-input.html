@@ -1,0 +1,504 @@
+<!doctype html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
+<title>08 Action input · tbtt mockups</title><link rel="stylesheet" href="shared/mock.css"><style>
+/* Scoped to #p08. */
+#p08 .boardwrap{display:flex;justify-content:center}
+#p08 .zoomwin{position:relative;overflow:hidden;border-radius:8px;background:var(--surface-0);
+  border:1px solid var(--border)}
+#p08 .zoominner{position:absolute;top:0;left:0}
+#p08 .zoomcap{font-size:12px;color:var(--text-secondary);margin-top:8px;position:relative}
+#p08 .zoomcap b{color:var(--text-primary);font-weight:500}
+#p08 .zoomcap .callout{position:static;display:inline-block;vertical-align:-5px;margin-right:6px;box-shadow:none}
+#p08 .pair{display:grid;grid-template-columns:1fr 1fr;gap:18px}
+@media(max-width:1100px){#p08 .pair{grid-template-columns:1fr}}
+
+/* Commit bar */
+#p08 .bar{display:flex;align-items:center;gap:14px;background:var(--surface-1);border:1px solid var(--border);
+  border-radius:12px;padding:10px 14px;flex-wrap:wrap}
+#p08 .bar + .bar{margin-top:12px}
+#p08 .bar.sealed{border-color:var(--accent-br)}
+#p08 .bar.contested{border-color:var(--warn)}
+#p08 .env{width:44px;height:30px;border-radius:4px;border:1.5px solid var(--btn-border);position:relative;flex:none;
+  background:var(--surface-2)}
+#p08 .env:before{content:"";position:absolute;left:-1.5px;top:-1.5px;width:44px;height:30px;
+  border-top:15px solid transparent;border-left:22px solid var(--surface-3);border-right:22px solid var(--surface-3);
+  box-sizing:border-box}
+#p08 .env.open:before{border-left-color:transparent;border-right-color:transparent;
+  border-top:15px solid var(--surface-3)}
+#p08 .env.sealed{border-color:var(--accent-br)}
+#p08 .env.sealed:before{border-left-color:var(--accent-bg);border-right-color:var(--accent-bg)}
+#p08 .env.sealed:after{content:"";position:absolute;left:50%;top:50%;transform:translate(-50%,-50%);
+  width:11px;height:11px;border-radius:50%;background:var(--accent-br);z-index:2}
+#p08 .barmain{display:flex;flex-direction:column;gap:2px;flex:none;min-width:0}
+#p08 .barmain .t1,#p08 .barmain .t2{white-space:nowrap}
+#p08 .barmain .t1{font-size:14px;color:var(--text-primary)}
+#p08 .barmain .t2{font-size:12px;color:var(--text-muted);font-family:var(--mono)}
+#p08 .spacer{flex:1}
+#p08 .avs{display:flex;align-items:center;gap:6px;font-size:12.5px;color:var(--text-secondary)}
+#p08 .av{width:22px;height:22px;border-radius:50%;font:500 10px/22px var(--mono);text-align:center;flex:none}
+#p08 .av.done{opacity:.28}
+#p08 .warnbox{display:flex;gap:9px;align-items:flex-start;border:1px solid var(--warn);border-radius:9px;
+  padding:7px 11px;font-size:12.5px;color:var(--text-secondary);max-width:520px}
+#p08 .warnbox b{color:var(--warn);font-weight:500}
+#p08 .prio{font-family:var(--mono);font-size:12px;color:var(--text-secondary);display:inline-flex;align-items:center;gap:5px;flex-wrap:wrap}
+#p08 .statelab{font-size:12px;font-family:var(--mono);color:var(--text-muted);margin:14px 0 5px}
+#p08 .statelab.made{color:var(--warn)}
+
+/* Keyboard flow */
+#p08 .kflow{display:flex;align-items:center;gap:10px;flex-wrap:wrap;background:var(--surface-1);
+  border:1px solid var(--border);border-radius:12px;padding:12px 14px}
+#p08 .kstep{display:flex;align-items:center;gap:8px}
+#p08 .kstep .lab{font-size:12.5px;color:var(--text-secondary)}
+#p08 .karrow{color:var(--text-muted);font-family:var(--mono)}
+#p08 .kgap{font-size:12.5px;color:var(--warn)}
+</style></head>
+<body><main class="mk-page" id="p08">
+<h1>Action input</h1>
+<p class="mk-lede">Today you pick a move on a D-pad in the right column and read why it is illegal from a tooltip. This puts the choice back on the board: five translucent ghost bodies show where your index 18 would land and at which world turn, a radial menu gives inversion the same weight as a step, and one commit bar carries the sealed state, who is still choosing, and any predicted contest.</p>
+<div class="mk-meta"><span class="req">UI req: illegal moves and their reason on inspection</span><span class="req">UI req: player identity and personal index on every body</span><span>Open question: how should shooting and placed objects work in the controls</span></div>
+
+<figure class="fig">
+  <div class="frame boardwrap"><div id="fullboard"></div></div>
+  <figcaption>1. The whole board with the ghost preview live. Rook is at index 17, t8, (8,2), walking backward, so every move produces index 18 at t7. All four moves and both non-moves are legal in this position, which is what the engine reports for this turn.</figcaption>
+</figure>
+<ul class="callouts">
+  <li><b>1</b>Ghost bodies use the real body shape, dashed and at a fifth opacity. The big number is the index the action creates, the small one the world turn it lands on.</li>
+  <li><b>2</b>Every ghost reads t7, not t8, because Rook walks backward. That single repeated label is the cheapest way to teach direction; today nothing on the board says it.</li>
+  <li><b>3</b>Hold is a ring around your live body, not a fifth tile. It also reads t7: holding spends a world turn without moving.</li>
+  <li><b>4</b>Invert is the one action with no tile, so it is a chip above the board reading "stay at t8, walk forward" rather than a ghost.</li>
+  <li><b>5</b>Your key is drawn on the right side of the live body and repeated faintly on each ghost, so you can see the key travels with you whichever way you step.</li>
+</ul>
+
+<h2>Close up, legal and blocked</h2>
+<div class="pair">
+  <figure class="fig">
+    <div class="frame"><div class="zoomwin" id="zoomLegal"><div class="zoominner"></div></div>
+      <div class="zoomcap"><b>Live fixture.</b> Rook at (8,2), t8. The engine returns no reason for any of the six actions, so all five tiles are open.</div></div>
+    <figcaption>2a. Legal preview. Priority and legality come from the engine view, not from the mockup.</figcaption>
+  </figure>
+  <figure class="fig">
+    <div class="frame"><div class="zoomwin" id="zoomBlocked"><div class="zoominner"></div></div>
+      <div class="zoomcap"><b>Constructed.</b> The same match with Rook one tile lower, at (8,3), so the blocked treatment has something to show. The wall at (9,3) and Juno's live body at (7,3) are both real board state.</div></div>
+    <figcaption>2b. Blocked preview. The reason sits beside the tile instead of inside a tooltip.</figcaption>
+  </figure>
+</div>
+<ul class="callouts">
+  <li><b>6</b>A blocked ghost loses its index label, fills with the wall grey, and takes a cross. There is nothing to preview, so nothing is previewed.</li>
+  <li><b>7</b>The reason rides in a chip on the tile edge. The engine says "wall" and "occupied"; the chip spends the extra words to say which body occupies it, which is the fact you act on.</li>
+  <li><b>8</b>Legal neighbours keep full ghosts in the same frame, so blocked and open read as one picture rather than two states.</li>
+</ul>
+
+<figure class="fig">
+  <div class="frame"><div class="boardwrap"><div class="zoomwin" id="zoomRadial"><div class="zoominner"></div></div></div>
+    <div class="zoomcap" id="radialNote"><i class="callout">12</i><b>No petal is blocked in the live fixture.</b> A blocked petal would take the grey fill and the cross from figure 2b, be unclickable, and carry its reason in a chip just outside the ring.</div></div>
+  <figcaption>3. Radial menu, opened by holding the pointer on your live body or by pressing the menu key. Hold sits under the cursor, the four steps are petals, and inversion is an outer ring so it can never be mistaken for a fifth direction.</figcaption>
+</figure>
+<ul class="callouts">
+  <li><b>9</b>Hold is the centre because it is the no-op: release without travelling and you hold. It still spends a world turn, so it is labelled t7 like the steps.</li>
+  <li><b>10</b>Each petal repeats the ghost's two numbers, so the menu and the board agree without the eye moving.</li>
+  <li><b>11</b>The invert ring shows the flipped direction as an arrow that points the other way, plus "stay at t8". It is the only action that does not change the world turn, and the ring's separate radius says so.</li>
+  <li><b>12</b>Nothing is blocked here, so the blocked petal is described rather than drawn. It would be struck through, unclickable, and carry the same reason text as the board chip.</li>
+</ul>
+
+<h2>Commit bar</h2>
+<div class="mk-prose"><p>One bar under the board replaces the commit button, the still-choosing line, the priority card, and the change-my-action button. Three states, in order.</p></div>
+<div class="statelab">state 1 · choosing · live fixture, all four players still choosing</div>
+<div id="bar1"></div>
+<div class="statelab">state 2 · sealed · constructed, two players have committed</div>
+<div id="bar2"></div>
+<div class="statelab made">state 3 · contested · constructed, see the note below</div>
+<div id="bar3"></div>
+<ul class="callouts">
+  <li><b>13</b>Sealed envelope, not a greyed button. Your action is hidden from the others until everyone commits, and the envelope is the only icon that says "written down and closed".</li>
+  <li><b>14</b>Still choosing lists the people you are waiting on as avatars plus names. Committed players dim rather than disappear, so the count never jumps.</li>
+  <li><b>15</b>Change my action is a plain button next to the seal, with Esc written on it. Today it is a separate card that only appears after you commit.</li>
+  <li><b>16</b>The contest warning names the tile, the other mover, the priority order, and the outcome in that order. Priority is the real one for this turn: Mira, then Rook, then Ash, then Juno.</li>
+</ul>
+<div class="note warn"><strong>Honest note on state 3.</strong> No contest is possible on this turn of the fixture. Rook walks backward into t7 while Juno and Ash walk forward into t8 and Mira into t1, so no two players create a body at the same world turn. State 3 is drawn with Juno moved to a backward playhead so the component has something to say. The priority order and the resulting sentence are the real ones.</div>
+
+<h2>Keyboard flow</h2>
+<div class="kflow" id="kflow"></div>
+
+<h2>Trade-offs</h2>
+<div class="mk-pc">
+  <div class="pro"><h3>Pros</h3><ul>
+    <li>The index and the world turn an action produces stop being something you compute. They are printed on the tile you are about to take.</li>
+    <li>Illegal moves carry their reason where you are looking, which is the design doc's "illegal moves and their reason on inspection" without requiring a hover.</li>
+    <li>Inversion stops looking like a fifth movement button. Both the badge and the ring say it costs an index and no world turn.</li>
+    <li>One bar collapses four separate pieces of chrome and gives the contest rule a place to explain itself in words.</li>
+  </ul></div>
+  <div class="con"><h3>Cons</h3><ul>
+    <li>Five ghosts plus trails plus the key mark is a lot on one tile at small cell sizes. The full-board figure works at 76px cells; at 44px the two numbers stop fitting.</li>
+    <li>Ghosts sit where other players' history sits, so a ghost can cover a body you wanted to read before choosing.</li>
+    <li>A radial menu needs a press-and-hold, which competes with the long-press that page 11 wants for inspecting a body.</li>
+    <li>A predicted contest is a guess about an opponent's hidden action. Showing it may teach the priority rule or may just be noise.</li>
+  </ul></div>
+</div>
+
+<h2>What it answers</h2>
+<div class="mk-prose">
+  <p>It answers <strong>illegal moves and their reason on inspection</strong> directly, and it answers part of <strong>player identity and personal index on every body</strong> by extending index labelling from real bodies to the ones you are about to make. It gives the priority rule, which today is a card reading "Holders resolve before movers", a concrete sentence about a specific tile.</p>
+  <p>It does not answer <strong>how shooting and placed objects should work in the controls</strong>, but it opens a slot: the radial has four free outer segments and the ghost layer already distinguishes "a tile you take" from "a tile you affect". It also does not answer <strong>how touch users inspect a history body</strong>, and it makes that harder by claiming long-press for the menu.</p>
+</div>
+
+<h2>Cost</h2>
+<div class="mk-prose">
+  <p><strong>S to M.</strong> The ghost layer and the commit bar are <code>ui.tsx</code> and <code>style.css</code> only. <code>view.actions</code> already carries <code>action</code>, <code>reason</code>, <code>t</code>, <code>x</code>, <code>y</code>, and <code>move</code> for all six actions, which is everything a ghost needs; the <code>Cell</code> component already receives the matching <code>ActionOffer</code> and only has to draw more with it. The radial menu is the larger piece, mostly pointer handling and an SVG arc helper.</p>
+  <p>Two things need the view to say more. Reason strings today are <code>wall</code>, <code>occupied</code>, <code>off the board</code>, and <code>that is before the start of time</code>; turning "occupied" into "Juno's live body is here" needs <code>_blockReason</code> to return the occupying colour alongside the reason, which is a view change, not a rules change. The contest warning needs the set of opponents whose legal targets include your target tile, which the engine can derive from the same occupancy map but does not expose. Both are small additions to <code>View</code>.</p>
+</div>
+</main>
+<script src="shared/fixture.js"></script><script src="shared/board.js"></script><script src="shared/nav.js"></script>
+<script>
+(function(){
+  const F = MK.F, C = MK.C, S = MK.el;
+  const NAMES = F.names, ME = F.me, MC = C[ME.color];
+  const NEXT_P = ME.p + 1;
+
+  function h(tag, attrs, kids){
+    const n = document.createElement(tag);
+    for (const k in attrs||{}) {
+      if (k === 'text') n.textContent = attrs[k];
+      else if (k === 'html') n.innerHTML = attrs[k];
+      else n.setAttribute(k, attrs[k]);
+    }
+    for (const c of kids||[]) n.appendChild(c);
+    return n;
+  }
+
+  // ---- Ghost drawing -------------------------------------------------------
+  // A ghost is the real body shape at low opacity, labelled with the index and
+  // world turn the action would produce.
+  function ghost(api, o){
+    const s = api.s, g = S('g', {class:'ghost'});
+    const w = s * 0.7, hh = s * 0.7;
+    const cx = api.cx(o.x), cy = api.cy(o.y);
+    if (o.blocked) {
+      g.appendChild(S('rect', {x:cx - w/2, y:cy - hh/2, width:w, height:hh, rx:hh/2,
+        fill:'var(--wall)', 'fill-opacity':0.30, stroke:'var(--text-muted)', 'stroke-width':s*0.035,
+        'stroke-dasharray': (s*0.09) + ' ' + (s*0.07)}));
+      const r = w * 0.31;
+      for (const d of [[-1,-1,1,1],[-1,1,1,-1]]) {
+        g.appendChild(S('line', {x1:cx + d[0]*r, y1:cy + d[1]*r, x2:cx + d[2]*r, y2:cy + d[3]*r,
+          stroke:'var(--text-muted)', 'stroke-width':s*0.045, 'stroke-linecap':'round'}));
+      }
+    } else {
+      g.appendChild(S('rect', {x:cx - w/2, y:cy - hh/2, width:w, height:hh, rx:hh/2,
+        fill:MC.hex, 'fill-opacity':0.20, stroke:MC.hex, 'stroke-width':s*0.05,
+        'stroke-dasharray': (s*0.10) + ' ' + (s*0.08)}));
+      g.appendChild(S('text', {x:cx, y:cy + s*0.03, 'text-anchor':'middle', 'font-family':'var(--mono)',
+        'font-size':s*0.27, 'font-weight':500, fill:MC.hex, text:String(NEXT_P)}));
+      g.appendChild(S('text', {x:cx, y:cy + s*0.25, 'text-anchor':'middle', 'font-family':'var(--mono)',
+        'font-size':s*0.17, fill:'var(--text-secondary)', text:'t' + o.t}));
+      // The key travels with you, so it is repeated faintly on each ghost.
+      g.appendChild(S('rect', {x:o.x*s + s - s*0.04 - s*0.14, y:cy - s*0.07, width:s*0.14, height:s*0.14, rx:2,
+        fill:'var(--key)', opacity:0.35}));
+    }
+    api.layers.targets.appendChild(g);
+    if (o.reason) chip(api, o.x, o.y, o.reason, o.chipSide || 'below');
+  }
+
+  // Reason chip beside the blocked tile.
+  function chip(api, x, y, label, side){
+    const s = api.s, pad = s*0.09, fs = s*0.16;
+    const wch = label.length * fs * 0.56 + pad*2;
+    let cx = api.cx(x), cy;
+    if (side === 'below') cy = y*s + s - s*0.02;
+    else if (side === 'above') cy = y*s - s*0.16;
+    else cy = api.cy(y);
+    const g = S('g', {});
+    g.appendChild(S('rect', {x:cx - wch/2, y:cy - fs*0.9, width:wch, height:fs*1.9, rx:fs,
+      fill:'var(--surface-0)', stroke:'var(--warn)', 'stroke-width':Math.max(1, s*0.014)}));
+    g.appendChild(S('text', {x:cx, y:cy + fs*0.38, 'text-anchor':'middle', 'font-family':'var(--mono)',
+      'font-size':fs, fill:'var(--warn)', text:label}));
+    api.layers.top.appendChild(g);
+  }
+
+  // Hold ring plus invert chip, both anchored on the live body.
+  // win: {x0,y0,x1,y1} board-pixel bounds of a clipped window, so the chip stays inside it.
+  function holdAndInvert(api, x, y, holdT, invertT, invertDirWord, win){
+    const s = api.s, cx = api.cx(x), cy = api.cy(y);
+    api.layers.targets.appendChild(S('circle', {cx:cx, cy:cy, r:s*0.46, fill:'none', stroke:MC.hex,
+      'stroke-width':s*0.045, 'stroke-dasharray': (s*0.10) + ' ' + (s*0.08), opacity:0.85}));
+    // Halo so the label stays readable where it crosses the body.
+    api.layers.top.appendChild(S('text', {x:cx, y:y*s + s*0.20, 'text-anchor':'middle',
+      'font-family':'var(--mono)', 'font-size':s*0.16, fill:'var(--text-primary)',
+      stroke:'var(--surface-0)', 'stroke-width':s*0.05, 'stroke-linejoin':'round',
+      style:'paint-order:stroke', text:'hold · ' + NEXT_P + ' · t' + holdT}));
+    // Invert has no tile, so it is a chip clear of the four ghosts, two rows above the body.
+    const label = 'invert · ' + NEXT_P + ' · stay t' + invertT + ' · ' + invertDirWord;
+    const fs = s*0.155, bh = s*0.40;
+    const bw = bh*1.35 + label.length * fs * 0.60 + bh*0.5;
+    const b = win || {x0:0, y0:0, x1:F.w*s, y1:F.h*s};
+    const bx = Math.min(Math.max(b.x0 + 4, cx - bw/2), b.x1 - bw - 4);
+    const by = Math.max(b.y0 + 4, (y - 2)*s + s*0.30);
+    const g = S('g', {});
+    g.appendChild(S('rect', {x:bx, y:by, width:bw, height:bh, rx:bh/2, fill:'var(--surface-0)',
+      stroke:MC.hex, 'stroke-width':Math.max(1, s*0.016)}));
+    g.appendChild(S('path', {d:'M' + (bx + bh*0.75) + ',' + (by + bh/2) + ' l' + (bh*0.42) + ',' + (-bh*0.26)
+      + ' l0,' + (bh*0.52) + ' z', fill:MC.hex}));
+    g.appendChild(S('text', {x:bx + bh*1.35, y:by + bh*0.66, 'font-family':'var(--mono)',
+      'font-size':fs, fill:'var(--text-primary)', text:label}));
+    api.layers.top.appendChild(g);
+    return {bx:bx, by:by, bw:bw, bh:bh};
+  }
+
+  // ---- Figure 1: whole board with the live fixture's offers ----------------
+  (function(){
+    const holder = document.getElementById('fullboard');
+    holder.style.width = (F.w * 76) + 'px';
+    const api = MK.board(holder, {focusT:ME.t, lookBack:4, cell:76});
+    for (const a of F.actions) {
+      if (a.action === 'H' || a.action === 'I') continue;
+      ghost(api, {x:a.x, y:a.y, t:a.t, blocked:a.reason !== null, reason:a.reason});
+    }
+    const H = F.actions.find((a) => a.action === 'H');
+    const I = F.actions.find((a) => a.action === 'I');
+    const chip4 = holdAndInvert(api, ME.x, ME.y, H.t, I.t, ME.dir === 1 ? 'backward' : 'forward');
+    // Callouts, in board pixels.
+    const s = api.s, wrap = holder;
+    wrap.style.position = 'relative';
+    const pts = [[api.cx(8) + s*0.62, api.cy(1) - s*0.55], [api.cx(7) - s*0.62, api.cy(2) + s*0.30],
+                 [api.cx(8) - s*0.43, api.cy(2) + s*0.43], [chip4.bx - 12, chip4.by + chip4.bh/2],
+                 [api.cx(9) + s*0.52, api.cy(2) + s*0.10]];
+    pts.forEach((p, i) => {
+      wrap.appendChild(h('i', {class:'callout',
+        style:'left:' + (p[0]-10) + 'px;top:' + (p[1]-10) + 'px', text:String(i+1)}));
+    });
+  })();
+
+  // ---- Zoom windows --------------------------------------------------------
+  // A clipped view of the real board at a large cell size, so the ghost labels
+  // stay legible without redrawing the board at a fake scale.
+  function zoomWindow(id, opts){
+    const win = document.getElementById(id), inner = win.firstElementChild;
+    const cell = opts.cell, cols = opts.cols, rows = opts.rows;
+    win.style.width = (cols * cell) + 'px';
+    win.style.height = (rows * cell) + 'px';
+    inner.style.width = (F.w * cell) + 'px';
+    inner.style.left = (-opts.col0 * cell) + 'px';
+    inner.style.top = (-opts.row0 * cell) + 'px';
+    const api = MK.board(inner, {focusT:opts.focusT, lookBack:opts.lookBack || 4, cell:cell,
+      hideBodies:opts.hideBodies});
+    return {api, win, cell};
+  }
+  function zoomCallouts(win, cell, col0, row0, pts){
+    pts.forEach((p, i) => {
+      win.appendChild(h('i', {class:'callout',
+        style:'left:' + ((p[0] - col0) * cell - 10) + 'px;top:' + ((p[1] - row0) * cell - 10) + 'px',
+        text:String(p[2])}));
+    });
+  }
+
+  // 2a: the live fixture, close up.
+  (function(){
+    const z = zoomWindow('zoomLegal', {cell:104, cols:5, rows:5, col0:6, row0:0, focusT:ME.t});
+    for (const a of F.actions) {
+      if (a.action === 'H' || a.action === 'I') continue;
+      ghost(z.api, {x:a.x, y:a.y, t:a.t, blocked:a.reason !== null, reason:a.reason});
+    }
+    const H = F.actions.find((a) => a.action === 'H');
+    const I = F.actions.find((a) => a.action === 'I');
+    holdAndInvert(z.api, ME.x, ME.y, H.t, I.t, 'forward',
+      {x0:6*z.cell, y0:0, x1:11*z.cell, y1:5*z.cell});
+    zoomCallouts(z.win, z.cell, 6, 0, [[9.5, 1.80, 8]]);
+  })();
+
+  // 2b: same board and same rules, Rook moved one tile down so a wall and an
+  // opponent body are in reach. (9,3) is a real wall; Juno's live body is at (7,3) at t7.
+  (function(){
+    const z = zoomWindow('zoomBlocked', {cell:104, cols:5, rows:5, col0:6, row0:1, focusT:ME.t});
+    const api = z.api, s = api.s;
+    // Rook stands at (8,3) in this variant, so drop the real body the renderer drew at (8,2).
+    api.layers.bodies.querySelectorAll('.mk-body[data-color="C"]').forEach((n) => n.remove());
+    api.layers.keys.replaceChildren();
+    // The stand-in live body.
+    const g = S('g', {});
+    g.appendChild(S('rect', {x:api.cx(8) - s*0.35, y:api.cy(3) - s*0.35, width:s*0.7, height:s*0.7,
+      rx:s*0.35, fill:MC.hex, stroke:MC.hex, 'stroke-width':s*0.06}));
+    g.appendChild(S('text', {x:api.cx(8), y:api.cy(3) + s*0.09, 'text-anchor':'middle',
+      'font-family':'var(--mono)', 'font-size':s*0.26, 'font-weight':500, fill:MC.ink, text:'17'}));
+    g.appendChild(S('rect', {x:8*s + s - s*0.04 - s*0.16, y:api.cy(3) - s*0.08, width:s*0.16, height:s*0.16,
+      rx:2, fill:'var(--key)', stroke:'var(--surface-0)'}));
+    api.layers.bodies.appendChild(g);
+    ghost(api, {x:8, y:2, t:7});
+    ghost(api, {x:8, y:4, t:7});
+    ghost(api, {x:7, y:3, t:7, blocked:true, reason:"Juno's live body", chipSide:'below'});
+    ghost(api, {x:9, y:3, t:7, blocked:true, reason:'wall', chipSide:'below'});
+    holdAndInvert(api, 8, 3, 7, 8, 'forward', {x0:6*s, y0:1*s, x1:11*s, y1:6*s});
+    zoomCallouts(z.win, z.cell, 6, 1, [[7.20, 3.20, 6], [6.60, 3.98, 7], [8.90, 2.10, 8]]);
+  })();
+
+  // ---- Figure 3: radial menu ----------------------------------------------
+  function arcSector(cx, cy, r1, r2, a1, a2){
+    const rad = (a) => a * Math.PI / 180;
+    const p = (r, a) => [cx + r * Math.cos(rad(a)), cy + r * Math.sin(rad(a))];
+    const big = (a2 - a1) > 180 ? 1 : 0;
+    const A = p(r2, a1), B = p(r2, a2), Cp = p(r1, a2), D = p(r1, a1);
+    return 'M' + A[0] + ',' + A[1] +
+      ' A' + r2 + ',' + r2 + ' 0 ' + big + ' 1 ' + B[0] + ',' + B[1] +
+      ' L' + Cp[0] + ',' + Cp[1] +
+      ' A' + r1 + ',' + r1 + ' 0 ' + big + ' 0 ' + D[0] + ',' + D[1] + ' Z';
+  }
+  (function(){
+    const z = zoomWindow('zoomRadial', {cell:112, cols:7, rows:5, col0:5, row0:0, focusT:ME.t});
+    const api = z.api, s = api.s;
+    const cx = api.cx(ME.x), cy = api.cy(ME.y);
+    const L = api.layers.overlay;
+    L.appendChild(S('rect', {x:0, y:0, width:F.w*s, height:F.h*s, fill:'var(--surface-0)', opacity:0.55}));
+
+    const r1 = s*0.72, r2 = s*1.52, half = 37;
+    const petals = [
+      {a:-90, act:'W', glyph:'↑'}, {a:0, act:'D', glyph:'→'},
+      {a:90, act:'S', glyph:'↓'}, {a:180, act:'A', glyph:'←'}
+    ];
+    const by = {}; for (const a of F.actions) by[a.action] = a;
+    for (const pt of petals) {
+      const o = by[pt.act];
+      const blocked = o.reason !== null;
+      L.appendChild(S('path', {d:arcSector(cx, cy, r1, r2, pt.a - half, pt.a + half),
+        fill: blocked ? 'var(--wall)' : 'var(--accent-bg)', 'fill-opacity': blocked ? 0.5 : 0.94,
+        stroke: blocked ? 'var(--text-muted)' : 'var(--accent-br)', 'stroke-width':2}));
+      const mr = (r1 + r2) / 2, rad = pt.a * Math.PI/180;
+      const px = cx + mr * Math.cos(rad), py = cy + mr * Math.sin(rad);
+      L.appendChild(S('text', {x:px, y:py - s*0.05, 'text-anchor':'middle', 'font-size':s*0.30,
+        fill:'var(--text-primary)', text:pt.glyph}));
+      L.appendChild(S('text', {x:px, y:py + s*0.20, 'text-anchor':'middle', 'font-family':'var(--mono)',
+        'font-size':s*0.145, fill:'var(--text-secondary)', text: NEXT_P + ' · t' + o.t}));
+    }
+    // Hold at the centre.
+    L.appendChild(S('circle', {cx:cx, cy:cy, r:r1 - s*0.06, fill:'var(--surface-1)',
+      stroke:'var(--accent-br)', 'stroke-width':2}));
+    L.appendChild(S('text', {x:cx, y:cy - s*0.02, 'text-anchor':'middle', 'font-size':s*0.17,
+      fill:'var(--text-primary)', text:'hold'}));
+    L.appendChild(S('text', {x:cx, y:cy + s*0.20, 'text-anchor':'middle', 'font-family':'var(--mono)',
+      'font-size':s*0.145, fill:'var(--text-secondary)', text: NEXT_P + ' · t' + by.H.t}));
+    // Invert as an outer ring segment across the bottom, outside the petals.
+    const r3 = s*1.60, r4 = s*2.25;
+    L.appendChild(S('path', {d:arcSector(cx, cy, r3, r4, 34, 146),
+      fill:MC.hex, 'fill-opacity':0.20, stroke:MC.hex, 'stroke-width':2}));
+    const f1 = s*0.155, line1 = 'turn around in time';
+    const w1 = line1.length * f1 * 0.54, gw = f1 * 1.15;
+    const x0 = cx - (w1 + gw + f1*0.45) / 2, y1 = cy + s*1.80;
+    L.appendChild(S('path', {d:'M' + x0 + ',' + (y1 - f1*0.30) + ' l' + gw + ',' + (f1*0.34)
+      + ' l' + (-gw) + ',' + (f1*0.34) + ' z', fill:MC.hex}));
+    L.appendChild(S('text', {x:x0 + gw + f1*0.45, y:y1 + f1*0.38, 'font-size':f1,
+      fill:'var(--text-primary)', text:line1}));
+    L.appendChild(S('text', {x:cx, y:cy + s*2.03, 'text-anchor':'middle', 'font-family':'var(--mono)',
+      'font-size':s*0.135, fill:'var(--text-secondary)',
+      text: NEXT_P + ' · stay at t' + by.I.t + ' · forward'}));
+
+    const pts = [[cx - r1*0.62, cy - r1*0.62, 9], [cx - s*0.55, cy - s*1.15, 10],
+                 [cx + s*2.05, cy + s*1.42, 11]];
+    pts.forEach((p) => {
+      z.win.appendChild(h('i', {class:'callout',
+        style:'left:' + (p[0] - 5*z.cell - 10) + 'px;top:' + (p[1] - 10) + 'px', text:String(p[2])}));
+    });
+  })();
+
+  // ---- Commit bar ----------------------------------------------------------
+  function av(c, done){
+    return h('i', {class:'av' + (done ? ' done' : ''), text: c === ME.color ? 'you' : NAMES[c][0],
+      style:'background:' + C[c].hex + ';color:' + C[c].ink + (c === ME.color ? ';font-size:8.5px' : '')});
+  }
+  function prioLine(){
+    const n = h('span', {class:'prio'});
+    F.priority.forEach((c, i) => {
+      if (i) n.appendChild(h('span', {text:' › ', style:'color:var(--text-muted)'}));
+      const g = h('span', {style:'display:inline-flex;align-items:center;gap:4px'});
+      g.appendChild(h('i', {class:'sw', style:'background:' + C[c].hex}));
+      g.appendChild(h('span', {text:NAMES[c]}));
+      n.appendChild(g);
+    });
+    return n;
+  }
+  function bar(cfg){
+    const n = h('div', {class:'bar' + (cfg.cls ? ' ' + cfg.cls : '')});
+    n.appendChild(h('div', {class:'env' + (cfg.sealed ? ' sealed' : ' open')}));
+    const m = h('div', {class:'barmain'});
+    m.appendChild(h('div', {class:'t1', text:cfg.t1}));
+    m.appendChild(h('div', {class:'t2', text:cfg.t2}));
+    n.appendChild(m);
+    if (cfg.button) n.appendChild(h('button', {class:'btn' + (cfg.primary ? ' primary' : ''), text:cfg.button}));
+    n.appendChild(h('span', {class:'spacer'}));
+    const a = h('div', {class:'avs'});
+    for (const c of F.roster) a.appendChild(av(c, cfg.done && cfg.done.indexOf(c) >= 0));
+    a.appendChild(h('span', {text:cfg.still}));
+    n.appendChild(a);
+    return n;
+  }
+
+  document.getElementById('bar1').appendChild(bar({
+    t1:'Hold this tile', t2:'index 18 · t7 · (8,2) · key stays on your right',
+    button:'Commit hold', primary:true, still:'Still choosing: you, Mira, Ash, Juno', done:[]
+  }));
+  const b2 = bar({
+    cls:'sealed', sealed:true, t1:'Sealed: move left', t2:'index 18 · t7 · (7,2) · hidden until everyone commits',
+    button:'Change my action  ·  Esc', still:'Still choosing: Mira, Ash', done:['C','A']
+  });
+  document.getElementById('bar2').appendChild(b2);
+
+  const b3 = h('div', {class:'bar contested'});
+  b3.appendChild(h('div', {class:'env sealed'}));
+  const m3 = h('div', {class:'barmain'});
+  m3.appendChild(h('div', {class:'t1', text:'Sealed: move left'}));
+  m3.appendChild(h('div', {class:'t2', text:'index 18 · t7 · (7,2)'}));
+  b3.appendChild(m3);
+  const wb = h('div', {class:'warnbox'});
+  wb.appendChild(h('span', {style:'color:var(--warn);font-size:15px;line-height:1', text:'▲'}));
+  const wt = h('div', {});
+  wt.appendChild(h('div', {html:'<b>Juno may also land on (7,2) at t7.</b>'}));
+  const pl = h('div', {style:'margin-top:3px'});
+  pl.appendChild(h('span', {text:'Priority this turn: '}));
+  pl.appendChild(prioLine());
+  wt.appendChild(pl);
+  wt.appendChild(h('div', {style:'margin-top:3px', text:'Rook comes before Juno, so you take the tile and Juno holds at (7,3).'}));
+  wb.appendChild(wt);
+  b3.appendChild(wb);
+  b3.appendChild(h('span', {class:'spacer'}));
+  const a3 = h('div', {class:'avs'});
+  for (const c of F.roster) a3.appendChild(av(c, c === 'C' || c === 'A'));
+  a3.appendChild(h('span', {text:'Still choosing: Mira, Ash'}));
+  b3.appendChild(a3);
+  document.getElementById('bar3').appendChild(b3);
+
+  // Callouts for the bars, anchored to the real elements.
+  function barMark(host, sel, ax, ay, n){
+    const root = document.getElementById(host);
+    if (!root) { console.error('no host ' + host); return; }
+    const t = root.querySelector(sel);
+    root.style.position = 'relative';
+    const rr = root.getBoundingClientRect(), r = t.getBoundingClientRect();
+    root.appendChild(h('i', {class:'callout',
+      style:'left:' + (r.left - rr.left + r.width*ax - 10) + 'px;top:' + (r.top - rr.top + r.height*ay - 10) + 'px',
+      text:String(n)}));
+  }
+  barMark('bar2', '.env', 0.5, 0, 13);
+  barMark('bar2', '.avs', -0.055, 0.5, 14);
+  barMark('bar2', 'button', 0.5, 0, 15);
+  barMark('bar3', '.warnbox', 0.06, 0, 16);
+
+  // ---- Keyboard flow -------------------------------------------------------
+  (function(){
+    const n = document.getElementById('kflow');
+    function step(keys, label){
+      const d = h('div', {class:'kstep'});
+      keys.forEach((k, i) => {
+        if (i) d.appendChild(h('span', {class:'karrow', text:'/'}));
+        d.appendChild(h('kbd', {text:k}));
+      });
+      d.appendChild(h('span', {class:'lab', text:label}));
+      return d;
+    }
+    n.appendChild(step(['W','A','S','D'], 'aim: the ghost under the pointer fills in'));
+    n.appendChild(h('span', {class:'karrow', text:'→'}));
+    n.appendChild(step(['↑','↓','←','→'], 'same four'));
+    n.appendChild(h('span', {class:'karrow', text:'→'}));
+    n.appendChild(step(['Enter'], 'seal the envelope'));
+    n.appendChild(h('span', {class:'karrow', text:'→'}));
+    n.appendChild(step(['Esc'], 'clear, or unseal while the turn is open'));
+    n.appendChild(h('span', {class:'spacer'}));
+    n.appendChild(h('span', {class:'kgap',
+      text:'Inversion has no key today. The radial gives it one place; a key still has to be chosen.'}));
+  })();
+})();
+</script>
+</body></html>
