@@ -2,8 +2,8 @@ import { describe, it } from 'node:test';
 import assert from 'node:assert/strict';
 
 import { Session, Code, trimUnresolved, LoopbackChannel } from '../play/src/transport.js';
-import { Match, Wire, metaTurn } from '../play/src/engine.js';
-import type { Action, Color, Config } from '../play/src/engine.js';
+import { Match, Wire, metaTurn } from '../play/src/engine/index.js';
+import type { Action, Color, Config } from '../play/src/engine/index.js';
 import type { Channel, LoopbackEnd } from '../play/src/transport.js';
 
 function makeEnd(id?: string): LoopbackEnd {
@@ -78,7 +78,7 @@ async function twoPhase(o: {
   };
 }
 
-const CONFIG: Config = { w: 16, h: 9, wallPct: 0, seed: 'test', cap: 40, roster: ['C', 'P'] };
+const CONFIG: Config = { mode: 'sandbox', w: 16, h: 9, wallPct: 0, seed: 'test', cap: 40, roster: ['C', 'P'] };
 
 function cfg(over?: Partial<typeof CONFIG>) {
   return { ...CONFIG, ...over };
@@ -170,8 +170,8 @@ describe('a turn over a loopback pair', () => {
     assert.equal(sa.view().turn, 1, 'coral advanced');
     assert.equal(sb.view().turn, 1, 'purple advanced');
     assert.equal(sa.view().hash, sb.view().hash, 'and they agree on the state');
-    assert.equal(sa.view().me.x, 1, 'coral stepped right');
-    assert.equal(sb.view().me.x, 14, 'purple stepped left');
+    assert.equal(sa.view().me.x, 2, 'coral stepped right');
+    assert.equal(sb.view().me.x, 13, 'purple stepped left');
     assert.ok(sa.view().bodies.some((b) => b.color === 'P' && b.t === 1),
       "coral can see purple's t1 body");
     assert.equal(sa.view().status, 'live', 'a wired pair reports live');
@@ -229,9 +229,9 @@ describe('a turn over a loopback pair', () => {
     assert.equal(sa.view().turn, 1, 'the turn resolved');
     assert.equal(sb.view().turn, 1);
     assert.equal(sa.view().hash, sb.view().hash, 'on one state, not two');
-    assert.equal(sa.view().me.x, 0, 'coral held, which was the second action');
+    assert.equal(sa.view().me.x, 1, 'coral held, which was the second action');
     assert.equal(sa.view().me.t, 1);
-    assert.ok(sb.view().bodies.some((b) => b.color === 'C' && b.t === 1 && b.x === 0),
+    assert.ok(sb.view().bodies.some((b) => b.color === 'C' && b.t === 1 && b.x === 1),
       'and purple saw the second action, not the first');
     assert.equal(sa.view().error, null);
     assert.equal(sb.view().error, null);
@@ -405,7 +405,7 @@ describe('commitments', () => {
     await settle();
 
     assert.equal(sa.view().turn, 1, 'the turn resolves on whichever one purple opened');
-    assert.ok(sa.view().bodies.some((b) => b.color === 'P' && b.t === 1 && b.x === 15),
+    assert.ok(sa.view().bodies.some((b) => b.color === 'P' && b.t === 1 && b.x === 14),
       'purple held, which is the commitment it opened, not the first one it sent');
     assert.equal(sa.view().error, null);
   });
@@ -435,7 +435,7 @@ describe('reveals', () => {
     peer.send(sealed.reveal);
     await settle();
     assert.equal(sa.view().turn, 1, 'the reveal that does open it is still accepted');
-    assert.ok(sa.view().bodies.some((b) => b.color === 'P' && b.t === 1 && b.x === 14),
+    assert.ok(sa.view().bodies.some((b) => b.color === 'P' && b.t === 1 && b.x === 13),
       'and the action that ran is the sealed one, not the forged one');
   });
 
@@ -465,7 +465,7 @@ describe('reveals', () => {
     await settle();
 
     assert.equal(sa.view().turn, 1, 'the commitment arriving last still opens what was held');
-    assert.ok(sa.view().bodies.some((b) => b.color === 'P' && b.t === 1 && b.x === 15),
+    assert.ok(sa.view().bodies.some((b) => b.color === 'P' && b.t === 1 && b.x === 14),
       'purple held, which is the reveal that was kept');
     assert.equal(sa.view().error, null);
   });
@@ -488,7 +488,7 @@ describe('arrival order', () => {
     await settle();
 
     assert.equal(sa.view().turn, 1, 'the commitment arriving late completes the pair');
-    assert.ok(sa.view().bodies.some((b) => b.color === 'P' && b.t === 1 && b.x === 14),
+    assert.ok(sa.view().bodies.some((b) => b.color === 'P' && b.t === 1 && b.x === 13),
       'and the move that ran is the one that was sealed');
   });
 
@@ -866,7 +866,7 @@ describe('a peer arriving late', () => {
     assert.equal(sb.view().turn, 1, 'the joiner resolved the turn');
     assert.equal(sa.view().turn, 1, 'and so did the peer that had been waiting on it');
     assert.equal(sa.view().hash, sb.view().hash, 'on one state, not two');
-    assert.ok(sa.view().bodies.some((b) => b.color === 'P' && b.t === 1 && b.x === 14),
+    assert.ok(sa.view().bodies.some((b) => b.color === 'P' && b.t === 1 && b.x === 13),
       "coral saw the joiner's move");
     assert.equal(sa.view().error, null);
     assert.equal(sb.view().error, null);
@@ -920,8 +920,8 @@ describe('room ids', () => {
     const s1 = Wire.encodeMatchCode(cfg({ seed: 'aaa' }));
     const s2 = Wire.encodeMatchCode(cfg({ seed: 'aaa' }));
     const s3 = Wire.encodeMatchCode(cfg({ seed: 'bbb' }));
-    assert.equal(s1, 'M1:16x9:0:aaa:40:CP',
-      "a match code is the engine's own six segments, nothing appended");
+    assert.equal(s1, 'M1:sandbox:16x9:0:aaa:40:CP',
+      "a match code is the engine's own seven segments, nothing appended");
 
     const id = Code.roomId(s1);
     assert.equal(Code.roomId(s2), id, 'the same code has to find the same room');
@@ -930,7 +930,7 @@ describe('room ids', () => {
   });
 
   it('are a fixed shape, so a relay never sees a match code', () => {
-    assert.match(Code.roomId('M1:16x9:0:aaa:40:CP'), /^tbtt-[0-9a-f]{16}$/);
+    assert.match(Code.roomId('M1:sandbox:16x9:0:aaa:40:CP'), /^tbtt-[0-9a-f]{16}$/);
   });
 });
 
@@ -1036,19 +1036,59 @@ describe('the divergence check', () => {
   });
 });
 
+describe('bootstrap over a session', () => {
+  it('a win ends the match on both sides and stops taking turns', async () => {
+    const { sa, sb } = mkPair({ mode: 'bootstrap', w: 5, h: 5, cap: 12, seed: 'tst' });
+    seat(sa, 'C', 'Rook');
+    seat(sb, 'P', 'Vale');
+    for (const [a, b] of [['D', 'H'], ['I', 'H'], ['H', 'H']] as const) {
+      assert.ok((await sa.commit(a)).ok);
+      assert.ok((await sb.commit(b)).ok);
+      await settle();
+    }
+    assert.deepEqual(sa.view().outcome, { status: 'won', color: 'C' });
+    assert.deepEqual(sb.view().outcome, { status: 'won', color: 'C' });
+    assert.equal(sa.view().hash, sb.view().hash);
+    assert.equal(sa.view().turn, 3);
+    assert.deepEqual(sa.view().uncommitted, []);
+    assert.ok(!(await sb.commit('H')).ok, 'no more turns after a win');
+  });
+
+  it('ignores commitments and reveals that arrive after a win', async () => {
+    const { peer, sa } = mkSolo({ mode: 'bootstrap', w: 5, h: 5, cap: 12, seed: 'tst' });
+    seat(sa, 'C', 'Rook');
+    peerClaim(peer, 'P', 'Vale');
+    for (const [turn, mine] of [[0, 'D'], [1, 'I'], [2, 'H']] as const) {
+      const hash = sa.view().hash;
+      await sa.commit(mine);
+      const theirs = await twoPhase({ turn, color: 'P', action: 'H', hash, name: turn === 0 ? 'Vale' : undefined });
+      peer.send(theirs.commitment);
+      peer.send(theirs.reveal);
+      await settle();
+    }
+    assert.deepEqual(sa.view().outcome, { status: 'won', color: 'C' });
+    const late = await twoPhase({ turn: 3, color: 'P', action: 'H', hash: sa.view().hash });
+    peer.send(late.commitment);
+    peer.send(late.reveal);
+    await settle();
+    assert.equal(sa.view().turn, 3);
+    assert.equal(sa.view().error, null);
+  });
+});
+
 describe('wire discipline', () => {
   it('puts nothing but claims, commitments and reveals on the wire', async () => {
-    const { sa, sb, sentA, sentB } = mkPair({ w: 8, h: 2, cap: 8, seed: 'wire' });
+    const { sa, sb, sentA, sentB } = mkPair({ w: 8, h: 5, cap: 8, seed: 'wire' });
     seat(sa, 'C', 'Rook');
     seat(sb, 'P', 'Vale');
 
     let guard = 0;
-    while (!sa.view().over && guard++ < 100) {
+    while (sa.view().outcome.status === 'running' && guard++ < 100) {
       await commitLegal(sa);
       await commitLegal(sb);
       await settle();
     }
-    assert.ok(sa.view().over, 'the match should have reached the cap');
+    assert.notEqual(sa.view().outcome.status, 'running', 'the match should have reached the cap');
     assert.equal(sa.view().hash, sb.view().hash, 'and the two sides still agree');
 
     const all = sentA.concat(sentB);

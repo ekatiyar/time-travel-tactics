@@ -1,13 +1,13 @@
 import { describe, it } from 'node:test';
 import assert from 'node:assert/strict';
 
-import { ACTIONS, Match, Wire, metaTurn, spawnFor } from '../play/src/engine.js';
-import type { Config, ConfigInput, TurnEvent, View, ViewBody } from '../play/src/engine.js';
+import { ACTIONS, Match, Wire, metaTurn, spawnFor } from '../play/src/engine/index.js';
+import type { Config, ConfigInput, TurnEvent, View, ViewBody } from '../play/src/engine/index.js';
 
 type MatchInstance = ReturnType<typeof Match.fromConfig>;
 
 function cfg(over: Partial<ConfigInput> = {}): ConfigInput {
-  return { w: 16, h: 9, wallPct: 0, seed: 'test', cap: 40, roster: ['C', 'P'], ...over };
+  return { mode: 'sandbox', w: 16, h: 9, wallPct: 0, seed: 'test', cap: 40, roster: ['C', 'P'], ...over };
 }
 
 function match(over: Partial<ConfigInput> = {}): MatchInstance {
@@ -77,12 +77,12 @@ describe('clocks', () => {
     assert.equal(me.t, 2, 'world turn');
     assert.equal(me.p, 2, 'personal index');
     assert.equal(me.dir, 1, 'direction');
-    assert.deepEqual([me.x, me.y], [2, 0]);
+    assert.deepEqual([me.x, me.y], [3, 1]);
     assert.equal(m.currentTurn(), 2);
   });
 
   it('keeps incrementing the personal index while moving backward', () => {
-    const m = match({ w: 8, h: 2 });
+    const m = match({ w: 8, h: 5 });
     play(m, { C: 'D', P: 'A' });
     play(m, { C: 'D', P: 'A' });
     play(m, { C: 'I', P: 'A' });
@@ -92,26 +92,26 @@ describe('clocks', () => {
     assert.equal(me.p, 4, 'personal index');
     assert.equal(me.t, 1, 'world turn');
     assert.equal(me.dir, -1);
-    assert.deepEqual([me.x, me.y], [2, 1]);
+    assert.deepEqual([me.x, me.y], [3, 2]);
   });
 
   it('maps palette order to fixed corners', () => {
     const m = match({ roster: ['C', 'P', 'T', 'A'] });
-    assert.deepEqual(at(m, 'C'), [0, 0], 'coral top-left');
-    assert.deepEqual(at(m, 'P'), [15, 8], 'purple bottom-right');
-    assert.deepEqual(at(m, 'T'), [15, 0], 'teal top-right');
-    assert.deepEqual(at(m, 'A'), [0, 8], 'amber bottom-left');
+    assert.deepEqual(at(m, 'C'), [1, 1], 'coral top-left');
+    assert.deepEqual(at(m, 'P'), [14, 7], 'purple bottom-right');
+    assert.deepEqual(at(m, 'T'), [14, 1], 'teal top-right');
+    assert.deepEqual(at(m, 'A'), [1, 7], 'amber bottom-left');
   });
 
   it('gives every colour its own corner on the smallest legal board', () => {
-    const corners = (['C', 'P', 'T', 'A'] as const).map((c) => spawnFor(c, 2, 2).join(','));
+    const corners = (['C', 'P', 'T', 'A'] as const).map((c) => spawnFor(c, 5, 5).join(','));
     assert.equal(new Set(corners).size, 4);
   });
 });
 
 describe('inversion', () => {
   it('records the direction of the initial and forward bodies when they are placed', () => {
-    const m = match({ w: 8, h: 2 });
+    const m = match({ w: 8, h: 5 });
     play(m, { C: 'D', P: 'A' });
 
     assert.deepEqual(
@@ -123,24 +123,24 @@ describe('inversion', () => {
   });
 
   it('flips direction and spends no world turn', () => {
-    const m = match({ w: 8, h: 2 });
+    const m = match({ w: 8, h: 5 });
     play(m, { C: 'D', P: 'A' });
     play(m, { C: 'D', P: 'A' });
     play(m, { C: 'D', P: 'A' });
 
     const before = view(m, 'C').me;
     assert.equal(before.t, 3);
-    assert.deepEqual([before.x, before.y], [3, 0]);
+    assert.deepEqual([before.x, before.y], [4, 1]);
 
     play(m, { C: 'I', P: 'A' });
 
     const after = view(m, 'C').me;
     assert.equal(after.dir, -1, 'direction flipped');
     assert.equal(after.t, 3, 'world turn unchanged, the flip costs no world time');
-    assert.deepEqual([after.x, after.y], [3, 0], 'position unchanged');
+    assert.deepEqual([after.x, after.y], [4, 1], 'position unchanged');
     assert.equal(after.p, 4, 'personal index still incremented');
 
-    const stack = bodiesAt(m, 'C', 3).filter((b) => b.x === 3 && b.y === 0);
+    const stack = bodiesAt(m, 'C', 3).filter((b) => b.x === 4 && b.y === 1);
     assert.equal(stack.length, 2, 'the turnstile: both instances share one (t,x,y)');
     assert.deepEqual(stack.map((b) => b.p).sort((a, b) => a - b), [3, 4]);
     assert.deepEqual(
@@ -151,7 +151,7 @@ describe('inversion', () => {
   });
 
   it('stacks three bodies when done twice, and is a legal stall', () => {
-    const m = match({ w: 8, h: 2 });
+    const m = match({ w: 8, h: 5 });
     play(m, { C: 'D', P: 'A' });
     play(m, { C: 'I', P: 'A' });
     play(m, { C: 'I', P: 'A' });
@@ -161,8 +161,8 @@ describe('inversion', () => {
     assert.equal(me.p, 3);
     assert.equal(me.dir, 1);
     assert.equal(
-      bodiesAt(m, 'C', 1).filter((b) => b.x === 1 && b.y === 0).length, 3,
-      'p1, p2 and p3 all sit on (1,0) at t1',
+      bodiesAt(m, 'C', 1).filter((b) => b.x === 2 && b.y === 1).length, 3,
+      'p1, p2 and p3 all sit on (2,1) at t1',
     );
     assert.deepEqual(
       bodiesAt(m, 'C', 1).sort((a, b) => a.p - b.p).map((b) => [b.p, b.dir]),
@@ -172,7 +172,7 @@ describe('inversion', () => {
   });
 
   it('can never be blocked', () => {
-    const m = match({ w: 3, h: 2 });
+    const m = match({ w: 5, h: 5 });
     play(m, { C: 'D', P: 'W' });
     play(m, { C: 'D', P: 'A' });
     assert.equal(legalNow(m, 'C').I, null, 'coral');
@@ -180,7 +180,7 @@ describe('inversion', () => {
   });
 
   it('is the only legal action for a backward player at t0', () => {
-    const m = match({ w: 8, h: 2 });
+    const m = match({ w: 8, h: 5 });
     play(m, { C: 'D', P: 'A' });
     play(m, { C: 'I', P: 'A' });
     play(m, { C: 'S', P: 'A' });
@@ -201,19 +201,21 @@ describe('inversion', () => {
 
 describe('movement and blocking', () => {
   it('spends a world turn on a hold but not a step', () => {
-    const m = match({ w: 8, h: 2 });
+    const m = match({ w: 8, h: 5 });
     play(m, { C: 'D', P: 'A' });
     play(m, { C: 'H', P: 'A' });
 
     const me = view(m, 'C').me;
     assert.equal(me.t, 2, 'world turn advanced');
     assert.equal(me.p, 2, 'personal index advanced');
-    assert.deepEqual([me.x, me.y], [1, 0], 'position unchanged');
+    assert.deepEqual([me.x, me.y], [2, 1], 'position unchanged');
     assert.equal(bodiesAt(m, 'C', 2).length, 1, 'a held turn still records a body');
   });
 
   it('blocks a move off the board', () => {
     const m = match();
+    play(m, { C: 'A', P: 'A' });
+    play(m, { C: 'W', P: 'A' });
     const legal = legalNow(m, 'C');
     assert.equal(legal.W, 'off the board');
     assert.equal(legal.A, 'off the board');
@@ -224,14 +226,16 @@ describe('movement and blocking', () => {
   it('blocks a move into a generated wall', () => {
     let found: string | null = null;
     for (let s = 0; s < 80 && found === null; s++) {
-      const legal = legalNow(match({ wallPct: 30, seed: `w${s}` }), 'C');
+      const m = match({ wallPct: 30, seed: `w${s}` });
+      play(m, { C: 'D', P: 'A' });
+      const legal = legalNow(m, 'C');
       found = legal.D === 'wall' || legal.S === 'wall' ? `w${s}` : null;
     }
-    assert.ok(found, 'no seed in 0..79 put a wall next to the coral spawn at 30% density');
+    assert.ok(found, 'no seed in 0..79 put a wall next to coral one step off spawn at 30% density');
   });
 
   it('blocks a backward move onto your own earlier instance', () => {
-    const m = match({ w: 8, h: 2 });
+    const m = match({ w: 8, h: 5 });
     play(m, { C: 'D', P: 'A' });
     play(m, { C: 'D', P: 'A' });
     play(m, { C: 'D', P: 'A' });
@@ -240,42 +244,38 @@ describe('movement and blocking', () => {
     assert.equal(legal.A, 'occupied', 'the tile you came from holds your own instance');
     assert.equal(legal.S, null, 'down is free');
     assert.equal(legal.D, null, 'right is free');
-    assert.equal(legal.H, null, 'nobody recorded (3,0) at t2');
+    assert.equal(legal.H, null, 'nobody recorded (4,1) at t2');
   });
 
   it("blocks a backward move onto another colour's recorded body", () => {
-    const m = match({ w: 4, h: 2 });
-    play(m, { C: 'D', P: 'W' });
-    play(m, { C: 'S', P: 'A' });
-    play(m, { C: 'D', P: 'A' });
-    play(m, { C: 'W', P: 'S' });
-    play(m, { C: 'I', P: 'D' });
+    const m = match({ w: 5, h: 5, roster: ['C', 'P', 'T'] });
+    play(m, { C: 'D', P: 'A', T: 'A' });
+    play(m, { C: 'I', P: 'A', T: 'A' });
     const legal = legalNow(m, 'C');
-    assert.equal(legal.A, 'occupied', "left is where purple's p3 already is");
-    assert.equal(legal.S, 'occupied', "down is coral's own p3");
-    assert.equal(legal.D, null, 'right is free');
+    assert.equal(legal.D, 'occupied', "right is where teal's spawn already sits");
+    assert.equal(legal.A, 'occupied', "left is coral's own spawn");
+    assert.equal(legal.S, null, 'down is free');
   });
 
   it('refuses a hold when that tile is already written to another colour', () => {
-    const m = match({ w: 4, h: 2 });
-    play(m, { C: 'D', P: 'A' });
-    play(m, { C: 'S', P: 'W' });
-    play(m, { C: 'D', P: 'H' });
-    play(m, { C: 'W', P: 'D' });
-    play(m, { C: 'I', P: 'S' });
+    const m = match({ w: 6, h: 5 });
+    play(m, { C: 'D', P: 'W' });
+    play(m, { C: 'D', P: 'W' });
+    play(m, { C: 'D', P: 'S' });
+    play(m, { C: 'I', P: 'H' });
     const legal = legalNow(m, 'C');
     assert.equal(legal.H, 'occupied', 'holding would walk back onto purple');
     assert.equal(legal.I, null, 'inverting is still available, as it always is');
-    assert.equal(legal.A, null, 'left is free');
+    assert.equal(legal.S, null, 'down is free');
   });
 
   it('has no pass action: X is gone from the alphabet', () => {
-    const m = match({ w: 8, h: 2, seed: 'nox' });
+    const m = match({ w: 8, h: 5, seed: 'nox' });
     const alphabet: readonly string[] = ACTIONS;
     assert.ok(!alphabet.includes('X'), 'X is still in the alphabet');
     assert.equal(legalNow(m, 'C').X, undefined, 'X is still offered');
     assert.ok(!Wire.decodeAction('0C:X#a3f2').ok, 'X still decodes');
-    assert.ok(!Match.fromExport('X1:M1:8x2:0:nox:9:CP|CXPA').ok, 'X still imports');
+    assert.ok(!Match.fromExport('X1:M1:sandbox:8x5:0:nox:9:CP|CXPA').ok, 'X still imports');
 
     const r = m.submit({ turn: 0, color: 'C', action: 'X', hash: m.stateHash() });
     assert.equal(r.ok, false);
@@ -309,20 +309,20 @@ describe('priority and contests', () => {
   });
 
   it('gives a contested tile to the priority winner and leaves the loser put', () => {
-    const m = match({ w: 4, h: 2, seed: 'collide' });
+    const m = match({ w: 5, h: 5, seed: 'collide' });
     play(m, { C: 'D', P: 'W' });
 
     const prio = view(m, 'C').priority;
     assert.equal(prio.length, 2);
     const [win, lose] = prio;
     assert.ok(win && lose);
-    const stay: Record<string, number[]> = { C: [1, 0], P: [3, 0] };
+    const stay: Record<string, number[]> = { C: [2, 1], P: [3, 2] };
 
-    play(m, { C: 'D', P: 'A' });
+    play(m, { C: 'D', P: 'W' });
 
     const w = view(m, win).me;
     const l = view(m, lose).me;
-    assert.deepEqual([w.x, w.y], [2, 0], 'winner took the tile');
+    assert.deepEqual([w.x, w.y], [3, 1], 'winner took the tile');
     assert.deepEqual([l.x, l.y], stay[lose], 'loser did not move');
     assert.equal(w.t, 2, 'winner playhead advanced');
     assert.equal(l.t, 2, 'loser playhead advanced too');
@@ -337,23 +337,25 @@ describe('priority and contests', () => {
   it('lets a holder keep its square against a higher-priority mover', () => {
     let m: MatchInstance | null = null;
     for (let s = 0; s < 200 && !m; s++) {
-      const c = match({ w: 3, h: 2, seed: `hold${s}` });
-      play(c, { C: 'D', P: 'W' });
+      const c = match({ w: 5, h: 5, seed: `hold${s}` });
+      play(c, { C: 'H', P: 'W' });
+      play(c, { C: 'H', P: 'W' });
+      play(c, { C: 'H', P: 'A' });
       if (view(c, 'C').priority[0] === 'P') m = c;
     }
-    assert.ok(m, 'no seed in 0..199 gave purple priority on turn 1');
+    assert.ok(m, 'no seed in 0..199 gave purple priority on the contest turn');
 
     play(m, { C: 'H', P: 'A' });
 
     const c = view(m, 'C').me;
-    assert.deepEqual([c.x, c.y], [1, 0], 'coral kept its square');
-    assert.equal(c.t, 2, 'and still spent the world turn');
-    assert.equal(c.p, 2);
+    assert.deepEqual([c.x, c.y], [1, 1], 'coral kept its square');
+    assert.equal(c.t, 4, 'and still spent the world turn');
+    assert.equal(c.p, 4);
 
     const p = view(m, 'P').me;
-    assert.deepEqual([p.x, p.y], [2, 0], 'purple bounced');
-    assert.equal(p.t, 2, 'a bounced mover still travels in time');
-    assert.equal(p.p, 2);
+    assert.deepEqual([p.x, p.y], [2, 1], 'purple bounced');
+    assert.equal(p.t, 4, 'a bounced mover still travels in time');
+    assert.equal(p.p, 4);
 
     const blocked = view(m, 'P').events.filter((e) => e.color === 'P' && e.kind === 'blocked');
     assert.equal(blocked.length, 1, 'purple gets one blocked event');
@@ -369,9 +371,9 @@ describe('priority and contests', () => {
 
     for (let s = 0; s < 600; s++) {
       const seed = `hold${s}`;
-      const m = match({ w: 5, h: 4, wallPct: 10, seed, cap: 14, roster });
+      const m = match({ w: 5, h: 5, wallPct: 10, seed, cap: 14, roster });
       let step = 0;
-      while (!view(m, 'C').over) {
+      while (view(m, 'C').outcome.status === 'running') {
         const turn = m.currentTurn();
         const hash = m.stateHash();
         const prio = view(m, 'C').priority.slice();
@@ -410,19 +412,20 @@ describe('priority and contests', () => {
   });
 
   it('bounces the next player in turn when a mover is bounced', () => {
-    const m = match({ w: 3, h: 2, roster: ['C', 'P', 'T'] });
-    play(m, { C: 'H', P: 'W', T: 'A' });
+    const m = match({ w: 5, h: 5, roster: ['C', 'P', 'T'] });
+    play(m, { C: 'H', T: 'A', P: 'W' });
+    play(m, { C: 'H', T: 'H', P: 'W' });
 
-    const lineUp: Array<[string, number[]]> = [['C', [0, 0]], ['T', [1, 0]], ['P', [2, 0]]];
+    const lineUp: Array<[string, number[]]> = [['C', [1, 1]], ['T', [2, 1]], ['P', [3, 1]]];
     for (const [color, xy] of lineUp) {
       const me = view(m, color).me;
-      assert.deepEqual([me.x, me.y, me.t], [...xy, 1], `${color} lines up at t1`);
+      assert.deepEqual([me.x, me.y, me.t], [...xy, 2], `${color} lines up at t2`);
     }
 
     play(m, { P: 'H', T: 'D', C: 'D' });
 
     const byColor: Record<string, TurnEvent> = {};
-    for (const e of eventsOn(m, 'C', 1)) byColor[e.color] = e;
+    for (const e of eventsOn(m, 'C', 2)) byColor[e.color] = e;
     assert.equal(byColor.P?.kind, 'held', 'purple stood its ground');
     assert.equal(byColor.T?.kind, 'blocked', 'teal lost the contest');
     assert.equal(byColor.T?.by, 'P', 'to purple');
@@ -431,15 +434,15 @@ describe('priority and contests', () => {
 
     for (const [color, xy] of lineUp) {
       const me = view(m, color).me;
-      assert.deepEqual([me.x, me.y, me.t], [...xy, 2], `${color} spent the world turn without the step`);
-      assert.equal(me.p, 2, `${color} personal index still advanced`);
+      assert.deepEqual([me.x, me.y, me.t], [...xy, 3], `${color} spent the world turn without the step`);
+      assert.equal(me.p, 3, `${color} personal index still advanced`);
     }
   });
 });
 
 describe('the horizon and view()', () => {
   function runPastHorizon(): MatchInstance {
-    const m = match({ w: 8, h: 2 });
+    const m = match({ w: 8, h: 5 });
     play(m, { C: 'D', P: 'A' });
     play(m, { C: 'D', P: 'A' });
     play(m, { C: 'D', P: 'A' });
@@ -476,7 +479,7 @@ describe('the horizon and view()', () => {
   });
 
   it('offers every action with a verdict', () => {
-    const v = view(match({ w: 8, h: 2 }), 'C');
+    const v = view(match({ w: 8, h: 5 }), 'C');
     assert.deepEqual(v.actions.map((a) => a.action), ACTIONS);
     assert.ok(v.actions.some((a) => a.reason === null), 'at least one action is legal');
   });
@@ -491,7 +494,7 @@ describe('the horizon and view()', () => {
     for (let s = 0; s < 60; s++) {
       const roster = ['C', 'P', 'T', 'A'];
       const m = match({ w: 6, h: 5, wallPct: 14, seed: `reason${s}`, cap: 14, roster });
-      while (!view(m, 'C').over) {
+      while (view(m, 'C').outcome.status === 'running') {
         const turn = m.currentTurn();
         const hash = m.stateHash();
         for (const color of roster) {
@@ -513,7 +516,7 @@ describe('the horizon and view()', () => {
   });
 
   it('never names a body past your horizon in a blocked direction', () => {
-    const m = match({ w: 4, h: 2, seed: 'leak' });
+    const m = match({ w: 5, h: 5, seed: 'leak' });
     play(m, { C: 'D', P: 'A' });
     play(m, { C: 'D', P: 'I' });
 
@@ -530,24 +533,27 @@ describe('the horizon and view()', () => {
   });
 
   it('offers a blind move, then bounces it off the hidden recorded body', () => {
-    const m = match({ w: 2, h: 2, seed: 'blind' });
-    play(m, { C: 'I', P: 'A' });
-    play(m, { C: 'I', P: 'D' });
+    // Amber shares coral's column, so one step up lands exactly where a
+    // forward-facing blind move from spawn would land, while coral's own
+    // horizon (never past t0) keeps that arrival hidden from its view.
+    const m = match({ w: 5, h: 5, roster: ['C', 'A'], seed: 'blind' });
+    play(m, { C: 'I', A: 'W' });
+    play(m, { C: 'I', A: 'H' });
 
     const before = view(m, 'C');
     assert.equal(before.me.horizon, 0);
-    assert.ok(!before.bodies.some((b) => b.color === 'P' && b.t === 1));
+    assert.ok(!before.bodies.some((b) => b.color === 'A' && b.t === 1));
     assert.equal(before.actions.find((a) => a.action === 'S')?.reason, null,
       'the hidden body must not disable the move');
 
     const turn = m.currentTurn(), hash = m.stateHash();
     assert.ok(m.submit({ turn, color: 'C', action: 'S', hash }).ok);
-    assert.ok(m.submit({ turn, color: 'P', action: 'H', hash }).ok);
+    assert.ok(m.submit({ turn, color: 'A', action: 'H', hash }).ok);
 
     const after = view(m, 'C');
-    assert.deepEqual([after.me.t, after.me.p, after.me.x, after.me.y], [1, 3, 0, 0]);
+    assert.deepEqual([after.me.t, after.me.p, after.me.x, after.me.y], [1, 3, 1, 1]);
     const event = eventsOn(m, 'C', turn).find((e) => e.color === 'C');
-    assert.deepEqual([event?.kind, event?.by], ['blocked', 'P']);
+    assert.deepEqual([event?.kind, event?.by], ['blocked', 'A']);
 
     const imported = Match.fromExport(m.export());
     assert.ok(imported.ok);
@@ -555,15 +561,19 @@ describe('the horizon and view()', () => {
   });
 
   it('sticks a blind mover when its fallback is also recorded', () => {
-    const m = match({ w: 2, h: 2, seed: 'blind-stuck', roster: ['C', 'P', 'T'] });
-    play(m, { C: 'I', P: 'A', T: 'A' });
-    play(m, { C: 'I', P: 'D', T: 'D' });
+    // Coral steps out once (so its blind target lands two turns out, giving
+    // amber and teal room to reach both the move's target and coral's own
+    // tile), then inverts twice back to a forward-facing blind move.
+    const m = match({ w: 6, h: 5, roster: ['C', 'A', 'T'], seed: 'blind-stuck' });
+    play(m, { C: 'D', A: 'D', T: 'A' });
+    play(m, { C: 'I', A: 'W', T: 'A' });
+    play(m, { C: 'I', A: 'H', T: 'H' });
 
     const before = view(m, 'C').me;
     const turn = m.currentTurn(), hash = m.stateHash();
     assert.equal(view(m, 'C').actions.find((a) => a.action === 'S')?.reason, null);
     assert.ok(m.submit({ turn, color: 'C', action: 'S', hash }).ok);
-    assert.ok(m.submit({ turn, color: 'P', action: 'H', hash }).ok);
+    assert.ok(m.submit({ turn, color: 'A', action: 'H', hash }).ok);
     assert.ok(m.submit({ turn, color: 'T', action: 'H', hash }).ok);
 
     const after = view(m, 'C').me;
@@ -577,7 +587,7 @@ describe('the horizon and view()', () => {
   });
 
   it('never hands out the same event object twice', () => {
-    const m = match({ w: 8, h: 2, seed: 'iso' });
+    const m = match({ w: 8, h: 5, seed: 'iso' });
     play(m, { C: 'D', P: 'A' });
 
     const first = view(m, 'C').events;
@@ -588,7 +598,7 @@ describe('the horizon and view()', () => {
   });
 
   it('rejects a colour that is not in the match', () => {
-    const m = match({ w: 8, h: 2 });
+    const m = match({ w: 8, h: 5 });
     assert.throws(() => m.view('Z'), { message: 'unknown colour Z' });
     assert.throws(() => m.view('T'), { message: 'unknown colour T' }, 'a palette colour outside the roster');
     assert.throws(() => m.legalActions('Z'), { message: 'unknown colour Z' });
@@ -642,7 +652,7 @@ describe('wall generation', () => {
 describe('config validation', () => {
   it('accepts both edges of every range', () => {
     for (const over of [
-      { w: 2, h: 2 }, { w: 64, h: 64 },
+      { w: 5, h: 5 }, { w: 64, h: 64 },
       { cap: 2 }, { cap: 400 },
       { wallPct: 0 }, { wallPct: 45 },
       { seed: 'a' }, { seed: 'x'.repeat(24) }, { seed: 'A-z_0' },
@@ -654,10 +664,10 @@ describe('config validation', () => {
 
   it('rejects one step past every edge', () => {
     const bad: Array<[Partial<Config>, string]> = [
-      [{ w: 1 }, 'board must be between 2x2 and 64x64'],
-      [{ w: 65 }, 'board must be between 2x2 and 64x64'],
-      [{ h: 1 }, 'board must be between 2x2 and 64x64'],
-      [{ h: 65 }, 'board must be between 2x2 and 64x64'],
+      [{ w: 4 }, 'board must be between 5x5 and 64x64'],
+      [{ w: 65 }, 'board must be between 5x5 and 64x64'],
+      [{ h: 4 }, 'board must be between 5x5 and 64x64'],
+      [{ h: 65 }, 'board must be between 5x5 and 64x64'],
       [{ wallPct: -1 }, 'wall density must be 0-45'],
       [{ wallPct: 46 }, 'wall density must be 0-45'],
       [{ cap: 1 }, 'turn cap must be 2-400'],
@@ -702,16 +712,22 @@ describe('the Wire codec', () => {
   });
 
   it('round-trips a match code', () => {
-    const c: Config = { w: 16, h: 9, wallPct: 11, seed: '19f4', cap: 43, roster: ['C', 'P', 'T', 'A'] };
+    const c: Config = { mode: 'sandbox', w: 16, h: 9, wallPct: 11, seed: '19f4', cap: 43, roster: ['C', 'P', 'T', 'A'] };
     const r = Wire.decodeMatchCode(Wire.encodeMatchCode(c));
     assert.ok(r.value, r.error);
     assert.deepEqual(r.value, c);
   });
 
   it('rejects a match code that repeats a colour', () => {
-    const r = Wire.decodeMatchCode('M1:16x9:11:19f4:43:CPC');
+    const r = Wire.decodeMatchCode('M1:sandbox:16x9:11:19f4:43:CPC');
     assert.equal(r.ok, false);
     assert.equal(r.error, 'match code repeats a colour');
+  });
+
+  it('rejects a match code naming an unknown mode', () => {
+    const r = Wire.decodeMatchCode('M1:chess:7x7:0:t:9:CP');
+    assert.ok(!r.ok && r.error === 'match code names an unknown mode chess');
+    assert.throws(() => Match.fromConfig({ ...cfg(), mode: 'chess' }), /unknown mode chess/);
   });
 
   it('carries a name on a turn-0 action string and nowhere else', () => {
@@ -750,7 +766,7 @@ describe('the Wire codec', () => {
   });
 
   it('decodes an export that has no name section', () => {
-    const r = Wire.decodeExport('X1:M1:8x2:0:exp:9:CP|CDPA');
+    const r = Wire.decodeExport('X1:M1:sandbox:8x2:0:exp:9:CP|CDPA');
     assert.ok(r.value, r.error);
     assert.deepEqual(r.value.names, {});
     assert.deepEqual(r.value.log, [
@@ -760,17 +776,17 @@ describe('the Wire codec', () => {
   });
 
   it('rejects a spaced name in an export', () => {
-    const r = Wire.decodeExport('X1:M1:8x2:0:exp:9:CP|CDPA|C~Bo Vale');
+    const r = Wire.decodeExport('X1:M1:sandbox:8x2:0:exp:9:CP|CDPA|C~Bo Vale');
     assert.equal(r.ok, false);
     assert.equal(r.error, 'bad name entry "C~Bo Vale" in export');
   });
 
   it('rejects a malformed action group', () => {
-    const odd = Wire.decodeExport('X1:M1:8x2:0:exp:9:CP|CDP');
+    const odd = Wire.decodeExport('X1:M1:sandbox:8x2:0:exp:9:CP|CDP');
     assert.equal(odd.ok, false);
     assert.equal(odd.error, 'malformed action group at turn 0');
 
-    const unknown = Wire.decodeExport('X1:M1:8x2:0:exp:9:CP|CDZA');
+    const unknown = Wire.decodeExport('X1:M1:sandbox:8x2:0:exp:9:CP|CDZA');
     assert.equal(unknown.ok, false);
     assert.equal(unknown.error, 'bad action "ZA" at turn 0');
   });
@@ -786,7 +802,11 @@ describe('the Wire codec', () => {
 
 describe('submit', () => {
   it('rejects a stale hash, a wrong turn, a repeat, and an illegal action', () => {
-    const m = match({ w: 8, h: 2, seed: 'guard' });
+    const m = match({ w: 8, h: 5, seed: 'guard' });
+    // Walk coral into its true corner first: spawn is inset, so every
+    // direction is legal from spawn on a valid board.
+    play(m, { C: 'A', P: 'A' });
+    play(m, { C: 'W', P: 'A' });
     const turn = m.currentTurn();
     const hash = m.stateHash();
 
@@ -796,7 +816,7 @@ describe('submit', () => {
 
     const wrongTurn = m.submit({ turn: turn + 3, color: 'C', action: 'D', hash });
     assert.equal(wrongTurn.ok, false);
-    assert.equal(wrongTurn.error, 'action is for turn 3; match is on turn 0');
+    assert.equal(wrongTurn.error, `action is for turn ${turn + 3}; match is on turn ${turn}`);
 
     const offBoard = m.submit({ turn, color: 'C', action: 'W', hash });
     assert.equal(offBoard.ok, false);
@@ -817,10 +837,10 @@ describe('submit', () => {
   });
 
   it('stops at the turn cap', () => {
-    const m = match({ w: 8, h: 2, cap: 3, seed: 'cap' });
+    const m = match({ w: 8, h: 5, cap: 3, seed: 'cap' });
     for (let i = 0; i < 3; i++) play(m, { C: i % 2 ? 'A' : 'D', P: i % 2 ? 'D' : 'A' });
 
-    assert.ok(view(m, 'C').over, 'the match reports over');
+    assert.equal(view(m, 'C').outcome.status, 'draw', 'the match reports over');
     const r = m.submit({ turn: 3, color: 'C', action: 'D', hash: m.stateHash() });
     assert.equal(r.ok, false);
     assert.equal(r.error, 'the match is over');
@@ -835,7 +855,7 @@ describe('submit', () => {
 
 describe('withdraw', () => {
   it('returns you to pending and lets you act differently', () => {
-    const m = match({ w: 8, h: 2, seed: 'wd1' });
+    const m = match({ w: 8, h: 5, seed: 'wd1' });
     const turn = m.currentTurn();
     const hash = m.stateHash();
 
@@ -848,36 +868,36 @@ describe('withdraw', () => {
     assert.equal(m.stateHash(), hash, 'nor the state everyone agreed on');
 
     play(m, { C: 'S', P: 'A' });
-    assert.deepEqual(at(m, 'C'), [0, 1], 'coral went down, not right');
+    assert.deepEqual(at(m, 'C'), [1, 2], 'coral went down, not right');
   });
 
   it('refuses when you have not acted this turn', () => {
-    const m = match({ w: 8, h: 2, seed: 'wd2' });
+    const m = match({ w: 8, h: 5, seed: 'wd2' });
     assert.deepEqual(m.withdraw('C'), { ok: false, error: 'you have not acted this turn' });
   });
 
   it('refuses once the turn has resolved', () => {
-    const m = match({ w: 8, h: 2, seed: 'wd3' });
+    const m = match({ w: 8, h: 5, seed: 'wd3' });
     play(m, { C: 'D', P: 'A' });
     assert.deepEqual(m.withdraw('C'), { ok: false, error: 'you have not acted this turn' });
     assert.equal(m.currentTurn(), 1, 'and the turn stands');
   });
 
   it('refuses a second time', () => {
-    const m = match({ w: 8, h: 2, seed: 'wd4' });
+    const m = match({ w: 8, h: 5, seed: 'wd4' });
     assert.ok(m.submit({ turn: 0, color: 'C', action: 'D', hash: m.stateHash() }).ok);
     assert.deepEqual(m.withdraw('C'), { ok: true });
     assert.deepEqual(m.withdraw('C'), { ok: false, error: 'you have not acted this turn' });
   });
 
   it('refuses a colour that is not in the match', () => {
-    const m = match({ w: 8, h: 2, seed: 'wd5' });
+    const m = match({ w: 8, h: 5, seed: 'wd5' });
     assert.deepEqual(m.withdraw('Z'), { ok: false, error: 'colour Z is not in this match' });
     assert.deepEqual(m.withdraw('T'), { ok: false, error: 'colour T is not in this match' });
   });
 
   it('refuses once the match is over', () => {
-    const m = match({ w: 8, h: 2, cap: 2, seed: 'wd7' });
+    const m = match({ w: 8, h: 5, cap: 2, seed: 'wd7' });
     play(m, { C: 'D', P: 'A' });
     play(m, { C: 'D', P: 'A' });
     assert.deepEqual(m.withdraw('C'), { ok: false, error: 'the match is over' });
@@ -886,7 +906,7 @@ describe('withdraw', () => {
 
 describe('export and import', () => {
   it('keeps recorded directions and their stable hash through replay and export/import', () => {
-    const config = cfg({ w: 8, h: 2, seed: 'dirhash' });
+    const config = cfg({ w: 8, h: 5, seed: 'dirhash' });
     const actions = [
       { C: 'D', P: 'H' },
       { C: 'I', P: 'H' },
@@ -897,7 +917,7 @@ describe('export and import', () => {
 
     assert.equal(
       m.stateHash(),
-      '4ad6',
+      'e9a5',
       'the stable hash includes the direction recorded on every body',
     );
     assert.deepEqual(
@@ -921,7 +941,7 @@ describe('export and import', () => {
   });
 
   it('round-trips a played match', () => {
-    const m = match({ w: 8, h: 2, seed: 'exp' });
+    const m = match({ w: 8, h: 5, seed: 'exp' });
     play(m, { C: 'D', P: 'A' });
     play(m, { C: 'D', P: 'A' });
     play(m, { C: 'I', P: 'A' });
@@ -935,7 +955,7 @@ describe('export and import', () => {
   });
 
   it('carries the names it is handed, and hands them back beside the match', () => {
-    const m = match({ w: 8, h: 2, seed: 'exp2' });
+    const m = match({ w: 8, h: 5, seed: 'exp2' });
     play(m, { C: 'D', P: 'A' });
 
     const r = Match.fromExport(m.export({ C: 'Rook', P: 'Vale' }));
@@ -945,14 +965,14 @@ describe('export and import', () => {
   });
 
   it('drops a name for a colour outside the roster', () => {
-    const m = match({ w: 8, h: 2, seed: 'exp3', roster: ['C', 'P'] });
+    const m = match({ w: 8, h: 5, seed: 'exp3', roster: ['C', 'P'] });
     const r = Match.fromExport(m.export({ C: 'Rook', T: 'Nim' }));
     assert.ok(r.value, errorText(r));
     assert.deepEqual(r.value.names, { C: 'Rook' }, 'teal is not in this match');
   });
 
   it('writes a two-section export when it is handed no names', () => {
-    const m = match({ w: 8, h: 2, seed: 'exp4' });
+    const m = match({ w: 8, h: 5, seed: 'exp4' });
     play(m, { C: 'D', P: 'A' });
     assert.ok(m.export().endsWith('|'), 'the name section is empty');
     const r = Match.fromExport(m.export());
@@ -961,7 +981,7 @@ describe('export and import', () => {
   });
 
   it('loses an action that was withdrawn', () => {
-    const m = match({ w: 8, h: 2, seed: 'wd6' });
+    const m = match({ w: 8, h: 5, seed: 'wd6' });
     assert.ok(m.submit({ turn: 0, color: 'C', action: 'D', hash: m.stateHash() }).ok);
     const before = m.export();
     assert.deepEqual(m.withdraw('C'), { ok: true });
@@ -974,7 +994,7 @@ describe('export and import', () => {
   });
 
   it('refuses an export whose config is out of range', () => {
-    const r = Match.fromExport('X1:M1:1x9:0:exp:9:CP|');
+    const r = Match.fromExport('X1:M1:sandbox:1x9:0:exp:9:CP|');
     assert.equal(r.ok, false);
     assert.ok(errorText(r).length, 'a rejection carries error text');
   });
@@ -991,8 +1011,8 @@ describe('soak', () => {
       const rnd = mulberry32(s * 2654435761);
       const roster = ['C', 'P', 'T', 'A'].slice(0, 2 + Math.floor(rnd() * 3));
       const c = cfg({
-        w: 4 + Math.floor(rnd() * 10),
-        h: 3 + Math.floor(rnd() * 6),
+        w: 5 + Math.floor(rnd() * 10),
+        h: 5 + Math.floor(rnd() * 6),
         wallPct: Math.floor(rnd() * 25),
         seed: `soak${s}`,
         cap: 14,
@@ -1003,7 +1023,7 @@ describe('soak', () => {
       const lead = roster[0];
       assert.ok(lead);
 
-      while (!view(m, lead).over) {
+      while (view(m, lead).outcome.status === 'running') {
         const turn = m.currentTurn();
         const hash = m.stateHash();
 

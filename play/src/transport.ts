@@ -1,5 +1,5 @@
-import { Wire, COLORS, fnv1a, isAction, isColor, metaTurn, validName } from './engine.js';
-import type { Action, Color, Config, DecodedAction, MetaTurn, Match, View } from './engine.js';
+import { Wire, COLORS, fnv1a, isAction, isColor, metaTurn, validName } from './engine/index.js';
+import type { Action, Color, DecodedAction, MetaTurn, Match, View } from './engine/index.js';
 
 function hex8(n: number): string { return (n >>> 0).toString(16).padStart(8, '0'); }
 function rid(): string {
@@ -375,7 +375,7 @@ class Session {
     const turn = metaTurn(+turnText);
     if (color === this._me) return;
     if (this._match.config().roster.indexOf(color) < 0) return;
-    if (turn < this._match.currentTurn() || turn >= this._match.config().cap) return;
+    if (turn < this._match.currentTurn() || turn >= this._match.config().cap || this._over()) return;
     this._addCommitment(turn, color, digest);
     this._maybeReveal();
     this._reopen(turn, color).then(() => { this._changed(); });
@@ -390,7 +390,7 @@ class Session {
     if (!d.ok) return;
     if (d.value.color === this._me) return;
     if (this._match.config().roster.indexOf(d.value.color) < 0) return;
-    if (d.value.turn < this._match.currentTurn() || d.value.turn >= this._match.config().cap) return;
+    if (d.value.turn < this._match.currentTurn() || d.value.turn >= this._match.config().cap || this._over()) return;
     const rec: Held = { action: action, nonce: nonce, v: d.value };
     this._open(rec).then((opened) => {
       if (!opened) this._hold(rec);
@@ -429,13 +429,15 @@ class Session {
     if (this._mine && this._mine.turn < turn) this._mine = null;
   }
 
+  private _over(): boolean { return this._match.outcome().status !== 'running'; }
+
   private _committed(): boolean {
     return !!this._me && this._match.pendingColors().indexOf(this._me) < 0;
   }
 
   private _flush(): void {
     const keep: string[] = [];
-    if (this._match.currentTurn() >= this._match.config().cap) { this._buffer = []; this._prune(); return; }
+    if (this._over()) { this._buffer = []; this._prune(); return; }
     for (const text of this._buffer) {
       const d = Wire.decodeAction(text), turn = this._match.currentTurn();
       if (!d.ok) continue;
@@ -530,7 +532,7 @@ class Session {
       detail: this._status.detail,
       peersNeeded: peersNeeded,
       status: status,
-      uncommitted: v.over ? [] : roster.filter((c) => !this._hasCommitment(v.turn, c)),
+      uncommitted: v.outcome.status !== 'running' ? [] : roster.filter((c) => !this._hasCommitment(v.turn, c)),
       canChange: !!(this._mine && !this._mine.revealed && this._mine.turn === v.turn),
       error: this._error,
       notice: this._notice
