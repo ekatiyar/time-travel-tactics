@@ -8,7 +8,7 @@ The game is turn-based tactics where every action leaves a body in history. Bodi
 
 Players choose a weapon and a time mechanic. Inversion is the first time mechanic. Time charges and Loop are future options.
 
-The first complete game should support a networked two-player match, a gun, erasure and restoration fronts, clear front visualisation, and solo puzzles. Mines, grenades, three or more players, matchmaking, and other time mechanics come later.
+Bootstrap is the first mode with a winner, see [Bootstrap](#bootstrap). The first complete game should support a networked two-player match, a gun, erasure and restoration fronts, clear front visualisation, and solo puzzles. Mines, grenades, three or more players, matchmaking, and other time mechanics come later.
 
 ## Clocks and playheads
 
@@ -53,6 +53,43 @@ Players choose actions simultaneously. A public, seed-derived priority order res
 - A bounced mover becomes a holder. Resolve again until no mover contests a holder.
 - If holders converge on a tile, priority decides.
 - A player whose fallback tile is already recorded to another player is stuck. Their playhead and personal index do not advance.
+
+## Bootstrap
+
+Bootstrap is the first mode with a winner. It has no weapons. Sandbox keeps only the movement rules and ends at the meta-turn cap with no winner.
+
+### Board
+
+Spawns sit one tile in from each corner: Coral at (1, 1), Purple at (w-2, h-2), Teal at (w-2, 1), Amber at (1, h-2). The smallest board is 5x5. The center is (floor(w/2), floor(h/2)). Wall generation keeps spawns, their four neighbours, and the center clear. These rules apply in both modes.
+
+### The key
+
+One key starts at the center at `t0`. The key has its own timeline. Index `i` reads either "at the center at world turn `i`" or a holder body with a key side. A grab at index `i` by body `(c, p)` makes index `i + d` read body `(c, p + d)` with the same side, for as long as the grab's front covers it. A body holds a key when some index reads it.
+
+The key side is the direction the key came from: toward the center after a pickup, toward the victim after a steal. It never rotates, and inversion does not change it.
+
+### Grab
+
+After movement resolves, each body created this meta-turn is checked in priority order. It grabs when it stands on a grab tile at its world turn, does not already hold a key, and no grab has been recorded at that key index this turn. Every action counts, including hold and invert. A stuck player creates no body and cannot grab.
+
+The grab tiles at world turn `t` are:
+
+- The four tiles orthogonally beside the center, while the key's index `t` reads the center.
+- The single tile beyond the holder's key side, while a body of another colour holds the key at `t`. The victim can be live or recorded.
+
+Two colours grabbing the unheld key at the same world turn resolve by priority order. The loser's grab is not recorded. Grabs at different world turns both record. When several opponent bodies beside the thief face it with their key side, the thief takes from the highest personal index. A player cannot steal from their own bodies.
+
+### Fronts
+
+A grab at key index `i` starts a front at `i`. After this turn's grabs, every counting front advances two indices, in creation order. The front rewrites what later bodies carry: indices it has covered read the new holder. When a front passes the origin of a later grab, that grab breaks. Its bodies lose the key from that index on, and its own front freezes. Broken grabs never recover in bootstrap, so there is no restoration and no cycle.
+
+Because the key and its holder advance together, a front at key index `i` sits on the holder's body at `p + (i - origin)`. A live body loses its key on the meta-turn the front reaches its present. Until then the key is real: it can be stolen and it can win. A grab overtaken later still records, then breaks when the older front passes it, even on the same meta-turn.
+
+Example: A grabs at `t5` on meta-turn 5. On meta-turn 20 an inverted B grabs at `t3`. B's front covers indices 4 and 5 that turn, so A's grab breaks and A's later bodies lose the key two per meta-turn as the front reaches them. If C also grabs at `t9` on meta-turn 20, B's front reaches 9 on meta-turn 22 and C's live body loses the key on meta-turn 24.
+
+### Win
+
+After fronts advance, a player wins when their live body is at `t0` on a tile orthogonally next to their own spawn tile while holding a key. Any action qualifies and the direction does not matter. The match ends at once, even if a front is still travelling. Priority order breaks ties within one meta-turn. Reaching the cap with no winner is a draw.
 
 ## Death and fronts
 

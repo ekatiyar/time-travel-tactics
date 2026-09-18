@@ -6,7 +6,7 @@ Run `npm run dev` and open the printed address, or use the [published game](http
 
 ## Start a match
 
-Create a match, then use **Copy join link** in the lobby to share it. Opening the link goes straight to that match's lobby.
+Create a match, then use **Copy join link** in the lobby to share it. **Bootstrap** places one key at the center and has a winner. **Sandbox** has no winner and ends at the turn cap. Boards are at least 5x5. Opening the link goes straight to that match's lobby.
 
 Choose a colour and enter a name in the shared Name field. Your draft follows you between free colours. Selecting a saved or occupied colour shows its fixed name. If two players claim one colour, the loser returns to the lobby and sees the winner's name. Disconnected seats become free again.
 
@@ -28,8 +28,18 @@ The world-turn and look-back controls change what history you see. They do not c
 
 A move into unexplored time may collide with a body you could not see when choosing it. The recorded body wins as a holder, and your move falls back normally.
 
+## Bootstrap
+
+The key sits on the center tile at `t0`. End an action on any tile beside the center to pick it up. The key attaches to the side you came from and shows as a small square on that side of your body. A key drawn on the center tile means nobody holds it at the focused world turn.
+
+To steal, end an action on the tile beyond an opponent's key side at the same world turn. Recorded bodies can be robbed too. The log reports every pickup, steal, and loss.
+
+Each grab starts a front that walks the key's earlier holders, two indices per turn. A triangle in the grabber's colour marks a front on the board and in its own strip row. Hover it for the turns until it reaches you. When it reaches your present you lose the key, and any grab it passes is undone.
+
+Win by ending an action at `t0` on a tile next to your own spawn while holding the key. Your spawn tile has a dashed outline in your colour. A match with no winner at the cap is a draw.
+
 ## Limits
 
-This prototype has no weapons or win condition. It ends at the turn cap.
+This prototype has no weapons. Sandbox matches end at the turn cap.
 
 The client hides events beyond your horizon, but another client can be modified to reveal them. Play with people you trust.
