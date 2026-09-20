@@ -118,10 +118,21 @@ function deliver(page: Page, text: string, peerId = 'stub-peer') {
 }
 
 async function stateHash(page: Page) {
-  const info = await page.locator('#turnInfo').textContent();
+  const info = await page.locator('#hashInfo').textContent();
   const hash = /state ([0-9a-f]{4})/.exec(info ?? '')?.[1];
   if (!hash) throw new Error(`no state hash in "${info}"`);
   return hash;
+}
+
+// The dot row carries priority order and per-player commitment.
+function dots(page: Page) {
+  return page.locator('#pending .pdot');
+}
+function dotOrder(page: Page) {
+  return dots(page).evaluateAll((els) => els.map((e) => e.getAttribute('data-color')));
+}
+function dotStates(page: Page) {
+  return dots(page).evaluateAll((els) => els.map((e) => e.getAttribute('data-state')));
 }
 
 // Simulate the other player's commit.
@@ -139,15 +150,21 @@ function revealOf(turn: number, color: string, action: string, hash: string, non
   return `${turn}${color}:${action}#${hash}${named}|${nonce}`;
 }
 
-// Resolve one turn with a simulated opponent.
-async function resolveTurn(page: Page, turn: number, mine: string, theirs: string, name?: string) {
+// Commit one turn and hand back the opponent's reveal, so a probe can straddle the resolution.
+async function commitTurn(page: Page, turn: number, mine: string, theirs: string, name?: string) {
   const hash = await stateHash(page);
   const { nonce, commitment } = seal(turn, 'P', theirs);
   await deliver(page, commitment);
-  await page.locator(`#turnCard [data-act="${mine}"]`).click();
+  await page.locator(`#moveRail [data-act="${mine}"]`).click();
   await page.locator('#btnCommit').click();
   await expect(page.locator('#phaseShare')).toBeVisible();
-  await deliver(page, revealOf(turn, 'P', theirs, hash, nonce, name));
+  return () => deliver(page, revealOf(turn, 'P', theirs, hash, nonce, name));
+}
+
+// Resolve one turn with a simulated opponent.
+async function resolveTurn(page: Page, turn: number, mine: string, theirs: string, name?: string) {
+  const reveal = await commitTurn(page, turn, mine, theirs, name);
+  await reveal();
   await expect(page.locator('#phaseShare')).toBeHidden();
 }
 
@@ -443,27 +460,28 @@ test.describe('play screen', () => {
     await expect(page.locator('#board .cell')).toHaveCount(25);
     await expect(page.locator('#youAre')).toHaveText('Rook');
     await expect(page.locator('#youAt')).toHaveText('index 0 · t0 · forward · (1,1)');
-    await expect(page.locator('#turnInfo')).toContainText('turn 0 / 8');
+    await expect(page.locator('#turnInfo')).toHaveText('turn 0 / 8');
+    await expect(page.locator('#hashInfo')).toHaveText(/^state [0-9a-f]{4}$/);
     await expect(page.locator('#netInfo')).toHaveText('Connected · 1 other player');
-    await expect(page.locator('#rdNote')).toHaveText('up to 2 turns of history');
     await expect(page.locator('#legend')).toContainText('Rook');
     await expect(page.locator('#log li')).toHaveText('No turns yet.');
     await expect(page.locator('#phasePick')).toBeVisible();
     await expect(page.locator('#phaseShare')).toBeHidden();
     await expect(page.locator('#phaseOver')).toBeHidden();
     await expect(page.locator('#outExport')).toHaveCount(0);
-    await expect(page.getByText('Still choosing: You, Purple')).toBeVisible();
+    await expect(page.locator('#pending')).toHaveAttribute(
+      'title', 'Priority this turn: Rook › Purple. Still choosing: You, Purple.');
   });
 
   test('preselects hold and follows the pad', async ({ page }) => {
     await startMatch(page);
     await expect(page.locator('#btnCommit')).toHaveText('Commit hold');
-    await expect(page.locator('#turnCard [data-act="H"]')).toHaveClass(/sel/);
+    await expect(page.locator('#moveRail [data-act="H"]')).toHaveClass(/sel/);
 
-    await page.locator('#turnCard [data-act="D"]').click();
+    await page.locator('#moveRail [data-act="D"]').click();
     await expect(page.locator('#btnCommit')).toHaveText('Commit right');
-    await expect(page.locator('#turnCard [data-act="D"]')).toHaveClass(/sel/);
-    await expect(page.locator('#turnCard [data-act="H"]')).not.toHaveClass(/sel/);
+    await expect(page.locator('#moveRail [data-act="D"]')).toHaveClass(/sel/);
+    await expect(page.locator('#moveRail [data-act="H"]')).not.toHaveClass(/sel/);
   });
 
   test('disables a move off the board', async ({ page }) => {
@@ -471,19 +489,20 @@ test.describe('play screen', () => {
     // Spawn is inset from the corner now, so walk to (0,0) first.
     await resolveTurn(page, 0, 'A', 'H', 'Rival');
     await resolveTurn(page, 1, 'W', 'H');
-    await expect(page.locator('#turnCard [data-act="W"]')).toBeDisabled();
-    await expect(page.locator('#turnCard [data-act="A"]')).toBeDisabled();
-    await expect(page.locator('#turnCard [data-act="D"]')).toBeEnabled();
+    await expect(page.locator('#moveRail [data-act="W"]')).toBeDisabled();
+    await expect(page.locator('#moveRail [data-act="A"]')).toBeDisabled();
+    await expect(page.locator('#moveRail [data-act="D"]')).toBeEnabled();
   });
 
   test('committing offers the action back until someone seals against it', async ({ page }) => {
     await startMatch(page);
-    await page.locator('#turnCard [data-act="D"]').click();
+    await page.locator('#moveRail [data-act="D"]').click();
     await page.locator('#btnCommit').click();
 
     await expect(page.locator('#phaseShare')).toBeVisible();
     await expect(page.locator('#phasePick')).toBeHidden();
-    await expect(page.locator('#pending')).toHaveText('Still choosing: Purple');
+    await expect(page.locator('#pending')).toHaveAttribute('title', /Still choosing: Purple\./);
+    await expect.poll(() => dotStates(page)).toEqual(['done', 'choosing']);
     await expect(page.locator('#btnUndo')).toBeVisible();
 
     await page.locator('#btnUndo').click();
@@ -495,7 +514,7 @@ test.describe('play screen', () => {
   test('keeps the resume URL at the completed boundary during a partial turn', async ({ page }) => {
     await startMatch(page);
     const boundary = await page.evaluate(() => location.hash);
-    await page.locator('#turnCard [data-act="D"]').click();
+    await page.locator('#moveRail [data-act="D"]').click();
     await page.locator('#btnCommit').click();
     await expect(page.locator('#phaseShare')).toBeVisible();
     await expect.poll(() => page.evaluate(() => location.hash)).toBe(boundary);
@@ -509,29 +528,32 @@ test.describe('play screen', () => {
   test('shows commitment status throughout the turn, including the local player', async ({ page }) => {
     await startMatch(page);
     await deliver(page, '!P~Vale@other-client');
-    await expect(page.getByText('Still choosing: You, Vale')).toBeVisible();
+    await expect(page.locator('#pending')).toHaveAttribute('title', /Still choosing: You, Vale\./);
+    await expect.poll(() => dotStates(page)).toEqual(['choosing', 'choosing']);
 
     const hash = await stateHash(page);
     const { nonce, commitment } = seal(0, 'P', 'H');
     await deliver(page, commitment);
-    await expect(page.getByText('Still choosing: You')).toBeVisible();
+    await expect(page.locator('#pending')).toHaveAttribute('title', /Still choosing: You\./);
+    await expect.poll(() => dotStates(page)).toEqual(['choosing', 'done']);
 
-    await page.locator('#turnCard [data-act="D"]').click();
+    await page.locator('#moveRail [data-act="D"]').click();
     await page.locator('#btnCommit').click();
-    await expect(page.getByText('All actions are in.')).toBeVisible();
+    await expect(page.locator('#pending')).toHaveAttribute('title', /All actions are in\.$/);
+    await expect.poll(() => dotStates(page)).toEqual(['done', 'done']);
     await deliver(page, revealOf(0, 'P', 'H', hash, nonce, 'Vale'));
   });
 
   test('Space commits only from general gameplay focus', async ({ page }) => {
     await startMatch(page);
-    await page.locator('#legend').click();
+    await page.locator('#youAt').click();
     await page.keyboard.press('Space');
     await expect(page.locator('#phaseShare')).toBeVisible();
   });
 
   test('Space on an interactive control does not commit', async ({ page }) => {
     await startMatch(page);
-    await page.locator('#turnCard [data-act="D"]').click();
+    await page.locator('#moveRail [data-act="D"]').click();
     await page.keyboard.press('Space');
     await page.locator('#sl').focus();
     await page.keyboard.press('Space');
@@ -545,10 +567,10 @@ test.describe('play screen', () => {
     const { nonce, commitment } = seal(0, 'P', 'H');
     await deliver(page, commitment);
 
-    await page.locator('#turnCard [data-act="D"]').click();
+    await page.locator('#moveRail [data-act="D"]').click();
     await page.locator('#btnCommit').click();
     await expect(page.locator('#phaseShare')).toBeVisible();
-    await expect(page.locator('#pending')).toHaveText('All actions are in.');
+    await expect.poll(() => dotStates(page)).toEqual(['done', 'done']);
     await expect(page.locator('#btnUndo')).toBeHidden();
 
     await deliver(page, revealOf(0, 'P', 'H', hash, nonce, 'Rival'));
@@ -560,7 +582,7 @@ test.describe('play screen', () => {
     await expect(page.locator('#log')).toContainText('Rival held (3,3)');
     await expect(page.locator('#legend')).toContainText('Rival');
     await expect(page.locator('#phasePick')).toBeVisible();
-    await expect(page.locator('#slo')).toHaveText('1');
+    await expect(page.locator('#slo')).toHaveText('t1');
   });
 
   test('the world turn slider scrubs the playhead back', async ({ page }) => {
@@ -568,40 +590,41 @@ test.describe('play screen', () => {
     const hash = await stateHash(page);
     const { nonce, commitment } = seal(0, 'P', 'H');
     await deliver(page, commitment);
-    await page.locator('#turnCard [data-act="D"]').click();
+    await page.locator('#moveRail [data-act="D"]').click();
     await page.locator('#btnCommit').click();
     await expect(page.locator('#phaseShare')).toBeVisible();
     await deliver(page, revealOf(0, 'P', 'H', hash, nonce));
-    await expect(page.locator('#slo')).toHaveText('1');
+    await expect(page.locator('#slo')).toHaveText('t1');
 
     await expect(page.locator('#board .tok')).toHaveCount(2);
     await expect(page.locator('#board .trail')).toHaveCount(2);
 
     await page.locator('#sl').press('Home');
-    await expect(page.locator('#slo')).toHaveText('0');
+    await expect(page.locator('#slo')).toHaveText('t0');
     await expect(page.locator('#board .tok')).toHaveCount(2);
     await expect(page.locator('#board .trail')).toHaveCount(0);
     await expect(page.locator('#board .tok').first()).toHaveAttribute('title', /world turn 0/);
 
     await page.locator('#sl').press('End');
-    await expect(page.locator('#slo')).toHaveText('1');
+    await expect(page.locator('#slo')).toHaveText('t1');
     await expect(page.locator('#board .trail')).toHaveCount(2);
   });
 
-  test('the history slider drops the trail', async ({ page }) => {
+  test('the history control drops the trail', async ({ page }) => {
     await startMatch(page);
     const hash = await stateHash(page);
     const { nonce, commitment } = seal(0, 'P', 'H');
     await deliver(page, commitment);
-    await page.locator('#turnCard [data-act="D"]').click();
+    await page.locator('#moveRail [data-act="D"]').click();
     await page.locator('#btnCommit').click();
     await expect(page.locator('#phaseShare')).toBeVisible();
     await deliver(page, revealOf(0, 'P', 'H', hash, nonce));
     await expect(page.locator('#board .trail')).toHaveCount(2);
 
-    await expect(page.locator('#rdo')).toHaveText('2');
-    await page.locator('#rd').press('Home');
-    await expect(page.locator('#rdo')).toHaveText('0');
+    await expect(page.locator('#rd button.on')).toHaveText('2');
+    await page.locator('#rd button[data-back="0"]').click();
+    await expect(page.locator('#rd button.on')).toHaveText('0');
+    await expect(page.locator('#rd button[data-back="0"]')).toHaveAttribute('aria-pressed', 'true');
     await expect(page.locator('#board .trail')).toHaveCount(0);
     await expect(page.locator('#board .tok')).toHaveCount(2);
   });
@@ -615,21 +638,19 @@ test.describe('play screen', () => {
     await expect(page.locator('#pickErr')).toContainText('Coral was claimed first by Thief');
   });
 
-  test('priority names both seats, and the note under the pad explains the aim', async ({ page }) => {
+  test('the dot row names both seats in priority order', async ({ page }) => {
     await startMatch(page);
-    await expect(page.locator('#prioInfo')).toContainText('Rook');
-    await expect(page.locator('#prioInfo')).toContainText('\u203a');
-    await expect(page.locator('#pickWhy')).toContainText('This uses a world turn');
-    await page.locator('#turnCard [data-act="I"]').click();
-    await expect(page.locator('#pickWhy')).toContainText('Stay at t0');
+    await expect(dots(page)).toHaveCount(2);
+    await expect.poll(() => dotOrder(page)).toEqual(['C', 'P']);
+    await expect(page.locator('#pending')).toHaveAttribute('title', /Priority this turn: Rook \u203a Purple\./);
   });
 
   test('a claim names the other seat before a single turn resolves', async ({ page }) => {
     await startMatch(page);
-    await expect(page.locator('#prioInfo')).toContainText('Purple');
+    await expect(page.locator('#pending')).toHaveAttribute('title', /Purple/);
     await deliver(page, '!P~Rival@other-client');
-    await expect(page.locator('#prioInfo')).toContainText('Rival');
-    await expect(page.locator('#prioInfo')).not.toContainText('Purple');
+    await expect(page.locator('#pending')).toHaveAttribute('title', /Rival/);
+    await expect(page.locator('#pending')).not.toHaveAttribute('title', /Purple/);
   });
 
   test('the log rules off between turns', async ({ page }) => {
@@ -671,10 +692,10 @@ test.describe('play screen', () => {
     await expect(token).toHaveCSS('text-overflow', 'ellipsis');
     const geometry = await token.evaluate((node) => {
       const tokenBox = node.getBoundingClientRect();
-      const cellBox = node.parentElement!.getBoundingClientRect();
+      const slotBox = node.parentElement!.getBoundingClientRect();
       return {
         width: tokenBox.width, height: tokenBox.height,
-        within: tokenBox.left >= cellBox.left && tokenBox.right <= cellBox.right
+        within: tokenBox.left >= slotBox.left && tokenBox.right <= slotBox.right
       };
     });
     expect(geometry.width).toBeGreaterThan(geometry.height);
@@ -807,14 +828,19 @@ test.describe('play screen', () => {
 
     const cell = page.locator('#board .cell').first();
     await expect(cell.locator('.trail-cluster.corner')).toHaveCount(1);
-    const geometry = await cell.evaluate((node) => {
-      const box = node.getBoundingClientRect();
-      const token = node.querySelector('.tok')!.getBoundingClientRect();
-      const trails = node.querySelector('.trail-cluster')!.getBoundingClientRect();
+    // The token sits in the bodies layer now, so measure it against the cell it covers.
+    const geometry = await page.locator('#board').evaluate((node) => {
+      const cellNode = node.querySelector('.cell')!;
+      const box = cellNode.getBoundingClientRect();
+      const token = node.querySelector('.tokslot[data-tile="0,0"] .tok')!.getBoundingClientRect();
+      const trails = cellNode.querySelector('.trail-cluster')!.getBoundingClientRect();
       const center = (r: DOMRect, axis: 'x' | 'y') => axis === 'x'
         ? r.left + r.width / 2 : r.top + r.height / 2;
-      const overlap = !(token.right <= trails.left || trails.right <= token.left ||
-        token.bottom <= trails.top || trails.bottom <= token.top);
+      // The token is a circle, so box overlap says nothing: measure the corner it leaves free.
+      const cx = center(token, 'x'), cy = center(token, 'y'), r = token.width / 2;
+      const near = (lo: number, hi: number, v: number) => Math.max(lo, Math.min(hi, v));
+      const px = near(trails.left, trails.right, cx), py = near(trails.top, trails.bottom, cy);
+      const overlap = Math.hypot(px - cx, py - cy) < r;
       return {
         dx: Math.abs(center(token, 'x') - center(box, 'x')),
         dy: Math.abs(center(token, 'y') - center(box, 'y')),
@@ -839,17 +865,612 @@ test.describe('play screen', () => {
     await expect(page.locator('#phasePick')).toBeHidden();
     await expect(page.locator('#phaseShare')).toBeHidden();
     await expect(page.locator('#turnInfo')).toHaveText('Draw at turn 2');
-    await expect(page.locator('#prioInfo')).toHaveText('match over');
+    await expect(page.locator('#pending')).toHaveCount(0);
     await expect(page.locator('#board .cell')).toHaveCount(25);
   });
 
-  test('the history slider caps its range', async ({ page }) => {
+  test('the history presets stop at the cap', async ({ page }) => {
     await open(page);
     await createMatch(page, { cap: '40' });
     await sitDown(page);
-    await expect(page.locator('#rdNote')).toHaveText('up to 10 turns of history');
-    await expect(page.locator('#rdo')).toHaveText('10');
-    await expect(page.locator('#rd')).toHaveAttribute('max', '10');
+    await expect(page.locator('#rd button')).toHaveText(['0', '2', '4', '10']);
+    await expect(page.locator('#rd button.on')).toHaveText('10');
+    await expect(page.locator('#rd button[data-back="10"]')).toHaveAttribute('aria-pressed', 'true');
+  });
+
+  test('a small cap drops the presets above it', async ({ page }) => {
+    await startMatch(page);
+    await expect(page.locator('#rd button')).toHaveText(['0', '2']);
+    await expect(page.locator('#rd button.on')).toHaveText('2');
+  });
+
+  test('the state hash moves with the match', async ({ page }) => {
+    await startMatch(page);
+    const before = await stateHash(page);
+    await expect(page.locator('#hashInfo')).toHaveText('state ' + before);
+    await resolveTurn(page, 0, 'D', 'H', 'Vale');
+    const after = await stateHash(page);
+    expect(after).not.toBe(before);
+    await expect(page.locator('#hashInfo')).toHaveText('state ' + after);
+  });
+});
+
+// (2,1) after a D from the spawn; (1,1) holds Coral's t0 body.
+const INVERTED = 'X1:M1:sandbox:5x5:0:tst:8:CP|CDPH,CIPH|C~Rook,P~Vale';
+
+// Open a 5x5 match straight into play from a resume link.
+async function resume(page: Page, log: string) {
+  await open(page, { fragment: 'resume=' + encodeURIComponent(log) });
+  await page.locator('#pickRows .pickrow[data-color="C"]').click();
+  await page.locator('#btnPlay').click();
+  await expect(page.locator('#play')).toBeVisible();
+}
+
+const at = (page: Page, x: number, y: number) => page.locator('#board .cell').nth(y * 5 + x);
+
+test.describe('board targets', () => {
+  test('paints one target per legal move with its index and world turn', async ({ page }) => {
+    await startMatch(page);
+    const targets = page.locator('#board .cell[data-target]');
+    await expect(targets).toHaveCount(4);
+    await expect.poll(
+      () => targets.evaluateAll((els) => els.map((e) => e.getAttribute('data-target')).sort())
+    ).toEqual(['A', 'D', 'S', 'W']);
+    await expect(targets.locator('.tgt-p')).toHaveText(['1', '1', '1', '1']);
+    await expect(targets.locator('.tgt-t')).toHaveText(['t1', 't1', 't1', 't1']);
+    await expect(at(page, 2, 1)).toHaveAttribute('data-target', 'D');
+  });
+
+  test('hold and invert paint nothing', async ({ page }) => {
+    await startMatch(page);
+    await expect(page.locator('#board .cell[data-target="H"]')).toHaveCount(0);
+    await expect(page.locator('#board .cell[data-target="I"]')).toHaveCount(0);
+    await expect(at(page, 1, 1)).not.toHaveAttribute('data-target', /./);
+    await expect(at(page, 1, 1).locator('.tgt')).toHaveCount(0);
+  });
+
+  test('clicking a target selects that action', async ({ page }) => {
+    await startMatch(page);
+    await at(page, 2, 1).click();
+    await expect(page.locator('#btnCommit')).toHaveText('Commit right');
+    await expect(page.locator('#moveRail [data-act="D"]')).toHaveClass(/sel/);
+  });
+
+  test('an occupied tile greys out with its reason and no readout', async ({ page }) => {
+    await resume(page, INVERTED);
+    const blocked = at(page, 1, 1);
+    await expect(blocked).toHaveAttribute('title', 'Blocked by occupied');
+    await expect(blocked).not.toHaveAttribute('data-target', /./);
+    await expect(blocked.locator('.tgt')).toHaveCount(0);
+    await expect(blocked).toHaveCSS('opacity', '0.55');
+    await expect(page.locator('#board .cell[data-target]')).toHaveCount(3);
+  });
+
+  test('a wall behind a move stays a wall and offers nothing', async ({ page }) => {
+    await open(page);
+    await createMatch(page, { seed: 'w0', wall: '20' });
+    await sitDown(page);
+    await resolveTurn(page, 0, 'S', 'H', 'Vale');
+
+    const wall = at(page, 1, 3);
+    await expect(wall).not.toHaveAttribute('data-target', /./);
+    await expect(wall.locator('.tgt')).toHaveCount(0);
+    await expect(wall).toHaveCSS('opacity', '0.38');
+    await expect(page.locator('#board .cell[data-target]')).toHaveCount(3);
+  });
+});
+
+test.describe('priority dots', () => {
+  test('the order follows this turn, not the roster', async ({ page }) => {
+    await resume(page, INVERTED);
+    await expect.poll(() => dotOrder(page)).toEqual(['P', 'C']);
+    await expect(page.locator('#pending')).toHaveAttribute(
+      'title', /^Priority this turn: Vale › Rook\./);
+  });
+
+  test('a dot flips to done when its player commits', async ({ page }) => {
+    await startMatch(page);
+    await expect.poll(() => dotStates(page)).toEqual(['choosing', 'choosing']);
+    await page.locator('#btnCommit').click();
+    await expect.poll(() => dotStates(page)).toEqual(['done', 'choosing']);
+    await expect(dots(page).first()).toHaveAttribute('data-color', 'C');
+  });
+});
+
+test.describe('rails', () => {
+  test('both rails fold and reopen', async ({ page }) => {
+    await startMatch(page);
+    await expect(page.locator('#logRail')).toBeVisible();
+    await expect(page.locator('#moveRail')).toBeVisible();
+    await expect(page.locator('#logStrip')).toHaveCount(0);
+    await expect(page.locator('#moveStrip')).toHaveCount(0);
+
+    await page.locator('#btnLogFold').click();
+    await expect(page.locator('#logRail')).toHaveCount(0);
+    await expect(page.locator('#log')).toHaveCount(0);
+    await expect(page.locator('#logStrip .vlabel')).toHaveText('LOG · 0 events');
+    await expect(page.locator('#btnLogOpen')).toBeEnabled();
+
+    await page.locator('#btnMoveFold').click();
+    await expect(page.locator('#moveRail')).toHaveCount(0);
+    await expect(page.locator('#phasePick')).toHaveCount(0);
+    await expect(page.locator('#moveStrip #pending')).toBeVisible();
+    await expect(page.locator('#btnCommitStrip')).toBeVisible();
+
+    await page.locator('#btnLogOpen').click();
+    await expect(page.locator('#log li')).toHaveText('No turns yet.');
+    await page.locator('#btnMoveOpen').click();
+    await expect(page.locator('#moveStrip')).toHaveCount(0);
+    await expect(page.locator('#phasePick')).toBeVisible();
+  });
+
+  test('toasts stand in for the folded log, newest first', async ({ page }) => {
+    await startMatch(page);
+    await resolveTurn(page, 0, 'H', 'H', 'Vale');
+    await resolveTurn(page, 1, 'D', 'H');
+    await expect(page.locator('#toasts')).toHaveCount(0);
+
+    await page.locator('#btnLogFold').click();
+    const toasts = page.locator('#toasts .toast');
+    await expect(toasts).toHaveCount(3);
+    await expect(toasts.first()).toContainText('t1');
+    await expect(toasts.last()).toContainText('t0');
+    await expect(page.locator('#toasts .toast.a2')).toHaveCount(1);
+    await expect(page.locator('#toasts .toast.a3')).toHaveCount(1);
+
+    await page.locator('#btnLogOpen').click();
+    await expect(page.locator('#toasts')).toHaveCount(0);
+  });
+
+  test('a narrow viewport folds both rails and locks them shut', async ({ page }) => {
+    await startMatch(page);
+    await page.setViewportSize({ width: 1000, height: 800 });
+    await expect(page.locator('#logStrip')).toBeVisible();
+    await expect(page.locator('#moveStrip')).toBeVisible();
+    await expect(page.locator('#btnLogOpen')).toBeDisabled();
+    await expect(page.locator('#btnMoveOpen')).toBeDisabled();
+  });
+
+  test('the folded strip commits', async ({ page }) => {
+    await startMatch(page);
+    await page.locator('#btnMoveFold').click();
+    await expect(page.locator('#btnCommitStrip')).toBeEnabled();
+    await page.locator('#btnCommitStrip').click();
+    await expect(page.locator('#btnCommitStrip')).toBeDisabled();
+    await expect.poll(() => dotStates(page)).toEqual(['done', 'choosing']);
+
+    await page.locator('#btnMoveOpen').click();
+    await expect(page.locator('#phaseShare')).toBeVisible();
+  });
+});
+
+test.describe('dock', () => {
+  test('pressing the world turn raises the instrument', async ({ page }) => {
+    await startMatch(page);
+    await expect(page.locator('#instrument')).toHaveCount(0);
+    await expect(page.locator('#scrim')).toHaveCount(0);
+
+    await page.locator('#sl').hover();
+    await page.mouse.down();
+    await expect(page.locator('#instrument')).toBeVisible();
+    await expect(page.locator('#scrim')).toBeVisible();
+    await expect(page.locator('#instrument svg')).toHaveAttribute('aria-label', /world turns t0 to t8/);
+
+    await page.mouse.up();
+    await expect(page.locator('#instrument')).toHaveCount(0);
+    await expect(page.locator('#scrim')).toHaveCount(0);
+  });
+
+  test('the instrument keeps its scale and its row height as lanes appear', async ({ page }) => {
+    await open(page);
+    await createMatch(page, { w: '7', h: '7', cap: '12' });
+    await sitDown(page);
+
+    const raise = async () => {
+      await page.locator('#sl').hover();
+      await page.mouse.down();
+      await expect(page.locator('#instrument')).toBeVisible();
+    };
+    // The SVG draws in CSS pixels, so a tick label is 10px whatever the viewBox would have scaled it to.
+    const metrics = async () => {
+      await raise();
+      const out = {
+        tick: await page.locator('#instrument text').first().evaluate(
+          (el) => getComputedStyle(el).fontSize),
+        rows: await page.locator('#instrument svg').evaluate((el) => Number(el.getAttribute('height')))
+      };
+      await page.mouse.up();
+      return out;
+    };
+
+    const before = await metrics();
+    // Two inversions put Rook on three lanes.
+    const mine = ['D', 'H', 'I', 'H', 'I', 'H'];
+    for (let turn = 0; turn < mine.length; turn++) {
+      await resolveTurn(page, turn, mine[turn]!, 'H', turn === 0 ? 'Bishop' : undefined);
+    }
+    await expect(page.locator('#board .tokslot')).toHaveCount(2);
+
+    const after = await metrics();
+    expect(after.tick).toBe('10px');
+    expect(after).toEqual(before);
+
+    await raise();
+    // The focus column is one turn of the cap, not a slab across the explored band.
+    const chart = await page.locator('#instrument svg').evaluate((el) => el.clientWidth);
+    const focus = await page.locator('#instrument rect[fill="var(--accent-br)"]').evaluate(
+      (el) => el.getBoundingClientRect().width);
+    expect(focus).toBeLessThan(chart * 0.08);
+    await page.mouse.up();
+  });
+
+  test('a fully explored chart carries no hatching', async ({ page }) => {
+    await open(page);
+    await createMatch(page, { cap: '4' });
+    await sitDown(page);
+    for (let turn = 0; turn < 4; turn++) {
+      await resolveTurn(page, turn, 'H', 'H', turn === 0 ? 'Vale' : undefined);
+    }
+    await page.locator('#sl').hover();
+    await page.mouse.down();
+    await expect(page.locator('#instrument')).toBeVisible();
+
+    await expect(page.locator('#instrument rect[fill="url(#tl-fog)"]')).toHaveCount(0);
+    // Nothing is unexplored, so the cap line is the right edge of the last turn's column
+    // rather than the right edge of the chart.
+    const geom = await page.locator('#instrument svg').evaluate((svg) => {
+      const at = [...svg.querySelectorAll('text')]
+        .filter((t) => /^t\d+$/.test(t.textContent ?? ''))
+        .map((t) => Number(t.getAttribute('x')));
+      return {
+        cap: Number(svg.querySelector('line[stroke="var(--bad-br)"]')!.getAttribute('x1')),
+        bandEnd: at[at.length - 1]! + (at[1]! - at[0]!) / 2,
+        width: Number(svg.getAttribute('width'))
+      };
+    });
+    expect(geom.cap).toBe(geom.bandEnd);
+    expect(geom.cap).toBeLessThan(geom.width - 16);
+    await page.mouse.up();
+  });
+
+  test('the legend waits for a hover', async ({ page }) => {
+    await startMatch(page);
+    await expect(page.locator('#legpop')).toBeHidden();
+    await page.locator('.legwrap').hover();
+    await expect(page.locator('#legpop')).toBeVisible();
+    await expect(page.locator('#legpop #legend')).toBeVisible();
+    await expect(page.locator('#legpop .keyhint')).toContainText(
+      'Arrows or WASD: choose. Enter or Space: commit. Esc: clear.');
+  });
+});
+
+test.describe('layout', () => {
+  test('every strip row shares one column grid', async ({ page }) => {
+    await startMatch(page);
+    await resolveTurn(page, 0, 'D', 'H', 'Vale');
+    await resolveTurn(page, 1, 'D', 'H');
+
+    // The unexplored block used to hang off the bar row alone, compressing its columns while the
+    // heads and numbers above and below it kept the full width.
+    const rows = await page.locator('#strip > div').evaluateAll(
+      (els) => els.map((el) => [...el.children].map((c) => Math.round(c.getBoundingClientRect().left))));
+    expect(rows.length).toBeGreaterThan(1);
+    for (const row of rows) expect(row).toEqual(rows[0]);
+  });
+
+  test('the folded commit button stays legible under the pointer', async ({ page }) => {
+    await startMatch(page);
+    await page.locator('#btnMoveFold').click();
+    const paint = () => page.locator('#btnCommitStrip').evaluate(
+      (el) => [getComputedStyle(el).backgroundColor, getComputedStyle(el).color].join(' '));
+
+    const rest = await paint();
+    await page.locator('#btnCommitStrip').hover();
+    // The generic button:hover rule used to win and flip the fill dark under a dark tick.
+    expect(await paint()).not.toBe(rest);
+    expect(await paint()).not.toContain('rgb(43, 42, 47)');
+  });
+
+  test('the connection dot follows the channel', async ({ page }) => {
+    await startMatch(page);
+    await expect(page.locator('#netInfo .dot')).toHaveAttribute('data-state', 'good');
+    await expect(page.locator('#netInfo')).toHaveText('Connected · 1 other player');
+  });
+});
+
+test.describe('turn animation', () => {
+  test('a resolved move slides its token until the next input', async ({ page }) => {
+    await startMatch(page);
+    await resolveTurn(page, 0, 'D', 'H', 'Vale');
+    await expect(page.locator('#board .tokslot[data-motion="slide"]')).toHaveCount(1);
+
+    await page.keyboard.press('Escape');
+    await expect(page.locator('#board .tokslot[data-motion]')).toHaveCount(0);
+  });
+
+  test('reduced motion sets no motion at all', async ({ page }) => {
+    await page.emulateMedia({ reducedMotion: 'reduce' });
+    await startMatch(page);
+    await expect(page.locator('#board')).toHaveClass(/noanim/);
+    await resolveTurn(page, 0, 'D', 'H', 'Vale');
+    await expect(page.locator('#youAt')).toHaveText('index 1 · t1 · forward · (2,1)');
+    await expect(page.locator('#board .tokslot[data-motion]')).toHaveCount(0);
+  });
+
+  type Flight = { key: string | null; tile: string | null; moving: boolean; snapped: boolean };
+
+  // data-motion survives a teleport, so watch the live rect between the two tiles instead.
+  function flight(page: Page, from: readonly [number, number], to: readonly [number, number], ms: number) {
+    return page.evaluate(([f, t, span]) => new Promise<Flight>((done) => {
+      const board = document.querySelector('#board')!;
+      const cells = board.querySelectorAll('.cell');
+      const w = Number(getComputedStyle(board).getPropertyValue('--bw'));
+      const leftOf = (p: readonly number[]) => cells[p[1]! * w + p[0]!]!.getBoundingClientRect().left;
+      const lo = Math.min(leftOf(f), leftOf(t));
+      const hi = Math.max(leftOf(f), leftOf(t));
+      const out: Flight = { key: null, tile: null, moving: false, snapped: false };
+      const until = performance.now() + span;
+      const step = (): void => {
+        const slot = board.querySelector<HTMLElement>('.tokslot[data-motion="slide"]');
+        if (slot) {
+          out.key = slot.dataset.key ?? null;
+          out.tile = slot.dataset.tile ?? null;
+          const left = slot.getBoundingClientRect().left;
+          if (left > lo + 1 && left < hi - 1) out.moving = true;
+          if (board.querySelector('.bodies')!.classList.contains('snap')) out.snapped = true;
+        }
+        if (performance.now() < until) requestAnimationFrame(step);
+        else done(out);
+      };
+      requestAnimationFrame(step);
+    }), [from, to, ms] as const);
+  }
+
+  // Latest moment any staged transition or keyframe finishes, as delay + duration.
+  function motionEnd(page: Page) {
+    return page.locator('#board .bodies.staged').evaluate((bodies) => {
+      const ms = (v: string) => v.split(',').map((part) => {
+        const n = parseFloat(part) || 0;
+        return part.trim().endsWith('ms') ? n : n * 1000;
+      });
+      let worst = 0;
+      let where = '';
+      const bid = (name: string, end: number, el: Element, pseudo: string | null) => {
+        if (end <= worst) return;
+        worst = end;
+        const cls = typeof el.className === 'string' ? el.className : (el as SVGElement).className.baseVal;
+        where = '.' + cls.trim().split(/\s+/).join('.') + (pseudo ?? '') + ' ' + name;
+      };
+      const look = (el: Element, pseudo: string | null) => {
+        const st = getComputedStyle(el, pseudo ?? undefined);
+        if (st.animationName !== 'none') {
+          const delay = ms(st.animationDelay);
+          const dur = ms(st.animationDuration);
+          st.animationName.split(',').forEach((name, i) => {
+            bid(name.trim(), (delay[i % delay.length] ?? 0) + (dur[i % dur.length] ?? 0), el, pseudo);
+          });
+        }
+        if (!pseudo && el.classList.contains('tokslot') && st.transitionProperty !== 'none') {
+          const delay = ms(st.transitionDelay);
+          const dur = ms(st.transitionDuration);
+          st.transitionProperty.split(',').forEach((name, i) => {
+            bid(name.trim(), (delay[i % delay.length] ?? 0) + (dur[i % dur.length] ?? 0), el, pseudo);
+          });
+        }
+      };
+      for (const el of bodies.querySelectorAll('*')) {
+        look(el, null);
+        look(el, '::before');
+        look(el, '::after');
+      }
+      return { worst, where };
+    });
+  }
+
+  function slidKeys(page: Page) {
+    return page.locator('#board .tokslot[data-motion="slide"]')
+      .evaluateAll((els) => els.map((e) => e.dataset.key).sort());
+  }
+
+  function delayOf(page: Page, key: string) {
+    return page.locator(`#board .tokslot[data-key="${key}"]`)
+      .evaluate((el) => getComputedStyle(el).transitionDelay);
+  }
+
+  test('a one-notch scrub slides', async ({ page }) => {
+    await startMatch(page);
+    await resolveTurn(page, 0, 'D', 'H', 'Vale');
+    await resolveTurn(page, 1, 'D', 'H');
+    await page.keyboard.press('Escape');
+    await expect(page.locator('#board .tokslot[data-motion]')).toHaveCount(0);
+
+    await page.locator('#sl').press('ArrowLeft');
+    await expect(page.locator('#slo')).toHaveText('t1');
+    await expect.poll(() => slidKeys(page)).toEqual(['C/0']);
+  });
+
+  test('a second scrub inside the motion window still slides', async ({ page }) => {
+    await startMatch(page);
+    await resolveTurn(page, 0, 'D', 'H', 'Vale');
+    await resolveTurn(page, 1, 'D', 'H');
+    await resolveTurn(page, 2, 'D', 'H');
+    await page.keyboard.press('Escape');
+
+    // Coral walks t1..t3 along row 1, so each notch back slides it from (3,1) to (2,1).
+    await page.locator('#sl').press('ArrowLeft');
+    await page.waitForTimeout(300); // a real gap: the second press has to land inside MOTION_MS
+    await page.locator('#sl').press('ArrowLeft');
+    expect(await flight(page, [3, 1], [2, 1], 300))
+      .toEqual({ key: 'C/0', tile: '2,1', moving: true, snapped: false });
+  });
+
+  test('a resolved turn slides its token instead of teleporting', async ({ page }) => {
+    await startMatch(page);
+    await resolveTurn(page, 0, 'D', 'H', 'Vale');
+    await page.keyboard.press('Escape');
+    await expect(page.locator('#board .tokslot[data-motion]')).toHaveCount(0);
+
+    // Priority rotates each turn, so the scene's slot order flips under Coral here.
+    const reveal = await commitTurn(page, 1, 'D', 'H');
+    await reveal();
+    // .25s of stagger in front of the .4s slide, so the window covers both.
+    expect(await flight(page, [2, 1], [3, 1], 750))
+      .toEqual({ key: 'C/0', tile: '3,1', moving: true, snapped: false });
+  });
+
+  test('both legs of a split colour slide', async ({ page }) => {
+    await open(page);
+    await createMatch(page, { w: '7', h: '7' });
+    await sitDown(page);
+    // Coral inverts on (3,1) and walks back down; the second S is the first turn both legs step.
+    const mine = ['D', 'D', 'I', 'S', 'S'];
+    for (let turn = 0; turn < mine.length; turn++) {
+      await resolveTurn(page, turn, mine[turn]!, 'H', turn === 0 ? 'Vale' : undefined);
+    }
+
+    await expect(page.locator('#slo')).toHaveText('t0');
+    await expect.poll(() => slidKeys(page)).toEqual(['C/0', 'C/1']);
+  });
+
+  test('a resolved turn stages its motions and a scrub does not', async ({ page }) => {
+    await startMatch(page);
+    await resolveTurn(page, 0, 'D', 'H', 'Vale');
+    const bodies = page.locator('#board .bodies');
+    await expect(bodies).toHaveClass(/staged/);
+    await expect.poll(() => slidKeys(page)).toEqual(['C/0']);
+    expect(await delayOf(page, 'C/0')).toBe('0.25s');
+
+    await resolveTurn(page, 1, 'I', 'H');
+    const inverting = page.locator('#board .tokslot[data-motion="invert"] .tok');
+    await expect(inverting).toHaveCount(1);
+    // Moves at .25s, inversions at .65s: the sequence is the delays, not the wall clock.
+    expect(await inverting.evaluate((el) => getComputedStyle(el).animationDelay)).toBe('0.65s');
+
+    await page.locator('#sl').press('ArrowLeft');
+    await expect(page.locator('#slo')).toHaveText('t0');
+    await expect(bodies).not.toHaveClass(/staged/);
+    // Unstaged, the shorthand's two transitions each report their own delay.
+    expect(await delayOf(page, 'C/0')).toBe('0s, 0s');
+  });
+
+  test('an inversion settles the pill open and draws the turn-back arc', async ({ page }) => {
+    await startMatch(page);
+    await resolveTurn(page, 0, 'D', 'H', 'Vale');
+    await resolveTurn(page, 1, 'I', 'H');
+
+    await expect(page.locator('#board .tokslot[data-motion="invert"]')).toHaveCount(1);
+    // Hold the slot by key, not by motion: the last assertion runs after the motion clears.
+    const slot = page.locator('#board .tokslot[data-key="C/0"]');
+    const tok = slot.locator('.tok');
+    await expect(tok).toHaveClass(/tok-many/);
+    await expect(tok).toHaveAttribute('data-direction', 'mixed');
+    expect(await tok.evaluate((el) => getComputedStyle(el).animationName)).toBe('tok-settle');
+    await expect(slot.locator('.turnback')).toBeVisible();
+
+    // The settle ends on what the renderer already draws, so nothing jumps when the motion clears.
+    const ended = await tok.evaluate((el) => {
+      for (const a of el.getAnimations()) a.finish();
+      return getComputedStyle(el).width;
+    });
+    await page.keyboard.press('Escape');
+    await expect(page.locator('#board .tokslot[data-motion]')).toHaveCount(0);
+    expect(await tok.evaluate((el) => getComputedStyle(el).width)).toBe(ended);
+  });
+
+  async function startBootstrap(page: Page) {
+    await open(page);
+    await createMatch(page, { mode: 'bootstrap', cap: '12' });
+    await sitDown(page);
+  }
+
+  test('losing the key while blocked plays the bounce and the fade together', async ({ page }) => {
+    await startBootstrap(page);
+    // Rook grabs the key and inverts; on the last turn it walks into Bishop, who wins the tile
+    // and takes the key, so one slot owes both a bounce and a fade.
+    const mine = ['D', 'H', 'H', 'I', 'H', 'S'];
+    const theirs = ['H', 'H', 'H', 'I', 'A', 'W'];
+    for (let turn = 0; turn < mine.length; turn++) {
+      await resolveTurn(page, turn, mine[turn]!, theirs[turn]!, turn === 0 ? 'Bishop' : undefined);
+    }
+
+    const blocked = page.locator('#board .tokslot[data-key="C/0"]');
+    await expect(blocked).toHaveAttribute('data-motion', 'bounce');
+    await expect(blocked).toHaveAttribute('data-key-motion', 'lost');
+    const thief = page.locator('#board .tokslot[data-key="P/1"]');
+    await expect(thief).toHaveAttribute('data-key-motion', 'grab');
+    await expect(thief).toHaveAttribute('data-motion', 'slide');
+  });
+
+  test('a front keeps its element as the world turn advances', async ({ page }) => {
+    await startBootstrap(page);
+    const mine = ['D', 'H', 'H', 'H', 'H', 'H'];
+    const theirs = ['H', 'H', 'H', 'I', 'A', 'W'];
+    for (let turn = 0; turn < mine.length; turn++) {
+      await resolveTurn(page, turn, mine[turn]!, theirs[turn]!, turn === 0 ? 'Bishop' : undefined);
+    }
+
+    const front = page.locator('#board .frontslot');
+    await expect(front).toHaveAttribute('data-key', 'P#0');
+    // Tag the node: keyed by world turn the front remounts here and the tag goes with it.
+    await front.evaluate((el) => { (el as HTMLElement & { tag?: number }).tag = 7; });
+
+    await resolveTurn(page, 6, 'D', 'H');
+    await expect(front).toHaveAttribute('data-key', 'P#0');
+    expect(await front.evaluate((el) => (el as HTMLElement & { tag?: number }).tag)).toBe(7);
+  });
+
+  test('every staged motion finishes inside the animation window', async ({ page }) => {
+    await startBootstrap(page);
+    // Bishop steals from a recorded Rook, so this turn stages a slide, a grab, a loss and a front.
+    const mine = ['D', 'H', 'H', 'H', 'H', 'H'];
+    const theirs = ['H', 'H', 'H', 'I', 'A', 'W'];
+    for (let turn = 0; turn < mine.length; turn++) {
+      await resolveTurn(page, turn, mine[turn]!, theirs[turn]!, turn === 0 ? 'Bishop' : undefined);
+    }
+    await expect(page.locator('#board .frontslot')).toHaveCount(1);
+    // clear() cancels everything at MOTION_MS, so anything landing later loses its tail.
+    const last = await motionEnd(page);
+    expect(last.worst, last.where).toBeLessThanOrEqual(1200);
+  });
+
+  test('a staged inversion finishes inside the animation window', async ({ page }) => {
+    await startMatch(page);
+    await resolveTurn(page, 0, 'D', 'H', 'Vale');
+    await resolveTurn(page, 1, 'I', 'H');
+    await expect(page.locator('#board .tokslot[data-motion="invert"]')).toHaveCount(1);
+    const last = await motionEnd(page);
+    expect(last.worst, last.where).toBeLessThanOrEqual(1200);
+  });
+
+  test('a scene rebuild mid-animation leaves the running sequence alone', async ({ page }) => {
+    await startMatch(page);
+    await resolveTurn(page, 0, 'D', 'H', 'Vale');
+    const slot = page.locator('#board .tokslot[data-key="C/0"]');
+    await expect(slot).toHaveAttribute('data-motion', 'slide');
+
+    // Committing flips `choosing`, which is a real input to sceneAt, so the scene is rebuilt
+    // while the slide is still running. Dispatched rather than clicked: a real pointerdown is
+    // the deliberate skip-to-the-end, and that is not what this test is about.
+    await deliver(page, seal(1, 'P', 'H').commitment);
+    await page.locator('#moveRail [data-act="D"]').dispatchEvent('click');
+    await page.locator('#btnCommit').dispatchEvent('click');
+    await expect(page.locator('#phaseShare')).toBeVisible();
+
+    await expect(slot).toHaveAttribute('data-motion', 'slide');
+    await expect(page.locator('#board .bodies')).toHaveClass(/staged/);
+  });
+
+  test('the key mark holds its start frame until its turn in the sequence', async ({ page }) => {
+    await startBootstrap(page);
+    await resolveTurn(page, 0, 'D', 'H', 'Bishop');
+    const slot = page.locator('#board .tokslot[data-key-motion="grab"]');
+    await expect(slot).toHaveCount(1);
+    // Without a fill mode the mark sits at the destination for the .65s of stagger, then
+    // jumps back to the source tile to start its slide.
+    expect(await slot.locator('.key-mark').evaluate(
+      (el) => getComputedStyle(el).animationFillMode)).toBe('both');
+    expect(await slot.evaluate(
+      (el) => getComputedStyle(el, '::before').animationFillMode)).toBe('both');
   });
 });
 
@@ -872,12 +1493,12 @@ test.describe('bootstrap', () => {
     await resolveTurn(page, 2, 'H', 'H');
 
     await expect(page.locator('#phaseOver')).toBeVisible();
-    await expect(page.locator('#phaseOver h2')).toHaveText('You won');
-    await expect(page.locator('#turnInfo')).toContainText('You won at turn 3');
+    await expect(page.locator('#phaseOver h3')).toHaveText('You won');
+    await expect(page.locator('#turnInfo')).toHaveText('You won at turn 3');
     await expect(page.locator('#phasePick')).toBeHidden();
     await expect(page.locator('#phaseShare')).toBeHidden();
-    await expect(page.locator('#prioInfo')).toHaveText('match over');
-    await expect(page.locator('#turnCard [data-act="D"]')).toBeHidden();
+    await expect(page.locator('#pending')).toHaveCount(0);
+    await expect(page.locator('#moveRail [data-act="D"]')).toBeHidden();
     await expect(page.locator('#btnCommit')).toBeHidden();
   });
 
@@ -891,11 +1512,18 @@ test.describe('bootstrap', () => {
 
     await expect(page.locator('#log')).toContainText('Bishop took the key from Rook at (2,2) t1');
     const title = 'reaches you in 3 turns';
-    const cells = page.locator('#board .cell');
-    const front = cells.nth(1 * 5 + 2).locator('.front-mark');
+    const front = page.locator('#board .frontslot');
     await expect(front).toHaveCount(1);
-    await expect(front).toHaveAttribute('title', title);
+    await expect(front.locator('.front-mark')).toHaveAttribute('title', title);
     await expect(page.locator('#board .front-mark')).toHaveCount(1);
+    // Fronts sit in the bodies layer, so check the slot covers (2,1).
+    const offset = await page.locator('#board').evaluate((node) => {
+      const slot = node.querySelector('.frontslot')!.getBoundingClientRect();
+      const cell = node.querySelectorAll('.cell')[1 * 5 + 2]!.getBoundingClientRect();
+      return { dx: Math.abs(slot.left - cell.left), dy: Math.abs(slot.top - cell.top) };
+    });
+    expect(offset.dx).toBeLessThan(2);
+    expect(offset.dy).toBeLessThan(2);
     const tick = page.locator('#strip .front-tick');
     await expect(tick).toHaveCount(1);
     await expect(tick).toHaveAttribute('title', title);

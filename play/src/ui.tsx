@@ -1,53 +1,21 @@
-import { useCallback, useEffect, useRef, useState } from 'preact/hooks';
+import { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } from 'preact/hooks';
 import { Fragment } from 'preact';
-import type { JSX } from 'preact';
 
 import { COLORS, Match, Wire } from './engine/index.js';
-import type { Action, ActionOffer, Color, ConfigInput, TurnEvent, Vec, View, ViewBody } from './engine/index.js';
+import type { Action, Color, ConfigInput, TurnEvent, ViewBody } from './engine/index.js';
+import { Board } from './board.js';
+import { MAX_LANES, lanesOf } from './lanes.js';
+import { describe, frontText, nameOf, plural, relativeDirection, sceneAt } from './scene.js';
+import type { Front } from './scene.js';
 import { Code, PeerChannel, Session, trimUnresolved } from './transport.js';
 import type { RoomLoader, SessionView } from './transport.js';
 
 type Names = Partial<Record<Color, string>>;
 
-function plural(n: number, word: string): string {
-  return n + ' ' + word + (n === 1 ? '' : 's');
-}
-function nameOf(view: SessionView, color: Color): string {
-  return view.names[color] || COLORS[color].name;
-}
 function push<K, V>(m: Map<K, V[]>, k: K, v: V): void {
   const list = m.get(k);
   if (list) list.push(v);
   else m.set(k, [v]);
-}
-
-type RelativeDirection = 'matching' | 'opposing';
-
-function relativeDirection(view: SessionView, b: ViewBody): RelativeDirection {
-  return b.dir === view.me.dir ? 'matching' : 'opposing';
-}
-
-// Spread trail opacity across visible turns, not raw distance.
-function shade(bodies: readonly ViewBody[], focusT: number, lookBack: number): Map<number, number> {
-  const floor = parseFloat(getComputedStyle(document.documentElement)
-    .getPropertyValue('--dot-floor')) || 0.14;
-  const lo = Math.max(0, focusT - lookBack);
-  const seen = new Set<number>();
-  for (const b of bodies) if (b.t >= lo && b.t < focusT) seen.add(b.t);
-  const turns = [...seen].sort((a, b) => b - a);
-  const out = new Map<number, number>();
-  turns.forEach((t, i) => {
-    out.set(t, turns.length < 2 ? 1 : 1 - (1 - floor) * (i / (turns.length - 1)));
-  });
-  return out;
-}
-
-function describe(view: SessionView, b: ViewBody): string {
-  const relation = relativeDirection(view, b) === 'matching'
-    ? 'same direction as you' : 'opposite direction from you';
-  return nameOf(view, b.color) + ', index ' + b.p + ', world turn ' + b.t +
-    ', walking ' + (b.dir === 1 ? 'forward' : 'backward') + ', ' + relation +
-    (b.live ? ', current' : '');
 }
 
 function eventText(view: SessionView, e: TurnEvent): string {
@@ -72,200 +40,14 @@ function eventText(view: SessionView, e: TurnEvent): string {
   return 'was stuck';
 }
 
-type Front = View['fronts'][number];
-
-function frontText(view: SessionView, f: Front): string {
-  if (f.target === null) return 'key at the center';
-  if (f.target === view.me.color) return 'reaches you in ' + plural(f.gap, 'turn');
-  const who = nameOf(view, f.target) + "'s last visible body";
-  return f.gap === 0 ? 'reached ' + who : 'reaches ' + who + ' in ' + plural(f.gap, 'turn');
-}
-
-function keyHolders(view: SessionView): Map<string, Vec> {
-  const out = new Map<string, Vec>();
-  for (const k of view.keys) out.set(k.color + ':' + k.p, k.side);
-  return out;
-}
-
 function Swatch({ color }: { color: Color }) {
   return <i class="sw" style={{ background: COLORS[color].hex }} />;
 }
 
-type BoardProps = {
-  view: SessionView;
-  focusT: number;
-  lookBack: number;
-  picked: Action | null;
-  onPick: ((a: Action) => void) | null;
-};
-
-function Board({ view, focusT, lookBack, picked, onPick }: BoardProps) {
-  const lo = Math.max(0, focusT - lookBack);
-  const walls = new Set(view.walls.map((p) => p[0] + ',' + p[1]));
-  const op = shade(view.bodies, focusT, lookBack);
-  const held = keyHolders(view);
-  const centerKey = view.center[0] + ',' + view.center[1];
-  const spawnAt = new Map<string, Color>();
-  for (const c of view.roster) {
-    const s = view.spawns[c];
-    if (s) spawnAt.set(s[0] + ',' + s[1], c);
-  }
-  const keyAtCenter = view.keyAtCenter.some((t) => t === focusT);
-  const fronts = new Map<string, Front[]>();
-  for (const f of view.fronts) if (f.t >= lo && f.t <= focusT) push(fronts, f.x + ',' + f.y, f);
-
-  const atFocus = new Map<string, ViewBody[]>();
-  const history = new Map<string, ViewBody[]>();
-  for (const b of view.bodies) {
-    const k = b.x + ',' + b.y;
-    if (b.t === focusT) push(atFocus, k, b);
-    else if (b.t >= lo && b.t < focusT) push(history, k, b);
-  }
-
-  // Board clicks apply only at the current world turn.
-  const targets = new Map<string, ActionOffer>();
-  if (onPick && focusT === view.me.t) {
-    for (const a of view.actions) if (a.action !== 'I') targets.set(a.x + ',' + a.y, a);
-  }
-
-  const cells = [];
-  for (let y = 0; y < view.h; y++) {
-    for (let x = 0; x < view.w; x++) {
-      const k = x + ',' + y;
-      cells.push(
-        <Cell
-          key={k}
-          view={view}
-          wall={walls.has(k)}
-          target={targets.get(k)}
-          picked={picked}
-          onPick={onPick}
-          here={atFocus.get(k)}
-          past={history.get(k)}
-          op={op}
-          held={held}
-          spawn={spawnAt.get(k)}
-          keyHere={k === centerKey && keyAtCenter}
-          fronts={fronts.get(k)}
-        />
-      );
-    }
-  }
-  return <div id="board" style={`--bw:${view.w};--bh:${view.h};`}>{cells}</div>;
-}
-
-type CellProps = {
-  view: SessionView;
-  wall: boolean;
-  target: ActionOffer | undefined;
-  picked: Action | null;
-  onPick: ((a: Action) => void) | null;
-  here: ViewBody[] | undefined;
-  past: ViewBody[] | undefined;
-  op: Map<number, number>;
-  held: Map<string, Vec>;
-  spawn: Color | undefined;
-  keyHere: boolean;
-  fronts: Front[] | undefined;
-};
-
-function Cell({ view, wall, target, picked, onPick, here, past, op, held, spawn, keyHere, fronts }: CellProps) {
-  let style: JSX.CSSProperties = { background: 'var(--surface-1)' };
-  let title: string | undefined;
-  let click: (() => void) | undefined;
-
-  if (wall) {
-    style = { background: 'var(--wall)', opacity: 0.38 };
-  } else if (target && target.reason === null) {
-    const on = picked === target.action;
-    style = {
-      background: 'var(--accent-bg)',
-      cursor: 'pointer',
-      outline: (on ? '2px' : '1.5px') + ' solid var(--accent-br)',
-      outlineOffset: on ? '-2px' : '-1.5px',
-      ...(on ? {} : { opacity: 0.75 })
-    };
-    title = target.action === 'H' ? 'hold' : 'move ' + target.action;
-    const a = target.action;
-    click = onPick ? () => { onPick(a); } : undefined;
-  } else if (target) {
-    style = { background: 'var(--wall)', opacity: 0.55 };
-    title = 'Blocked by ' + target.reason;
-  }
-
-  const focused = wall ? undefined : here;
-  const trail = wall ? undefined : past;
-  const dots = trail
-    ? [...trail].sort((a, b) => b.t - a.t).slice(0, focused ? 2 : 4)
-    : [];
-  const sides = new Map<string, Vec>();
-  for (const b of focused ?? []) {
-    const side = held.get(b.color + ':' + b.p);
-    if (side) sides.set(side.join(','), side);
-  }
-
-  if (spawn) style = { ...style, border: '2px dashed ' + COLORS[spawn].hex };
-
-  return (
-    <div class="cell" style={style} title={title} onClick={click} data-spawn={spawn}>
-      {focused && focused.length > 0 && <Token view={view} bodies={focused} />}
-      {keyHere && !focused?.length && <i class="key-mark center" />}
-      {[...sides.values()].map((side) => (
-        <i key={side.join(',')} class="key-mark" data-side={side.join(',')} />
-      ))}
-      {fronts?.map((f, i) => (
-        <i
-          key={i}
-          class="front-mark"
-          style={{ '--front-color': COLORS[f.color].hex }}
-          title={frontText(view, f)}
-          aria-label={frontText(view, f)}
-        />
-      ))}
-      {dots.length > 0 && (
-        <div class={'trail-cluster' + (focused ? ' corner' : '')}>
-          {dots.map((b) => (
-            <div
-              key={b.color + ':' + b.p}
-              class="trail"
-              data-direction={relativeDirection(view, b)}
-              style={{ '--body-color': COLORS[b.color].hex, opacity: op.get(b.t) }}
-              title={describe(view, b)}
-              aria-label={describe(view, b)}
-            />
-          ))}
-        </div>
-      )}
-    </div>
-  );
-}
-
-function Token({ view, bodies }: { view: SessionView; bodies: ViewBody[] }) {
-  const sorted = [...bodies].sort((a, b) => a.p - b.p);
-  const first = sorted[0];
-  if (!first) return null;
-  const c = COLORS[first.color];
-  const many = sorted.length > 1;
-  const description = sorted.map((b) => describe(view, b)).join('\n');
-  const relative = new Set(sorted.map((b) => relativeDirection(view, b)));
-  const direction = relative.size > 1 ? 'mixed' : relative.values().next().value ?? 'matching';
-  const indices = sorted.length > 2
-    ? sorted[0]!.p + ' … ' + sorted[sorted.length - 1]!.p
-    : sorted.map((b) => b.p).join('·');
-  return (
-    <div
-      class={'tok ' + (many ? 'tok-many' : 'tok-single')}
-      data-direction={direction}
-      style={{ '--body-color': c.hex, '--body-ink': c.ink }}
-      title={description}
-      aria-label={description}
-    >
-      <span class="tok-label">{indices}</span>
-    </div>
-  );
-}
-
 const FLEX_ROW = 'display:flex;gap:2px;';
+// Every row carries the unexplored slot, explored or not, so one column width serves all four.
+// Without it the bars compress and the numbers below drift out of line.
+const TAIL = 'flex:2;min-width:14px;';
 
 function Strip({ view, focusT, lookBack }: { view: SessionView; focusT: number; lookBack: number }) {
   const lo = Math.max(0, focusT - lookBack);
@@ -278,6 +60,7 @@ function Strip({ view, focusT, lookBack }: { view: SessionView; focusT: number; 
   const cols = [];
   for (let t = 0; t < span; t++) cols.push(t);
   const beyond = view.outcome.status === 'running' && view.me.horizon < view.cap;
+  const tail = () => beyond ? <div style={TAIL} /> : null;
 
   return (
     <div id="strip" style="margin-top:12px;">
@@ -296,6 +79,7 @@ function Strip({ view, focusT, lookBack }: { view: SessionView; focusT: number; 
               ))}
             </div>
           ))}
+          {tail()}
         </div>
       )}
       <div style={FLEX_ROW + 'margin-bottom:2px;'}>
@@ -313,6 +97,7 @@ function Strip({ view, focusT, lookBack }: { view: SessionView; focusT: number; 
             ))}
           </div>
         ))}
+        {tail()}
       </div>
       <div style={FLEX_ROW + 'margin-bottom:3px;'}>
         {cols.map((t) => {
@@ -328,7 +113,13 @@ function Strip({ view, focusT, lookBack }: { view: SessionView; focusT: number; 
             />
           );
         })}
-        {beyond && <div style="flex:2;min-width:14px;height:9px;border-radius:2px;border:1px dashed var(--border);" />}
+        {beyond && (
+          <div style={TAIL} title={'unexplored · t' + (view.me.horizon + 1) + ' … t' + view.cap}>
+            {/* The dash rides on a child: a border on the flex item itself lands outside its
+                basis and pushes this row's last column 2px wide of the others. */}
+            <div style="height:9px;border-radius:2px;border:1px dashed var(--border);" />
+          </div>
+        )}
       </div>
       <div style={FLEX_ROW}>
         {cols.map((t) => (
@@ -343,10 +134,7 @@ function Strip({ view, focusT, lookBack }: { view: SessionView; focusT: number; 
             {span <= 24 || t % 5 === 0 ? t : ''}
           </div>
         ))}
-      </div>
-      <div class="muted" style="font-size:11.5px;margin-top:4px;">
-        explored through t{view.me.horizon}
-        {beyond ? '. Dashed is unexplored.' : ''}
+        {tail()}
       </div>
     </div>
   );
@@ -355,24 +143,29 @@ function Strip({ view, focusT, lookBack }: { view: SessionView; focusT: number; 
 function Legend({ view }: { view: SessionView }) {
   return (
     <div class="legend" id="legend">
-      {view.roster.map((c) => (
-        <span key={c}><Swatch color={c} />{nameOf(view, c)}</span>
-      ))}
-      <span>
-        <i class="sw" style="width:6px;height:6px;background:var(--text-muted);opacity:.4" />
-        earlier turns
-      </span>
-      <span><i class="direction-key matching" />your direction</span>
-      <span><i class="direction-key opposing" />opposite direction</span>
-      <span><i class="direction-key mixed" />mixed directions</span>
-      <span>number is personal index</span>
-      <span><i class="spawn-key" />spawn</span>
-      {view.mode === 'bootstrap' && (
-        <Fragment>
-          <span><i class="key-key" />key</span>
-          <span><i class="front-key" />front</span>
-        </Fragment>
-      )}
+      <div>
+        {view.roster.map((c) => (
+          <span key={c}><Swatch color={c} />{nameOf(view, c)}</span>
+        ))}
+        <span><i class="direction-key matching" />your direction</span>
+        <span><i class="direction-key opposing" />opposite direction</span>
+        <span><i class="direction-key mixed" />mixed directions</span>
+      </div>
+      <div>
+        {view.mode === 'bootstrap' && (
+          <Fragment>
+            <span><i class="key-key" />key</span>
+            <span><i class="front-key" />front</span>
+          </Fragment>
+        )}
+        <span><i class="spawn-key" />spawn</span>
+        <span>
+          <i class="sw" style="width:6px;height:6px;background:var(--text-muted);opacity:.4" />
+          earlier turns
+        </span>
+        <span>number on a body is its personal index</span>
+        <span>a stack shows its first and last index</span>
+      </div>
     </div>
   );
 }
@@ -639,6 +432,12 @@ const NET_LABEL: Record<string, string> = {
   failed: 'Connection failed. Reload the match link to try again.'
 };
 
+function netState(v: SessionView): 'good' | 'warn' | 'bad' {
+  if (v.status === 'offline' || v.status === 'failed') return 'bad';
+  if (v.status !== 'live' || v.peersNeeded) return 'warn';
+  return 'good';
+}
+
 function committed(v: SessionView): boolean {
   return !v.pending.includes(v.me.color);
 }
@@ -652,7 +451,317 @@ function reasonsOf(v: SessionView): Partial<Record<Action, string | null>> {
   return out;
 }
 
-function PlayScreen({ session, view, onNew }: { session: Session; view: SessionView; onNew: () => void }) {
+const NARROW = '(max-width:1120px)';
+const HISTORY_PRESETS = [0, 2, 4];
+
+// Below this width the rails cannot fit beside the board, so they stay folded.
+function useNarrow(): boolean {
+  const [narrow, setNarrow] = useState(
+    () => typeof matchMedia === 'function' && matchMedia(NARROW).matches
+  );
+  useEffect(() => {
+    if (typeof matchMedia !== 'function') return;
+    const q = matchMedia(NARROW);
+    const on = (): void => { setNarrow(q.matches); };
+    q.addEventListener('change', on);
+    on();
+    return () => { q.removeEventListener('change', on); };
+  }, []);
+  return narrow;
+}
+
+function dotFloor(): number {
+  return parseFloat(getComputedStyle(document.documentElement)
+    .getPropertyValue('--dot-floor')) || 0.14;
+}
+
+function Dots({ view }: { view: SessionView }) {
+  const order = view.priority.length ? view.priority : view.roster;
+  const still = view.uncommitted.map((c) => c === view.me.color ? 'You' : nameOf(view, c));
+  const text = 'Priority this turn: ' + order.map((c) => nameOf(view, c)).join(' › ') + '.'
+    + (still.length ? ' Still choosing: ' + still.join(', ') + '.' : ' All actions are in.');
+  return (
+    <div id="pending" class="dots" title={text} aria-label={text}>
+      {order.map((c) => (
+        <i
+          key={c} class="pdot" data-color={c}
+          data-state={view.uncommitted.includes(c) ? 'choosing' : 'done'}
+          style={{ background: COLORS[c].hex }}
+        />
+      ))}
+    </div>
+  );
+}
+
+function Toasts({ view }: { view: SessionView }) {
+  const recent = view.events.slice(-3).reverse();
+  if (!recent.length) return null;
+  return (
+    <div class="toasts" id="toasts">
+      {recent.map((e, i) => (
+        <div
+          key={e.turn + ':' + e.color + ':' + i}
+          class={'toast' + (i ? ' a' + (i + 1) : '')}
+          style={{ borderLeftColor: COLORS[e.color].hex }}
+        >
+          <span class="m">t{e.turn}</span>
+          <span><strong>{nameOf(view, e.color)}</strong> {eventText(view, e)}</span>
+        </div>
+      ))}
+    </div>
+  );
+}
+
+function LegendPopover({ view }: { view: SessionView }) {
+  return (
+    <div class="legwrap">
+      <button class="legbtn" id="btnLegend" title="Legend" aria-label="Legend">?</button>
+      <div class="legpop" id="legpop">
+        <div class="legtitle">Legend</div>
+        <Legend view={view} />
+        <div class="keyhint">
+          Arrows or WASD: choose. Enter or Space: commit. Esc: clear. Turn around has no shortcut.
+        </div>
+      </div>
+    </div>
+  );
+}
+
+// Below this the chart is unreadable whatever we do, so it draws nothing.
+const MIN_IW = 320;
+
+function TimelineInstrument({ view, focusT, lookBack }: {
+  view: SessionView; focusT: number; lookBack: number;
+}) {
+  const box = useRef<HTMLDivElement | null>(null);
+  const [width, setWidth] = useState(0);
+
+  // The chart draws in CSS pixels so its type keeps one size however many lanes the rows need,
+  // which means it has to be told how wide it is.
+  useLayoutEffect(() => {
+    const el = box.current;
+    if (!el) return;
+    setWidth(el.clientWidth);
+    const ro = new ResizeObserver(() => { setWidth(el.clientWidth); });
+    ro.observe(el);
+    return () => { ro.disconnect(); };
+  }, []);
+
+  return (
+    <div id="instrument" ref={box}>
+      {width >= MIN_IW && (
+        <InstrumentSvg
+          view={view} rows={lanesOf(view)} focusT={focusT} lookBack={lookBack} width={width}
+        />
+      )}
+    </div>
+  );
+}
+
+const GUTTER = 62;
+const RIGHT = 16;
+const LANE_H = 14;
+const ROW_TOP = 18;
+const ROW_H = MAX_LANES * LANE_H + 12;
+const AXIS_H = 26;
+// A wider column turns the focus and look-back highlights into slabs: at t0 one column would
+// otherwise be 72% of the chart. This is the mockup's own pitch; the fog takes what is left over,
+// so early in a match most of the chart is honestly unexplored.
+const MAX_COL_W = 72;
+const TICK = 'font-family:var(--mono);font-size:10px;pointer-events:none;';
+const ROW_LABEL = 'font-size:11px;fill:var(--text-primary);pointer-events:none;';
+const ROW_SUB = 'font-family:var(--mono);font-size:9.5px;fill:var(--text-muted);pointer-events:none;';
+
+// Keep the axis near a dozen labels however far the horizon reaches.
+function tickStep(span: number): number {
+  if (span <= 12) return 1;
+  if (span <= 60) return 5;
+  if (span <= 150) return 10;
+  return 25;
+}
+
+function InstrumentSvg({ view, rows, focusT, lookBack, width }: {
+  view: SessionView; rows: ReturnType<typeof lanesOf>;
+  focusT: number; lookBack: number; width: number;
+}) {
+  const cap = Math.max(0, Math.floor(view.cap));
+  const hor = Math.min(Math.max(0, view.me.horizon), cap);
+  // The fog takes the last 28% of the chart, but only when there is something unexplored to put
+  // there. Once the horizon reaches the cap the columns take the whole width.
+  const colW = Math.min(MAX_COL_W, (width - GUTTER - RIGHT) * (hor < cap ? 0.72 : 1) / (hor + 1));
+  const x = (t: number): number => GUTTER + t * colW + colW / 2;
+  const focus = Math.min(Math.max(0, focusT), cap);
+  const lo = Math.max(0, focus - Math.max(0, lookBack));
+
+  // Every row is the same height whatever its lane count, so nothing jumps when someone inverts.
+  const tops = rows.map((_, i) => ROW_TOP + i * ROW_H);
+  const H = ROW_TOP + rows.length * ROW_H + AXIS_H;
+  const top = 6;
+  const bottom = H - AXIS_H + 6;
+
+  const step = tickStep(hor);
+  const ticks: number[] = [];
+  for (let t = 0; t <= hor; t += step) ticks.push(t);
+  if (!ticks.length) ticks.push(0);
+
+  const fogX = x(hor) + colW / 2;
+  const fogW = Math.max(0, width - RIGHT - fogX);
+  // While there is fog the chart's right edge is turn `cap`, because the fog spans hor+1 … cap.
+  const capX = hor < cap ? width - RIGHT : fogX;
+
+  return (
+    <svg width={width} height={H} viewBox={`0 0 ${width} ${H}`} role="img"
+      aria-label={"Every player's bodies across world turns t0 to t" + cap}>
+      <defs>
+        <pattern id="tl-fog" width="8" height="8" patternUnits="userSpaceOnUse"
+          patternTransform="rotate(45)">
+          <rect width="8" height="8" fill="var(--surface-1)" />
+          <rect width="1.5" height="8" fill="var(--border)" />
+        </pattern>
+        {/* Names are player-supplied, so the label block is clipped to its gutter. */}
+        <clipPath id="tl-gutter">
+          <rect x="0" y="0" width={GUTTER - 5} height={H} />
+        </clipPath>
+      </defs>
+
+      <rect x={x(lo) - colW / 2} y={top} width={colW * (focus - lo + 1)} height={bottom - top}
+        fill="var(--text-secondary)" opacity="0.07" />
+      <rect x={x(focus) - colW / 2} y={top} width={Math.max(colW, 2)} height={bottom - top}
+        fill="var(--accent-br)" opacity="0.16" />
+      {hor < cap && (
+        <rect x={fogX} y={top} width={fogW} height={bottom - top} rx="3" fill="url(#tl-fog)" />
+      )}
+      {hor < cap && fogW > 96 && (
+        <text x={fogX + fogW / 2} y={top + 16} text-anchor="middle"
+          style={TICK + 'fill:var(--text-muted)'}>
+          {'unexplored · t' + (hor + 1) + ' … t' + cap}
+        </text>
+      )}
+
+      {ticks.map((t) => (
+        <g key={t}>
+          <line x1={x(t)} x2={x(t)} y1={top} y2={bottom} stroke="var(--border)" opacity="0.5" />
+          <text x={x(t)} y={H - 8} text-anchor="middle"
+            style={TICK + 'fill:' + (t === focus ? 'var(--text-primary)' : 'var(--text-muted)')}>
+            t{t}
+          </text>
+        </g>
+      ))}
+      <line x1={capX} x2={capX} y1={top} y2={bottom}
+        stroke="var(--bad-br)" stroke-width="2" />
+      <text x={capX - 4} y={H - 8} text-anchor="end"
+        style={TICK + 'fill:var(--text-secondary)'}>cap {cap}</text>
+
+      {rows.map((r, i) => {
+        const hex = COLORS[r.color].hex;
+        const rowTop = tops[i]!;
+        const laneY = (lane: number): number => rowTop + 14 + lane * LANE_H;
+        const lastLeg = r.legs[r.legs.length - 1];
+        // Past your horizon a player has no live body, so the newest one you can see stands in.
+        const newest = r.live ?? lastLeg?.bodies[lastLeg.bodies.length - 1] ?? null;
+        return (
+          <g key={r.color}>
+            {i > 0 && (
+              <line x1={GUTTER} x2={width - RIGHT} y1={rowTop - 3} y2={rowTop - 3}
+                stroke="var(--border)" />
+            )}
+            <g clip-path="url(#tl-gutter)">
+              <circle cx="8" cy={laneY(0) - 4} r="4.5" fill={hex} />
+              <text x="18" y={laneY(0)}
+                style={ROW_LABEL + (r.color === view.me.color ? 'font-weight:600;' : '')}>
+                {nameOf(view, r.color)}
+              </text>
+              {newest && (
+                <text x="3" y={laneY(0) + 14} style={ROW_SUB}>
+                  {'p' + newest.p + ' · ' + (newest.dir === 1 ? 'fwd' : 'back')}
+                  <title>{describe(view, newest)}</title>
+                </text>
+              )}
+            </g>
+
+            {r.legs.map((leg, j) => {
+              const ly = laneY(leg.lane);
+              const first = leg.bodies[0]!;
+              const last = leg.bodies[leg.bodies.length - 1]!;
+              const back = last.t < first.t ? -1 : 1;
+              const mx = x((first.t + last.t) / 2);
+              const fade = j === r.legs.length - 1 ? 1 : 0.55;
+              const from = j > 0 ? laneY(r.legs[j - 1]!.lane) : ly;
+              return (
+                <g key={j}>
+                  {leg.bodies.length > 1 ? (
+                    <polyline
+                      points={leg.bodies.map((b) => x(b.t) + ',' + ly).join(' ')}
+                      fill="none" stroke={hex} stroke-width="2.5"
+                      stroke-linejoin="round" stroke-linecap="round" opacity={fade}
+                    />
+                  ) : (
+                    <line x1={x(first.t) - 7} x2={x(first.t) + 7} y1={ly} y2={ly}
+                      stroke={hex} stroke-width="2.5" stroke-linecap="round" opacity={fade} />
+                  )}
+                  {from !== ly && (
+                    // An inversion lands on the world turn it left from, so without this the two
+                    // legs are loose dots in one column. The arc folds away from the new heading.
+                    <path
+                      d={`M${x(first.t) + (first.dir === 1 ? -6 : 6)},${from}`
+                        + `a6,${(ly - from) / 2} 0 0 1 0,${ly - from}`}
+                      fill="none" stroke={hex} stroke-width="2.5" opacity={fade}
+                    />
+                  )}
+                  {leg.bodies.length > 1 && (
+                    <path d={`M${mx - 4 * back},${ly - 4} l${4 * back},4 l${-4 * back},4`}
+                      fill="none" stroke={hex} stroke-width="2" />
+                  )}
+                  {leg.bodies.map((b) => {
+                    const fill = relativeDirection(view, b) === 'matching' ? hex : 'var(--surface-1)';
+                    if (b.live) return null;
+                    return (
+                      <g key={b.p}>
+                        <circle cx={x(b.t)} cy={ly} r="3.5" fill={fill} stroke={hex} stroke-width="1.5">
+                          <title>{describe(view, b)}</title>
+                        </circle>
+                        {b.p % 4 === 0 && (
+                          <text x={x(b.t)} y={ly - 7} text-anchor="middle"
+                            style={TICK + 'font-size:8px;fill:var(--text-muted)'}>{b.p}</text>
+                        )}
+                      </g>
+                    );
+                  })}
+                </g>
+              );
+            })}
+
+            {r.live && (() => {
+              const b = r.live;
+              const lane = r.legs.find((l) => l.bodies.includes(b))?.lane ?? 0;
+              const matching = relativeDirection(view, b) === 'matching';
+              return (
+                <g>
+                  <circle cx={x(b.t)} cy={laneY(lane)} r="7"
+                    fill={matching ? hex : 'var(--surface-1)'} stroke={hex} stroke-width="2.5">
+                    <title>{describe(view, b)}</title>
+                  </circle>
+                  <text x={x(b.t)} y={laneY(lane) + 3.5} text-anchor="middle"
+                    style={TICK + 'font-size:8.5px;font-weight:600;fill:'
+                      + (matching ? COLORS[r.color].ink : 'var(--text-primary)')}>
+                    {b.p}
+                  </text>
+                </g>
+              );
+            })()}
+          </g>
+        );
+      })}
+    </svg>
+  );
+}
+
+type PlayProps = {
+  session: Session; view: SessionView; onNew: () => void;
+  theme: Theme; onTheme: () => void;
+};
+
+function PlayScreen({ session, view, onNew, theme, onTheme }: PlayProps) {
   const v = view;
 
   const [pick, setPick] = useState<Action | null>(null);
@@ -662,12 +771,47 @@ function PlayScreen({ session, view, onNew }: { session: Session; view: SessionV
   const [scrub, setScrub] = useState<{ turn: number; t: number } | null>(null);
   const maxBack = Math.max(1, Math.ceil(v.cap / 4));
   const [lookBack, setLookBack] = useState<number | null>(null);
+  const [logOpen, setLogOpen] = useState(true);
+  const [moveOpen, setMoveOpen] = useState(true);
+  const [raised, setRaised] = useState(false);
+  const narrow = useNarrow();
 
-  const back = lookBack ?? maxBack;
+  const back = Math.min(lookBack ?? maxBack, maxBack);
   const focusT = Math.min(scrub && scrub.turn === v.turn ? scrub.t : v.me.t, v.me.horizon);
   const done = committed(v);
   const over = v.outcome.status !== 'running';
   const reasons = reasonsOf(v);
+  const choosing = !over && !done;
+  const showLog = logOpen && !narrow;
+  const showMove = moveOpen && !narrow;
+
+  // The play screen owns the viewport, so the page shell's padding comes off.
+  useEffect(() => {
+    document.body.classList.add('playing');
+    return () => { document.body.classList.remove('playing'); };
+  }, []);
+
+  useEffect(() => {
+    if (!raised) return;
+    const drop = (): void => { setRaised(false); };
+    window.addEventListener('pointerup', drop);
+    window.addEventListener('pointercancel', drop);
+    return () => {
+      window.removeEventListener('pointerup', drop);
+      window.removeEventListener('pointercancel', drop);
+    };
+  }, [raised]);
+
+  const names = v.roster.map((c) => v.names[c] ?? '').join(',');
+  const sceneKey = v.hash + '|' + v.me.color + '|' + focusT + '|' + back + '|' + choosing + '|' + theme + '|' + names;
+  const scene = useMemo(
+    () => sceneAt(v, focusT, back, choosing, dotFloor()),
+    [sceneKey]
+  );
+  const resolved = useMemo(
+    () => v.events.filter((e) => e.turn === v.turn - 1),
+    [v.hash, v.turn]
+  );
 
   // Prefer hold, then invert, so Commit always names a legal action.
   const active: Action | null = over || done ? null
@@ -723,6 +867,9 @@ function PlayScreen({ session, view, onNew }: { session: Session; view: SessionV
 
   const c = COLORS[v.me.color];
   const net = NET_LABEL[v.status] ?? v.status;
+  const threat = v.fronts.find((f) => f.target === v.me.color);
+  const presets = [...new Set([...HISTORY_PRESETS, maxBack].filter((n) => n <= maxBack))]
+    .sort((a, b) => a - b);
 
   function padButton(
     a: Action, face: string, sub: string | null, hint: string, id?: string, style?: string
@@ -743,136 +890,168 @@ function PlayScreen({ session, view, onNew }: { session: Session; view: SessionV
     );
   }
 
-  const why = active === 'I'
-    ? 'Stay at t' + v.me.t + ' and walk ' + (v.me.dir === 1 ? 'backward' : 'forward') + '.'
-    : active === 'H'
-      ? 'Stay here. This uses a world turn, not an index.'
-      : reasons.H ? 'Cannot hold here: ' + reasons.H + '.' : '';
+  const movePanel = (
+    <Fragment>
+      <div id="phasePick" class={over || done ? 'hide' : ''}>
+        <h3>Your move</h3>
+        <div class="dpad" id="dpad">
+          <div class="blank" />
+          {padButton('W', '↑', 'W', 'move up')}
+          <div class="blank" />
+          {padButton('A', '←', 'A', 'move left')}
+          {padButton('H', '·', 'hold', 'hold this square')}
+          {padButton('D', '→', 'D', 'move right')}
+          <div class="blank" />
+          {padButton('S', '↓', 'S', 'move down')}
+          <div class="blank" />
+        </div>
+        {padButton('I', 'Turn around in time', null, 'Turn around in time', 'btnInvert', 'width:100%;')}
+        <button id="btnCommit" class="primary" style="width:100%;margin-top:10px;" disabled={!active || busy} onClick={() => { void commit(); }}>
+          {active ? 'Commit ' + LABEL[active] : 'Commit'}
+        </button>
+        <div id="pickMsg">{pickMsg && <div class="err">{pickMsg}</div>}</div>
+      </div>
+
+      <div id="phaseShare" class={over || !done ? 'hide' : ''}>
+        <h3>Action locked in</h3>
+        <button id="btnUndo" class={v.canChange ? '' : 'hide'} onClick={undo}>Change my action</button>
+        <div id="keyUndo" class={v.canChange ? 'keyhint' : 'keyhint hide'}>Esc also changes it.</div>
+        <div id="shareMsg">{shareMsg && <div class="err">{shareMsg}</div>}</div>
+      </div>
+
+      <div id="phaseOver" class={over ? '' : 'hide'}>
+        <h3>{outcomeText(v)}</h3>
+        <div class="hint">Use World turn to review the match.</div>
+      </div>
+
+      {!over && <Dots view={v} />}
+      <div class="err" id="netErr">{v.error || v.notice || ''}</div>
+    </Fragment>
+  );
 
   return (
-    <div class="cols">
-      <div>
-        <button id="btnNewPlay" style="width:100%;margin-bottom:14px;" onClick={onNew}>New match</button>
-        <div class="card">
-          <h2>Log</h2>
-          <Log view={v} />
-        </div>
+    <div id="play" class="play">
+      <div class="hud">
+        <strong id="youAre">
+          <span class="pill" style={{ background: c.hex, color: c.ink }}>{nameOf(v, v.me.color)}</span>
+        </strong>
+        <span id="youAt" class="mono">
+          index {v.me.p} · t{v.me.t} · {v.me.dir === 1 ? 'forward' : 'backward'} · ({v.me.x},{v.me.y})
+        </span>
+        {threat && (
+          <span class="warnchip" id="frontChip" title={frontText(v, threat)}>
+            <i class="tri" style={{ '--front-color': COLORS[threat.color].hex }} />
+            {frontText(v, threat)}
+          </span>
+        )}
+        <span class="spacer" />
+        <span class="mono" id="turnInfo">
+          {over ? outcomeText(v) + ' at turn ' + v.turn : 'turn ' + v.turn + ' / ' + v.cap}
+        </span>
+        <span class="mono" id="netInfo">
+          <i class="dot" data-state={netState(v)} />
+          {net
+            + (v.peersNeeded ? ' · waiting for ' + plural(v.peersNeeded, 'player') : '')
+            + (v.status === 'live' ? ' · ' + plural(v.peers.length, 'other player') : '')
+            + (v.detail ? ' · ' + v.detail : '')}
+        </span>
+        <span class="mono" id="hashInfo">state {v.hash}</span>
+        <button id="btnTheme" title="Switch between dark and light" onClick={onTheme}>
+          {theme === 'light' ? 'Dark' : 'Light'}
+        </button>
+        <button id="btnNewPlay" onClick={onNew}>New match</button>
       </div>
 
-      <div>
-        <div class="card">
-          <div style="display:flex;justify-content:space-between;align-items:baseline;gap:12px;flex-wrap:wrap;margin-bottom:12px;">
-            <div>
-              <strong id="youAre">
-                <span class="pill" style={{ background: c.hex, color: c.ink }}>{nameOf(v, v.me.color)}</span>
-              </strong>{' '}
-              <span id="youAt" class="sec mono">
-                index {v.me.p} · t{v.me.t} · {v.me.dir === 1 ? 'forward' : 'backward'} · ({v.me.x},{v.me.y})
-              </span>
+      <div
+        class="band"
+        style={{ gridTemplateColumns: (showLog ? '232px' : '52px') + ' 1fr ' + (showMove ? '296px' : '52px') }}
+      >
+        {showLog ? (
+          <div class="lrail" id="logRail">
+            <div class="railhead">
+              <span class="grow">Log</span>
+              <button class="icobtn" id="btnLogFold" title="Fold the log" onClick={() => { setLogOpen(false); }}>&#8592;</button>
             </div>
-            <div class="mono muted" id="turnInfo">
-              {over ? outcomeText(v) + ' at turn ' + v.turn : 'turn ' + v.turn + ' / ' + v.cap + ' · state ' + v.hash}
-            </div>
+            <Log view={v} />
           </div>
+        ) : (
+          <div class="icostrip" id="logStrip">
+            <button
+              class="icobtn" id="btnLogOpen" title="Open the log" disabled={narrow}
+              onClick={() => { setLogOpen(true); }}
+            >&#8594;</button>
+            <span class="vlabel">{'LOG · ' + plural(v.events.length, 'event')}</span>
+          </div>
+        )}
 
+        <div class="stagearea">
+          {!showLog && <Toasts view={v} />}
           <div class="boardframe">
-            <Board view={v} focusT={focusT} lookBack={back} picked={active} onPick={over || done ? null : aim} />
-          </div>
-
-          <div class="row">
-            <label for="sl">World turn</label>
-            <input
-              type="range" id="sl" min={0} max={v.me.horizon} value={focusT} step={1} style="flex:1;"
-              onInput={(e) => { setScrub({ turn: v.turn, t: +e.currentTarget.value }); }}
+            <Board
+              view={v} scene={scene} turn={v.turn} events={resolved}
+              picked={active} onPick={choosing ? aim : null}
             />
-            <span class="out" id="slo">{focusT}</span>
           </div>
-          <div class="row">
-            <label for="rd">History</label>
-            <input
-              type="range" id="rd" min={0} max={maxBack} value={back} step={1} style="flex:1;"
-              onInput={(e) => { setLookBack(+e.currentTarget.value); }}
-            />
-            <span class="out" id="rdo">{back}</span>
-          </div>
-          <div class="muted" style="font-size:11.5px;margin-top:-2px;" id="rdNote">
-            up to {maxBack} turns of history
-          </div>
-          <Strip view={v} focusT={focusT} lookBack={back} />
-          <Legend view={v} />
         </div>
+
+        {showMove ? (
+          <div class="rrail" id="moveRail">
+            <div class="railhead">
+              <span class="grow">Actions</span>
+              <button class="icobtn" id="btnMoveFold" title="Fold the actions" onClick={() => { setMoveOpen(false); }}>&#8594;</button>
+            </div>
+            <div class="railbody">{movePanel}</div>
+          </div>
+        ) : (
+          <div class="icostrip right" id="moveStrip">
+            <button
+              class="icobtn" id="btnMoveOpen" title="Open the actions" disabled={narrow}
+              onClick={() => { setMoveOpen(true); }}
+            >&#8592;</button>
+            <button
+              class="icobtn" id="btnUndoStrip" disabled={over || !done || !v.canChange}
+              title="Change my action" onClick={undo}
+            >&#8635;</button>
+            <button
+              class="icobtn primary" id="btnCommitStrip" disabled={!active || busy || over || done}
+              title={active ? 'Commit ' + LABEL[active] : 'Commit'}
+              onClick={() => { void commit(); }}
+            >&#10003;</button>
+            {!over && <Dots view={v} />}
+            {!over && (
+              <span class="vlabel">
+                {v.uncommitted.length ? v.uncommitted.length + ' still choosing' : 'all actions in'}
+              </span>
+            )}
+          </div>
+        )}
+
+        {raised && <div class="scrim" id="scrim" />}
       </div>
 
-      <div>
-        <div class="card" id="turnCard">
-          <div class="mono sec" id="netInfo" style="margin-bottom:10px;">
-            {net
-              + (v.peersNeeded ? ' · waiting for ' + plural(v.peersNeeded, 'player') : '')
-              + (v.status === 'live' ? ' · ' + plural(v.peers.length, 'other player') : '')
-              + (v.detail ? ' · ' + v.detail : '')}
-          </div>
-          <div class="err" id="netErr">{v.error || v.notice || ''}</div>
-          {!over && (
-            <div id="pending" class="mono muted" style="margin-bottom:10px;">
-              {v.uncommitted.length
-                ? 'Still choosing: ' + v.uncommitted.map((x) => x === v.me.color ? 'You' : nameOf(v, x)).join(', ')
-                : 'All actions are in.'}
-            </div>
-          )}
-
-          {v.mode === 'bootstrap' && !over && (
-            <div class="muted" id="modeHint" style="font-size:12.5px;margin-bottom:10px;">
-              Grab the key from beside the center. Win at t0 next to your spawn.
-            </div>
-          )}
-          <div id="phasePick" class={over || done ? 'hide' : ''}>
-            <h2>Your move</h2>
-            <div class="dpad" id="dpad">
-              <div class="blank" />
-              {padButton('W', '↑', 'W', 'move up')}
-              <div class="blank" />
-              {padButton('A', '←', 'A', 'move left')}
-              {padButton('H', '·', 'hold', 'hold this square')}
-              {padButton('D', '→', 'D', 'move right')}
-              <div class="blank" />
-              {padButton('S', '↓', 'S', 'move down')}
-              <div class="blank" />
-            </div>
-            {padButton('I', 'Turn around in time', null, 'Turn around in time', 'btnInvert', 'width:100%;')}
-            <button id="btnCommit" style="width:100%;margin-top:10px;" disabled={!active || busy} onClick={() => { void commit(); }}>
-              {active ? 'Commit ' + LABEL[active] : 'Commit'}
-            </button>
-            <div class="keyhint">Arrows or WASD: choose. Enter or Space: commit. Esc: clear. Turn around has no shortcut.</div>
-            <div class="muted" style="font-size:12.5px;margin-top:8px;" id="pickWhy">{why}</div>
-            <div id="pickMsg">{pickMsg && <div class="err">{pickMsg}</div>}</div>
-          </div>
-
-          <div id="phaseShare" class={over || !done ? 'hide' : ''}>
-            <h2>Action locked in</h2>
-            <div style="display:flex;gap:8px;margin:0 0 6px;">
-              <button id="btnUndo" class={v.canChange ? '' : 'hide'} onClick={undo}>Change my action</button>
-            </div>
-            <div id="keyUndo" style="margin:0 0 14px;" class={v.canChange ? 'keyhint' : 'keyhint hide'}>Esc also changes it.</div>
-            <div id="shareMsg">{shareMsg && <div class="err">{shareMsg}</div>}</div>
-          </div>
-
-          <div id="phaseOver" class={over ? '' : 'hide'}>
-            <h2>{outcomeText(v)}</h2>
-            <div class="muted" style="font-size:13px;">Use World turn to review the match.</div>
-          </div>
-        </div>
-
-        <div class="card">
-          <h2>Priority this turn</h2>
-          <div class="mono sec" id="prioInfo">
-            {over ? 'match over' : v.priority.map((x, i) => (
-              <Fragment key={x}>
-                {i > 0 && ' › '}
-                <span style="display:inline-flex;align-items:center;gap:5px;"><Swatch color={x} />{nameOf(v, x)}</span>
-              </Fragment>
+      <div class="dock">
+        {raised && <TimelineInstrument view={v} focusT={focusT} lookBack={back} />}
+        <Strip view={v} focusT={focusT} lookBack={back} />
+        <div class="dockrow">
+          <LegendPopover view={v} />
+          <label class="docklabel" for="sl">world turn</label>
+          <input
+            type="range" id="sl" min={0} max={v.me.horizon} value={focusT} step={1}
+            style={{ flex: 1, '--fill': (v.me.horizon ? focusT * 100 / v.me.horizon : 0) + '%' }}
+            onPointerDown={() => { setRaised(true); }}
+            onInput={(e) => { setScrub({ turn: v.turn, t: +e.currentTarget.value }); }}
+          />
+          <span class="docklabel" id="slo" style="color:var(--text-primary);">t{focusT}</span>
+          <span class="docklabel">history</span>
+          <div class="seg" id="rd">
+            {presets.map((n) => (
+              <button
+                key={n} data-back={n} class={n === back ? 'on' : ''}
+                aria-pressed={n === back}
+                onClick={() => { setLookBack(n); }}
+              >{n}</button>
             ))}
           </div>
-          <div class="muted" style="font-size:12.5px;margin-top:6px;">Holders resolve before movers.</div>
         </div>
       </div>
     </div>
@@ -1000,6 +1179,21 @@ export function App({ loadRoom }: { loadRoom: RoomLoader }) {
     clearLink();
   }
 
+  function toggleTheme(): void {
+    const next: Theme = theme === 'light' ? 'dark' : 'light';
+    applyTheme(next);
+    setTheme(next);
+  }
+
+  if (showPlay && live && view) {
+    return (
+      <PlayScreen
+        session={live.session} view={view} onNew={newMatch}
+        theme={theme} onTheme={toggleTheme}
+      />
+    );
+  }
+
   return (
     <div class="wrap">
       <div style="display:flex;justify-content:space-between;align-items:flex-start;gap:16px;">
@@ -1007,31 +1201,20 @@ export function App({ loadRoom }: { loadRoom: RoomLoader }) {
           <h1>Time travel tactics</h1>
           <p class="sub">A multiplayer time-travel tactics prototype.</p>
         </div>
-        <button
-          id="btnTheme" title="Switch between dark and light"
-          onClick={() => {
-            const next: Theme = theme === 'light' ? 'dark' : 'light';
-            applyTheme(next);
-            setTheme(next);
-          }}
-        >
+        <button id="btnTheme" title="Switch between dark and light" onClick={toggleTheme}>
           {theme === 'light' ? 'Dark' : 'Light'}
         </button>
       </div>
 
-      <div id="setup" class={showPlay ? 'narrow hide' : 'narrow'}>
+      <div id="setup" class="narrow">
         {!live && <SetupCard key={setupKey} initialError={setupError} onMatch={(m) => { openMatch(m); }} />}
-        {live && view && !showPlay && (
+        {live && view && (
           <PickCard
             link={live.link} view={view}
             name={name} setName={setName}
             chosen={chosen} setChosen={setChosen} onSit={sit} onNew={newMatch}
           />
         )}
-      </div>
-
-      <div id="play" class={showPlay ? '' : 'hide'}>
-        {showPlay && live && view && <PlayScreen session={live.session} view={view} onNew={newMatch} />}
       </div>
     </div>
   );

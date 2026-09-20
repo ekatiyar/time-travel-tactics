@@ -11,7 +11,9 @@ prototype status:
 - [`docs/playing.md`](docs/playing.md) for player-facing behavior.
 
 `engine.ts` owns deterministic rules. `transport.ts` owns peer coordination. `ui.tsx` renders a
-session view. Preserve those boundaries.
+session view. `scene.ts` turns a view into what the board draws and diffs two draws into motions.
+`lanes.ts` splits each player's bodies into timeline legs. `board.tsx` renders a scene. Preserve
+those boundaries, and keep `scene.ts` and `lanes.ts` free of the DOM so they run under `node --test`.
 
 Use `package.json` for commands and configuration files for their settings.
 

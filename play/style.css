@@ -1,6 +1,6 @@
   :root{
     color-scheme:dark;
-    --surface-0:#17161A; --surface-1:#212024; --surface-2:#2B2A2F;
+    --surface-0:#17161A; --surface-1:#212024; --surface-2:#2B2A2F; --surface-3:#353338;
     --text-primary:#EDEAE4; --text-secondary:#A8A49C; --text-muted:#787469;
     --border:#37353B; --btn-border:#4E4B53;
     --accent-bg:#1B2B3B; --accent-br:#5A8FC4;
@@ -11,7 +11,7 @@
   }
   :root[data-theme="light"]{
     color-scheme:light;
-    --surface-0:#F6F4F0; --surface-1:#EFECE6; --surface-2:#FFFFFF;
+    --surface-0:#F6F4F0; --surface-1:#EFECE6; --surface-2:#FFFFFF; --surface-3:#E4E0D8;
     --text-primary:#2C2C2A; --text-secondary:#5F5E5A; --text-muted:#888780;
     --border:#DDD9D2; --btn-border:#B4B2A9;
     --accent-bg:#E6F1FB; --accent-br:#85B7EB;
@@ -33,6 +33,8 @@
   button:hover:not(:disabled){background:var(--surface-2);}
   button:disabled{opacity:.4;cursor:not-allowed;}
   button.on{background:var(--surface-2);border-color:var(--text-secondary);}
+  button.primary{background:var(--text-primary);color:var(--surface-0);border-color:var(--text-primary);}
+  button.primary:hover:not(:disabled){background:var(--text-secondary);border-color:var(--text-secondary);}
   input,select,textarea{font:inherit;font-size:14px;padding:6px 9px;border-radius:8px;
     border:1px solid var(--border);background:var(--surface-2);color:inherit;}
   textarea{width:100%;font-family:var(--mono);font-size:12.5px;resize:vertical;}
@@ -45,24 +47,29 @@
   .mono{font-family:var(--mono);font-size:12.5px;}
   .muted{color:var(--text-muted);}
   .sec{color:var(--text-secondary);}
-  .cols{display:grid;gap:14px;align-items:start;
-    grid-template-columns:minmax(240px,1fr) minmax(50vw,2.4fr) minmax(270px,1fr);}
-  @media(max-width:1120px){
-    .cols{grid-template-columns:1fr;}
-    .cols>:nth-child(2){order:-1;}
-    .dpad{max-width:320px;}
-  }
 
   .boardframe{background:var(--surface-2);border:1px solid var(--border);border-radius:8px;
     padding:6px;display:flex;justify-content:center;}
   #board{
     --maxh:min(70vh,720px);
-    display:grid;
+    display:grid;position:relative;
     width:min(100%, calc(var(--maxh) * var(--bw) / var(--bh)));
     aspect-ratio:var(--bw) / var(--bh);
     grid-template-columns:repeat(var(--bw),1fr);
     grid-template-rows:repeat(var(--bh),1fr);
   }
+
+  /* Bodies live above the grid so they can slide between tiles. */
+  .bodies{position:absolute;inset:0;pointer-events:none;}
+  .tokslot{position:absolute;container-type:size;display:flex;align-items:center;justify-content:center;
+    width:calc(100% / var(--bw));height:calc(100% / var(--bh));
+    transition:left .4s ease,top .4s ease;}
+  .bodies.snap .tokslot,#board.noanim .tokslot{transition:none;transition-delay:0s;}
+  .tokslot .tok,.tokslot .front-mark{pointer-events:auto;}
+  .tgt{display:flex;flex-direction:column;align-items:center;justify-content:center;
+    line-height:1.05;font-family:var(--mono);pointer-events:none;}
+  .tgt-p{font-size:26cqmin;font-weight:500;color:var(--text-primary);}
+  .tgt-t{font-size:18cqmin;color:var(--accent-br);}
   /* Borders preserve square cells. */
   .cell{border:1px solid var(--surface-2);border-radius:3px;min-width:0;min-height:0;
     container-type:size;display:flex;align-items:center;justify-content:center;position:relative;
@@ -74,8 +81,11 @@
   .tok-many{width:88cqmin;border-radius:9999px;padding:0 5cqmin;text-overflow:ellipsis;}
   .tok[data-direction="matching"]{background:var(--body-color);color:var(--body-ink);}
   .tok[data-direction="opposing"]{background:transparent;color:var(--text-primary);}
+  /* A 200%-wide two-stop gradient: background-position 0% is a full fill, 50% is the even split,
+     so the settle can sweep between them without @property. */
   .tok[data-direction="mixed"]{
-    background:linear-gradient(90deg,var(--body-color) 50%,transparent 50%);color:var(--text-primary);
+    background-image:linear-gradient(90deg,var(--body-color) 50%,transparent 50%);
+    background-size:200% 100%;background-position:50% 0;color:var(--text-primary);
   }
   .tok:not([data-direction="matching"]) .tok-label{
     background:color-mix(in srgb,var(--surface-1) 88%,transparent);border-radius:9999px;padding:0 3cqmin;
@@ -90,12 +100,13 @@
   .time-head[data-direction="opposing"]{background:transparent;}
   .key-mark{position:absolute;width:16cqmin;height:16cqmin;min-width:4px;min-height:4px;
     background:var(--key);border:1px solid var(--surface-0);border-radius:2cqmin;pointer-events:none;}
-  .key-mark[data-side="0,-1"]{top:4cqmin;left:50%;transform:translateX(-50%);}
-  .key-mark[data-side="0,1"]{bottom:4cqmin;left:50%;transform:translateX(-50%);}
-  .key-mark[data-side="-1,0"]{left:4cqmin;top:50%;transform:translateY(-50%);}
-  .key-mark[data-side="1,0"]{right:4cqmin;top:50%;transform:translateY(-50%);}
-  .key-mark.center{position:static;transform:none;width:30cqmin;height:30cqmin;pointer-events:auto;}
-  .front-mark{position:absolute;left:4cqmin;bottom:4cqmin;width:0;height:0;
+  .key-mark[data-side="0,-1"]{top:4cqmin;left:0;right:0;margin:0 auto;}
+  .key-mark[data-side="0,1"]{bottom:4cqmin;left:0;right:0;margin:0 auto;}
+  .key-mark[data-side="-1,0"]{left:4cqmin;top:0;bottom:0;margin:auto 0;}
+  .key-mark[data-side="1,0"]{right:4cqmin;top:0;bottom:0;margin:auto 0;}
+  .key-mark.center{position:static;width:30cqmin;height:30cqmin;pointer-events:auto;}
+  .key-mark.center.corner{position:absolute;right:4cqmin;bottom:4cqmin;width:16cqmin;height:16cqmin;}
+  .front-mark{position:absolute;left:calc(4cqmin + var(--front-nth,0) * 16cqmin);bottom:4cqmin;width:0;height:0;
     border-left:7cqmin solid transparent;border-right:7cqmin solid transparent;border-bottom:12cqmin solid var(--front-color);}
   .front-tick{display:inline-block;width:0;height:0;border-left:4px solid transparent;
     border-right:4px solid transparent;border-bottom:7px solid var(--front-color);}
@@ -103,8 +114,9 @@
   .front-key{width:0;height:0;border-left:6px solid transparent;border-right:6px solid transparent;
     border-bottom:11px solid var(--text-secondary);flex:none;}
   .spawn-key{width:11px;height:11px;border:2px dashed var(--text-secondary);border-radius:2px;flex:none;}
-  .legend{display:flex;flex-wrap:wrap;gap:6px 14px;margin-top:12px;font-size:12px;color:var(--text-secondary);}
-  .legend span{display:inline-flex;align-items:center;gap:5px;}
+  .legend{display:grid;grid-template-columns:1fr 1fr;column-gap:16px;align-items:start;
+    font-size:12px;line-height:1.35;color:var(--text-secondary);}
+  .legend span{display:flex;align-items:center;gap:7px;padding:2px 0;}
   .sw{width:11px;height:11px;border-radius:50%;flex:none;}
   .direction-key{width:11px;height:11px;border:2px solid var(--text-secondary);border-radius:50%;flex:none;}
   .direction-key.matching{background:var(--text-secondary);}
@@ -147,3 +159,178 @@
     .lobby-head{display:block;}
     .lobby-actions{justify-content:flex-start;margin-bottom:12px;}
   }
+
+  /* Turn resolution. The slide is the .tokslot transition, the token motions hang off
+     data-motion, and the key mark has its own channel so it plays alongside them. */
+  @keyframes tok-bounce{
+    0%{transform:translate(0,0);}
+    40%{transform:translate(calc(var(--dx,0) * 33%),calc(var(--dy,0) * 33%));}
+    100%{transform:translate(0,0);}
+  }
+  /* Split and settle: hold the round single token, then widen it into the two-index pill while
+     the mixed fill sweeps from whole to half. The end frame is what the renderer already draws. */
+  @keyframes tok-settle{
+    from{width:70cqmin;padding:0;border-radius:50%;background-position:0% 0;}
+    to{width:88cqmin;padding:0 5cqmin;border-radius:9999px;background-position:50% 0;}
+  }
+  @keyframes tb-draw{
+    0%{opacity:0;stroke-dashoffset:132;}
+    12%{opacity:1;}
+    60%{opacity:1;stroke-dashoffset:0;}
+    100%{opacity:0;stroke-dashoffset:0;}
+  }
+  @keyframes tb-tip{0%,58%{opacity:0;}68%{opacity:1;}100%{opacity:0;}}
+  @keyframes key-slide{
+    from{transform:translate(calc(var(--kx,0) * 100cqw),calc(var(--ky,0) * 100cqh));}
+    to{transform:none;}
+  }
+  @keyframes grab-ring{0%{opacity:0;transform:scale(.7);}30%{opacity:.9;}100%{opacity:0;transform:scale(1.9);}}
+  @keyframes key-lost{0%{opacity:1;transform:scale(1);}100%{opacity:0;transform:scale(1.6);}}
+
+  .tokslot[data-motion="bounce"] .tok{animation:tok-bounce .4s ease-out;}
+  /* Only a merged stack settles. A lone token whose direction flipped under a scrub still draws
+     as a circle, so widening it would end somewhere the renderer never goes. */
+  .tokslot[data-motion="invert"] .tok-many{animation:tok-settle .3s ease-out both;}
+  /* The arc crosses the token, which is its own colour, so it carries a dark rim to stay legible. */
+  .turnback{display:none;position:absolute;inset:0;overflow:visible;pointer-events:none;
+    filter:drop-shadow(0 0 1.5px var(--surface-0)) drop-shadow(0 0 1.5px var(--surface-0));}
+  .tokslot[data-motion="invert"] .turnback{display:block;}
+  .tb-arc{fill:none;stroke:var(--body-color);stroke-width:4;stroke-linecap:round;
+    stroke-dasharray:132;animation:tb-draw .5s ease-out both;}
+  .tb-tip{fill:var(--body-color);animation:tb-tip .5s linear both;}
+  .tokslot[data-key-motion="grab"] .key-mark{animation:key-slide .3s ease-out both;}
+  .tokslot[data-key-motion="grab"]::before{content:'';position:absolute;inset:14cqmin;border-radius:50%;
+    border:4cqmin solid var(--key);animation:grab-ring .3s ease-out both;pointer-events:none;}
+  .tokslot[data-key-motion="lost"]::after{content:'';position:absolute;inset:0;margin:auto;
+    width:16cqmin;height:16cqmin;border-radius:2cqmin;background:var(--key);
+    animation:key-lost .3s ease-in forwards;pointer-events:none;}
+
+  /* A resolved turn reads as a sequence, not one blur: moves at .25s, inversions and grabs at
+     .65s, fronts at .95s, all done by MOTION_MS. */
+  .bodies.staged .tokslot{transition-delay:.25s;}
+  .bodies.staged .tokslot[data-motion="bounce"] .tok{animation-delay:.25s;}
+  .bodies.staged .tokslot[data-motion="invert"] .tok-many,
+  .bodies.staged .tokslot[data-motion="invert"] .turnback path{animation-delay:.65s;}
+  .bodies.staged .tokslot[data-key-motion="grab"] .key-mark,
+  .bodies.staged .tokslot[data-key-motion="grab"]::before,
+  .bodies.staged .tokslot[data-key-motion="lost"]::after{animation-delay:.65s;}
+  .bodies.staged .frontslot{transition-delay:.95s;transition-duration:.25s;}
+
+  @media(prefers-reduced-motion:reduce){
+    .tokslot{transition:none;}
+    .turnback{display:none;}
+    .tokslot[data-motion] .tok,.tokslot[data-key-motion] .key-mark,
+    .tokslot[data-key-motion]::before,.tokslot[data-key-motion]::after{animation:none;}
+    .tokslot[data-key-motion="lost"]::after{display:none;}
+  }
+
+  /* Board-first play screen shell (mockups/01-board-first.html). */
+  body.playing{padding:0;}
+  .play{display:grid;grid-template-rows:46px 1fr auto;height:100vh;}
+
+  .hud{display:flex;align-items:center;gap:14px;padding:0 14px;
+    background:var(--surface-1);border-bottom:1px solid var(--border);}
+  .hud .pill{font-size:12px;padding:2px 10px;font-weight:500;}
+  .hud .mono{color:var(--text-secondary);}
+  .hud button{padding:4px 10px;font-size:12.5px;}
+  .spacer{flex:1;}
+  .warnchip{display:inline-flex;align-items:center;gap:6px;font-size:12px;
+    /* mock.css's --warn has no counterpart here; --bad-br is the same "pay attention" orange. */
+    color:var(--bad-br);border:1px solid var(--bad-br);border-radius:20px;padding:2px 10px;}
+  .tri{width:0;height:0;border-left:5px solid transparent;border-right:5px solid transparent;
+    border-bottom:9px solid var(--front-color);}
+
+  .band{display:grid;min-height:0;position:relative;overflow:hidden;}
+
+  .lrail{display:flex;flex-direction:column;border-right:1px solid var(--border);
+    background:var(--surface-1);min-height:0;overflow:hidden;}
+  .railhead{display:flex;align-items:center;gap:8px;padding:9px 12px;
+    border-bottom:1px solid var(--border);color:var(--text-secondary);font-size:12.5px;}
+  .railhead .grow{flex:1;}
+  .icobtn{width:26px;height:26px;padding:0;border-radius:7px;border:1px solid var(--btn-border);
+    background:transparent;color:var(--text-secondary);font:500 12px/1 var(--mono);
+    cursor:pointer;display:flex;align-items:center;justify-content:center;flex:none;}
+
+  .lrail .log{flex:1;max-height:none;overflow:auto;}
+  .lrail .log li{padding:3px 12px;}
+
+  .icostrip{width:52px;display:flex;flex-direction:column;align-items:center;gap:10px;
+    padding:10px 0;border-right:1px solid var(--border);background:var(--surface-1);}
+  .icostrip.right{border-right:0;border-left:1px solid var(--border);}
+  .icostrip .vlabel{writing-mode:vertical-rl;font-size:10.5px;color:var(--text-muted);
+    letter-spacing:.06em;white-space:nowrap;}
+  .icostrip .dots{flex-direction:column;}
+
+  .stagearea{position:relative;display:flex;align-items:center;justify-content:center;
+    min-width:0;min-height:0;padding:10px;overflow:hidden;}
+
+  .toasts{position:absolute;left:10px;top:12px;width:288px;display:flex;flex-direction:column;gap:6px;z-index:8;}
+  .toast{background:color-mix(in srgb,var(--surface-1) 92%,transparent);border:1px solid var(--border);
+    border-left:3px solid var(--border);border-radius:0 9px 9px 0;padding:5px 10px;font-size:12px;
+    color:var(--text-secondary);display:flex;gap:7px;align-items:baseline;}
+  .toast .m{font-family:var(--mono);font-size:10.5px;color:var(--text-muted);flex:none;}
+  .toast strong{color:var(--text-primary);font-weight:500;}
+  .toast.a2{opacity:.72;}
+  .toast.a3{opacity:.48;}
+
+  .rrail{display:flex;flex-direction:column;border-left:1px solid var(--border);
+    background:var(--surface-1);padding:12px;min-width:0;min-height:0;overflow:hidden;gap:10px;}
+  .rrail h3{margin:0;font-size:12.5px;font-weight:500;color:var(--text-secondary);}
+  .railbody{flex:1;overflow:auto;display:flex;flex-direction:column;gap:10px;}
+  .hint{font-size:11.5px;color:var(--text-muted);}
+
+  .scrim{position:absolute;inset:0;background:rgba(10,9,12,.66);z-index:10;pointer-events:auto;}
+
+  .dock{border-top:1px solid var(--border);background:var(--surface-1);padding:8px 14px;
+    display:flex;flex-direction:column;gap:6px;position:relative;
+    /* Above .scrim, or the dim sheet covers the instrument the scrub just raised. */
+    z-index:11;}
+  /* No horizontal padding: the chart measures this box and draws in its pixels, and its own
+     gutter and right margin supply the insets. */
+  #instrument{position:absolute;left:0;right:0;bottom:100%;background:var(--surface-1);
+    border-top:1px solid var(--border);z-index:9;padding:6px 0;}
+  #instrument svg{display:block;}
+  .dockrow{display:flex;align-items:center;gap:12px;}
+  .docklabel{font-size:11.5px;color:var(--text-muted);font-family:var(--mono);flex:none;}
+  .seg{display:flex;border:1px solid var(--btn-border);border-radius:8px;overflow:hidden;}
+  .seg button{border:0;border-radius:0;padding:4px 9px;font-size:12px;line-height:1;font-family:var(--mono);
+    background:transparent;color:var(--text-secondary);cursor:pointer;border-right:1px solid var(--btn-border);}
+  .seg button:last-child{border-right:0;}
+  .seg button.on{background:var(--accent-bg);color:var(--text-primary);}
+
+  .legwrap{position:relative;}
+  .legbtn{width:24px;height:24px;padding:0;border-radius:50%;border:1px solid var(--btn-border);
+    background:transparent;color:var(--text-secondary);font:500 13px/1 system-ui;cursor:pointer;}
+  .legpop{position:absolute;left:0;bottom:32px;width:420px;background:var(--surface-2);
+    border:1px solid var(--btn-border);border-radius:10px;padding:11px 13px;display:none;
+    z-index:20;box-shadow:0 12px 30px rgba(0,0,0,.45);}
+  .legwrap:hover .legpop{display:block;}
+  .legtitle{color:var(--text-primary);font-size:12px;padding-bottom:4px;}
+
+  .dot{width:8px;height:8px;border-radius:50%;flex:none;background:var(--good);}
+  .dot[data-state="warn"]{background:var(--key);}
+  .dot[data-state="bad"]{background:var(--bad-br);}
+  #netInfo{display:inline-flex;align-items:center;gap:6px;}
+
+  /* A 4px track with its own fill and a 16px thumb. --fill is set inline from the current
+     value: a native range has no cross-browser fill. */
+  #sl{-webkit-appearance:none;appearance:none;height:22px;cursor:pointer;
+    --scrub-fill:color-mix(in srgb,var(--text-secondary) 55%,transparent);}
+  #sl::-webkit-slider-runnable-track{height:4px;border-radius:2px;background:var(--surface-3);
+    background-image:linear-gradient(90deg,var(--scrub-fill) var(--fill),transparent var(--fill));}
+  #sl::-webkit-slider-thumb{-webkit-appearance:none;appearance:none;width:16px;height:16px;
+    margin-top:-6px;border-radius:50%;background:var(--text-primary);border:2px solid var(--surface-1);}
+  #sl::-moz-range-track{height:4px;border-radius:2px;background:var(--surface-3);}
+  #sl::-moz-range-progress{height:4px;border-radius:2px;background:var(--scrub-fill);}
+  #sl::-moz-range-thumb{width:16px;height:16px;border-radius:50%;background:var(--text-primary);
+    border:2px solid var(--surface-1);}
+  .dots{display:flex;gap:6px;}
+  .pdot{width:10px;height:10px;border-radius:50%;flex:none;}
+  .pdot[data-state="done"]{opacity:.28;}
+
+  /* The frame must fill the stage or the board's min(100%,...) width has nothing to measure and
+     cqh has no container to read. It carries no surface of its own: the board sits bare on the
+     stage, as in mockup 01. */
+  .stagearea .boardframe{width:100%;height:100%;align-items:center;container-type:size;
+    background:none;border:0;padding:0;}
+  .play #board{width:min(100%, calc(100cqh * var(--bw) / var(--bh)));height:auto;}

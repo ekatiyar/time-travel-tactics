@@ -73,6 +73,21 @@ async function turnInfo(page: Page): Promise<string> {
   return (await page.locator('#turnInfo').textContent()) ?? '';
 }
 
+// The turn and the state hash sit in separate spans.
+async function stateHash(page: Page): Promise<string> {
+  const info = await page.locator('#hashInfo').textContent();
+  const hash = /state ([0-9a-f]{4})/.exec(info ?? '')?.[1];
+  if (!hash) throw new Error(`no state hash in "${info}"`);
+  return hash;
+}
+
+// The dot row carries per-player commitment; its order follows this turn's priority.
+function dotStates(page: Page): Promise<Record<string, string>> {
+  return page.locator('#pending .pdot').evaluateAll(
+    (els) => Object.fromEntries(els.map((e) => [e.dataset.color ?? '', e.dataset.state ?? '']))
+  );
+}
+
 function wireOf(page: Page): Promise<string[]> {
   return page.evaluate(() => window.__wire);
 }
@@ -105,35 +120,43 @@ async function createMatch(page: Page, cfg: { mode: string; seed: string; cap: s
 async function playActions(a: Page, b: Page, turn: number, actA: string, actB: string) {
   const before = await turnInfo(a);
   expect(before).toContain(`turn ${turn} / `);
-  expect(await turnInfo(b), `turn ${turn}: the two pages did not open the turn on the same state`)
-    .toBe(before);
-  await a.locator(`#turnCard [data-act="${actA}"]`).click();
+  expect(await turnInfo(b), `turn ${turn}: the two pages did not open the same turn`).toBe(before);
+  expect(await stateHash(b), `turn ${turn}: the two pages did not open the turn on the same state`)
+    .toBe(await stateHash(a));
+  await a.locator(`#moveRail [data-act="${actA}"]`).click();
   await a.locator('#btnCommit').click();
-  await b.locator(`#turnCard [data-act="${actB}"]`).click();
+  await b.locator(`#moveRail [data-act="${actB}"]`).click();
   await b.locator('#btnCommit').click();
   for (const [label, page] of [['A', a], ['B', b]] as const) {
     await expect(page.locator('#turnInfo'), `turn ${turn}: page ${label} never resolved the turn`)
       .not.toHaveText(before, { timeout: RESOLVE });
     await expect(page.locator('#phaseShare')).toBeHidden();
   }
-  // A finished match reads "You won" on one side, so only compare while it is running.
+  // A finished match reads "You won" on one side, so only compare the turn while it is running.
   const after = await turnInfo(a);
-  if (after.includes('state ')) {
-    expect(after, `turn ${turn}: the two pages disagree on the state hash`).toBe(await turnInfo(b));
+  if (after.startsWith('turn ')) {
+    expect(after, `turn ${turn}: the two pages disagree on the turn`).toBe(await turnInfo(b));
   }
+  expect(await stateHash(a), `turn ${turn}: the two pages disagree on the state hash`)
+    .toBe(await stateHash(b));
 }
 
 async function playTurn(a: Page, b: Page, turn: number) {
   const before = await turnInfo(a);
   expect(before).toContain(`turn ${turn} / `);
-  expect(await turnInfo(b), `turn ${turn}: the two pages did not open the turn on the same state`)
-    .toBe(before);
+  expect(await turnInfo(b), `turn ${turn}: the two pages did not open the same turn`).toBe(before);
+  expect(await stateHash(b), `turn ${turn}: the two pages did not open the turn on the same state`)
+    .toBe(await stateHash(a));
 
-  await a.locator('#turnCard [data-act="D"]').click();
+  await a.locator('#moveRail [data-act="D"]').click();
   await a.locator('#btnCommit').click();
   await expect(a.locator('#phaseShare'), `turn ${turn}: page A's commitment did not go in`)
     .toBeVisible();
-  await expect(a.locator('#pending')).toHaveText('Still choosing: Vale');
+  await expect
+    .poll(() => dotStates(a), { message: `turn ${turn}: page A does not show page B still choosing` })
+    .toEqual({ C: 'done', P: 'choosing' });
+  await expect(a.locator('#pending'), `turn ${turn}: page A never learned page B's name`)
+    .toHaveAttribute('title', /Still choosing: Vale\./);
 
   const held = await wireOf(a);
   expect(held.filter((t) => COMMIT.test(t)).some((t) => t.startsWith(`#${turn}C:`)),
@@ -145,7 +168,7 @@ async function playTurn(a: Page, b: Page, turn: number) {
     .toBe(before);
   await expect(b.locator('#phaseShare')).toBeHidden();
 
-  await b.locator('#turnCard [data-act="A"]').click();
+  await b.locator('#moveRail [data-act="A"]').click();
   await b.locator('#btnCommit').click();
 
   for (const [label, page] of [['A', a], ['B', b]] as const) {
@@ -155,8 +178,10 @@ async function playTurn(a: Page, b: Page, turn: number) {
     ).toContainText(`turn ${turn + 1} / `, { timeout: RESOLVE });
     await expect(page.locator('#phaseShare')).toBeHidden();
   }
-  expect(await turnInfo(a), `turn ${turn}: the two pages disagree on the state hash`)
+  expect(await turnInfo(a), `turn ${turn}: the two pages disagree on the turn`)
     .toBe(await turnInfo(b));
+  expect(await stateHash(a), `turn ${turn}: the two pages disagree on the state hash`)
+    .toBe(await stateHash(b));
 }
 
 test('two players resolve two turns over real relays', async ({ browser }) => {
@@ -207,7 +232,7 @@ test('a bootstrap win is reported on both sides over real relays', async ({ brow
   await playActions(a, b, 2, 'H', 'H');
 
   await expect(a.locator('#phaseOver'), 'page A never saw the match end').toBeVisible({ timeout: RESOLVE });
-  await expect(a.locator('#phaseOver h2')).toHaveText('You won');
+  await expect(a.locator('#phaseOver h3')).toHaveText('You won');
   await expect(b.locator('#phaseOver'), 'page B never saw the match end').toBeVisible({ timeout: RESOLVE });
-  await expect(b.locator('#phaseOver h2')).toHaveText('Rook won');
+  await expect(b.locator('#phaseOver h3')).toHaveText('Rook won');
 });
