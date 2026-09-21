@@ -103,21 +103,62 @@ describe('lanesOf: legs', () => {
     assert.equal(lanes.laneCount, 3);
   });
 
-  it('caps the lane at the fourth and keeps later legs on it', () => {
+  it('scrolls to the latest four legs once a colour has more', () => {
     const m = match();
-    run(m, { C: 'IIII', P: 'HHHH' });
+    // Six legs: the spawn body walking forward, then one per inversion.
+    run(m, { C: 'IIIII', P: 'HHHHH' });
     const lanes = lanesFor(named(m, 'C'), 'C');
 
     assert.deepEqual(shape(lanes), [
-      [0, 1, [0]],
-      [1, -1, [1]],
-      [2, 1, [2]],
-      [3, -1, [3]],
-      [3, 1, [4]]
-    ], 'a fifth leg still reports lane 3');
-    assert.equal(lanes.laneCount, 4, 'the count caps at four lanes');
+      [0, 1, [2]],
+      [1, -1, [3]],
+      [2, 1, [4]],
+      [3, -1, [5]]
+    ], 'the two oldest legs are dropped and the rest slide up to lane 0');
+    assert.equal(lanes.scrolledOff, 2, 'two legs sit off the top of the window');
+    assert.equal(lanes.laneCount, 4);
   });
 
+  it('reports nothing scrolled off while a colour fits in four lanes', () => {
+    const m = match();
+    run(m, { C: 'III', P: 'HHH' });
+    const lanes = lanesFor(named(m, 'C'), 'C');
+
+    assert.equal(lanes.legs.length, 4);
+    assert.equal(lanes.scrolledOff, 0);
+    assert.deepEqual(shape(lanes).map((s) => s[0]), [0, 1, 2, 3]);
+  });
+});
+
+describe('lanesOf: broken boundaries', () => {
+  it('leaves a boundary unbroken when the two legs are adjacent indexes', () => {
+    const m = match();
+    run(m, { C: 'DIDIH', P: 'HHHHH' });
+    const lanes = lanesFor(named(m, 'C'), 'C');
+
+    assert.deepEqual(lanes.legs.map((l) => l.brokenBefore), [false, false, false],
+      'the viewer saw every inversion, so no boundary is broken');
+  });
+
+  it('marks a boundary broken when the inversion joining it is past the horizon', () => {
+    const m = match();
+    // Purple bounces between t0 and t1 so its horizon stops at t1. Coral walks out to t4,
+    // inverts there, and holds its way back, so purple sees the two ends and not the turn.
+    run(m, { C: 'DDDDIHHHH', P: 'DIHIHIHIH' });
+    const view = named(m, 'P');
+
+    assert.equal(view.me.horizon, 1);
+    const lanes = lanesFor(view, 'C');
+    assert.deepEqual(shape(lanes), [
+      [0, 1, [0, 1]],
+      [1, -1, [8, 9]]
+    ], 'coral p2 to p7 sit past t1');
+    assert.deepEqual(lanes.legs.map((l) => l.brokenBefore), [false, true]);
+    assert.equal(lanes.live?.p, 9, 'coral walked back into view, so its live body is on screen');
+  });
+});
+
+describe('lanesOf: ordering', () => {
   it('sorts the bodies of every leg by personal index', () => {
     const m = match();
     run(m, { C: 'DDIHH', P: 'HHHHH' });

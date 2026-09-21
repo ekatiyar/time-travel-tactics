@@ -1096,11 +1096,19 @@ test.describe('dock', () => {
     expect(after).toEqual(before);
 
     await raise();
-    // The focus column is one turn of the cap, not a slab across the explored band.
-    const chart = await page.locator('#instrument svg').evaluate((el) => el.clientWidth);
-    const focus = await page.locator('#instrument rect[fill="var(--accent-br)"]').evaluate(
-      (el) => el.getBoundingClientRect().width);
-    expect(focus).toBeLessThan(chart * 0.08);
+    // One column per world turn this seat has reached, not one per turn of the cap. This script
+    // tops out at t2, so three columns, not thirteen. The focus band is exactly one of them.
+    const geom = await page.locator('#instrument svg').evaluate((svg) => {
+      const ticks = [...svg.querySelectorAll('text')]
+        .filter((t) => /^t\d+$/.test(t.textContent ?? ''));
+      return {
+        columns: ticks.length,
+        pitch: Number(ticks[1]!.getAttribute('x')) - Number(ticks[0]!.getAttribute('x')),
+        focus: svg.querySelector('rect[fill="var(--accent-br)"]')!.getBoundingClientRect().width
+      };
+    });
+    expect(geom.columns).toBe(3);
+    expect(geom.focus).toBeCloseTo(geom.pitch, 1);
     await page.mouse.up();
   });
 

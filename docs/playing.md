@@ -40,7 +40,13 @@ The log sits in the left rail and the actions in the right rail. Either folds to
 
 The bottom dock holds the timeline strip, the world-turn scrub, and the history presets. Hover the strip's dashed block for the range of world turns you have not explored yet. The **?** button opens the legend on hover; it also lists the keyboard shortcuts.
 
-Press and hold the world-turn scrub to raise the timeline instrument: one row per player, each row split into legs between inversions, beads for bodies filled or hollow by direction, and hatching beyond your horizon captioned with the turns it covers. An arc folds each leg into the next at the inversion that split them, and a red line marks the turn cap. Every row is the same height whatever its lane count, and carries that player's live index and direction, such as `p17 · back`, which is the only readout of a player whose present is past your horizon. The board dims and stops taking clicks while it is up. Release to drop back to the strip.
+Press and hold the world-turn scrub to raise the timeline instrument: one row per player, each row split into legs between inversions, beads for bodies filled or hollow by direction, and a hatched block for everything past your horizon. An arc folds each leg into the next at the inversion that split them, and a red line marks the turn cap. The columns cover the turns you have reached and nothing further, so the chart does not shrink to a sliver of a cap nobody will reach. Hover the hatching for the turns it covers.
+
+A row shows four legs. Past that it scrolls to the latest four and writes `+3 earlier` under the player's name. Every row is the same height whatever its lane count, and carries that player's index and direction, such as `p17 · back`. When their present is past your horizon that readout is the last you saw, and the whole line dims to say so.
+
+Two legs joined by an inversion you could not see are drawn apart, each frayed into the hatching with a dashed stub and no arc between them. It means they turned around somewhere past your horizon, not on the turn where the line stops.
+
+The board dims and stops taking clicks while the instrument is up. Release to drop back to the strip.
 
 ## Animation
 

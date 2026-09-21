@@ -4,7 +4,7 @@ import { Fragment } from 'preact';
 import { COLORS, Match, Wire } from './engine/index.js';
 import type { Action, Color, ConfigInput, TurnEvent, ViewBody } from './engine/index.js';
 import { Board } from './board.js';
-import { MAX_LANES, lanesOf } from './lanes.js';
+import { instrumentAt, maxLookBack } from './instrument.js';
 import { describe, frontText, nameOf, plural, relativeDirection, sceneAt } from './scene.js';
 import type { Front } from './scene.js';
 import { Code, PeerChannel, Session, trimUnresolved } from './transport.js';
@@ -550,64 +550,23 @@ function TimelineInstrument({ view, focusT, lookBack }: {
   return (
     <div id="instrument" ref={box}>
       {width >= MIN_IW && (
-        <InstrumentSvg
-          view={view} rows={lanesOf(view)} focusT={focusT} lookBack={lookBack} width={width}
-        />
+        <InstrumentSvg view={view} focusT={focusT} lookBack={lookBack} width={width} />
       )}
     </div>
   );
 }
 
-const GUTTER = 62;
-const RIGHT = 16;
-const LANE_H = 14;
-const ROW_TOP = 18;
-const ROW_H = MAX_LANES * LANE_H + 12;
-const AXIS_H = 26;
-// A wider column turns the focus and look-back highlights into slabs: at t0 one column would
-// otherwise be 72% of the chart. This is the mockup's own pitch; the fog takes what is left over,
-// so early in a match most of the chart is honestly unexplored.
-const MAX_COL_W = 72;
 const TICK = 'font-family:var(--mono);font-size:10px;pointer-events:none;';
 const ROW_LABEL = 'font-size:11px;fill:var(--text-primary);pointer-events:none;';
 const ROW_SUB = 'font-family:var(--mono);font-size:9.5px;fill:var(--text-muted);pointer-events:none;';
 
-// Keep the axis near a dozen labels however far the horizon reaches.
-function tickStep(span: number): number {
-  if (span <= 12) return 1;
-  if (span <= 60) return 5;
-  if (span <= 150) return 10;
-  return 25;
-}
-
-function InstrumentSvg({ view, rows, focusT, lookBack, width }: {
-  view: SessionView; rows: ReturnType<typeof lanesOf>;
-  focusT: number; lookBack: number; width: number;
+function InstrumentSvg({ view, focusT, lookBack, width }: {
+  view: SessionView; focusT: number; lookBack: number; width: number;
 }) {
-  const cap = Math.max(0, Math.floor(view.cap));
-  const hor = Math.min(Math.max(0, view.me.horizon), cap);
-  // The fog takes the last 28% of the chart, but only when there is something unexplored to put
-  // there. Once the horizon reaches the cap the columns take the whole width.
-  const colW = Math.min(MAX_COL_W, (width - GUTTER - RIGHT) * (hor < cap ? 0.72 : 1) / (hor + 1));
-  const x = (t: number): number => GUTTER + t * colW + colW / 2;
+  const { height: H, cap, colW, x, ticks, fog, capX, left, right, top, bottom, rows } =
+    instrumentAt(view, width);
   const focus = Math.min(Math.max(0, focusT), cap);
   const lo = Math.max(0, focus - Math.max(0, lookBack));
-
-  // Every row is the same height whatever its lane count, so nothing jumps when someone inverts.
-  const tops = rows.map((_, i) => ROW_TOP + i * ROW_H);
-  const H = ROW_TOP + rows.length * ROW_H + AXIS_H;
-  const top = 6;
-  const bottom = H - AXIS_H + 6;
-
-  const step = tickStep(hor);
-  const ticks: number[] = [];
-  for (let t = 0; t <= hor; t += step) ticks.push(t);
-  if (!ticks.length) ticks.push(0);
-
-  const fogX = x(hor) + colW / 2;
-  const fogW = Math.max(0, width - RIGHT - fogX);
-  // While there is fog the chart's right edge is turn `cap`, because the fog spans hor+1 … cap.
-  const capX = hor < cap ? width - RIGHT : fogX;
 
   return (
     <svg width={width} height={H} viewBox={`0 0 ${width} ${H}`} role="img"
@@ -620,7 +579,7 @@ function InstrumentSvg({ view, rows, focusT, lookBack, width }: {
         </pattern>
         {/* Names are player-supplied, so the label block is clipped to its gutter. */}
         <clipPath id="tl-gutter">
-          <rect x="0" y="0" width={GUTTER - 5} height={H} />
+          <rect x="0" y="0" width={left - 5} height={H} />
         </clipPath>
       </defs>
 
@@ -628,14 +587,10 @@ function InstrumentSvg({ view, rows, focusT, lookBack, width }: {
         fill="var(--text-secondary)" opacity="0.07" />
       <rect x={x(focus) - colW / 2} y={top} width={Math.max(colW, 2)} height={bottom - top}
         fill="var(--accent-br)" opacity="0.16" />
-      {hor < cap && (
-        <rect x={fogX} y={top} width={fogW} height={bottom - top} rx="3" fill="url(#tl-fog)" />
-      )}
-      {hor < cap && fogW > 96 && (
-        <text x={fogX + fogW / 2} y={top + 16} text-anchor="middle"
-          style={TICK + 'fill:var(--text-muted)'}>
-          {'unexplored · t' + (hor + 1) + ' … t' + cap}
-        </text>
+      {fog && (
+        <rect x={fog.x} y={top} width={fog.w} height={bottom - top} rx="3" fill="url(#tl-fog)">
+          <title>{'unexplored · t' + fog.from + ' … t' + fog.to}</title>
+        </rect>
       )}
 
       {ticks.map((t) => (
@@ -654,15 +609,15 @@ function InstrumentSvg({ view, rows, focusT, lookBack, width }: {
 
       {rows.map((r, i) => {
         const hex = COLORS[r.color].hex;
-        const rowTop = tops[i]!;
-        const laneY = (lane: number): number => rowTop + 14 + lane * LANE_H;
+        const rowTop = r.top;
+        const laneY = r.laneY;
         const lastLeg = r.legs[r.legs.length - 1];
         // Past your horizon a player has no live body, so the newest one you can see stands in.
         const newest = r.live ?? lastLeg?.bodies[lastLeg.bodies.length - 1] ?? null;
         return (
           <g key={r.color}>
             {i > 0 && (
-              <line x1={GUTTER} x2={width - RIGHT} y1={rowTop - 3} y2={rowTop - 3}
+              <line x1={left} x2={right} y1={rowTop - 3} y2={rowTop - 3}
                 stroke="var(--border)" />
             )}
             <g clip-path="url(#tl-gutter)">
@@ -672,9 +627,20 @@ function InstrumentSvg({ view, rows, focusT, lookBack, width }: {
                 {nameOf(view, r.color)}
               </text>
               {newest && (
-                <text x="3" y={laneY(0) + 14} style={ROW_SUB}>
+                // No live body means the index and the direction are both last-seen, so one fade
+                // marks the whole readout stale.
+                <text x="3" y={laneY(0) + 14} style={ROW_SUB + (r.live ? '' : 'opacity:.45;')}>
                   {'p' + newest.p + ' · ' + (newest.dir === 1 ? 'fwd' : 'back')}
                   <title>{describe(view, newest)}</title>
+                </text>
+              )}
+              {r.scrolledOff > 0 && (
+                <text x="3" y={laneY(0) + 26} style={ROW_SUB + 'fill:var(--text-secondary);'}>
+                  {'+' + r.scrolledOff + ' earlier'}
+                  <title>
+                    {nameOf(view, r.color) + ': '
+                      + plural(r.scrolledOff, 'earlier leg') + ' above this window'}
+                  </title>
                 </text>
               )}
             </g>
@@ -686,7 +652,10 @@ function InstrumentSvg({ view, rows, focusT, lookBack, width }: {
               const back = last.t < first.t ? -1 : 1;
               const mx = x((first.t + last.t) / 2);
               const fade = j === r.legs.length - 1 ? 1 : 0.55;
-              const from = j > 0 ? laneY(r.legs[j - 1]!.lane) : ly;
+              const prev = j > 0 ? r.legs[j - 1]! : null;
+              const from = prev ? laneY(prev.lane) : ly;
+              const prevLast = prev?.bodies[prev.bodies.length - 1];
+              const stub = Math.min(26, colW * 0.5);
               return (
                 <g key={j}>
                   {leg.bodies.length > 1 ? (
@@ -699,7 +668,19 @@ function InstrumentSvg({ view, rows, focusT, lookBack, width }: {
                     <line x1={x(first.t) - 7} x2={x(first.t) + 7} y1={ly} y2={ly}
                       stroke={hex} stroke-width="2.5" stroke-linecap="round" opacity={fade} />
                   )}
-                  {from !== ly && (
+                  {leg.brokenBefore ? (
+                    // The two legs meet at an inversion past your horizon, not here. Fray the
+                    // visible ends toward the hatch and draw no fold. The previous leg may have
+                    // scrolled off; this one frays either way.
+                    <g stroke={hex} stroke-width="2.5" stroke-dasharray="3 4"
+                      stroke-linecap="round" opacity={Math.min(fade, 0.7)}>
+                      {prevLast && (
+                        <line x1={x(prevLast.t) + 4} x2={x(prevLast.t) + 4 + stub}
+                          y1={from} y2={from} />
+                      )}
+                      <line x1={x(first.t) + 4} x2={x(first.t) + 4 + stub} y1={ly} y2={ly} />
+                    </g>
+                  ) : prev ? (
                     // An inversion lands on the world turn it left from, so without this the two
                     // legs are loose dots in one column. The arc folds away from the new heading.
                     <path
@@ -707,7 +688,7 @@ function InstrumentSvg({ view, rows, focusT, lookBack, width }: {
                         + `a6,${(ly - from) / 2} 0 0 1 0,${ly - from}`}
                       fill="none" stroke={hex} stroke-width="2.5" opacity={fade}
                     />
-                  )}
+                  ) : null}
                   {leg.bodies.length > 1 && (
                     <path d={`M${mx - 4 * back},${ly - 4} l${4 * back},4 l${-4 * back},4`}
                       fill="none" stroke={hex} stroke-width="2" />
@@ -769,7 +750,7 @@ function PlayScreen({ session, view, onNew, theme, onTheme }: PlayProps) {
   const [pickMsg, setPickMsg] = useState('');
   const [shareMsg, setShareMsg] = useState('');
   const [scrub, setScrub] = useState<{ turn: number; t: number } | null>(null);
-  const maxBack = Math.max(1, Math.ceil(v.cap / 4));
+  const maxBack = maxLookBack(v.cap);
   const [lookBack, setLookBack] = useState<number | null>(null);
   const [logOpen, setLogOpen] = useState(true);
   const [moveOpen, setMoveOpen] = useState(true);
