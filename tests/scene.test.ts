@@ -287,7 +287,7 @@ describe('sceneAt: key at center', () => {
 
 describe('sceneAt: fronts', () => {
   // Purple picks up at (4,3) on turn 2; coral steals from its p4 body on turn 8.
-  const EXAMPLE3: Script = { C: 'DDHHHHIHS', P: 'WWAWDDSSS' };
+  const EXAMPLE3: Script = { C: 'DDHHDHIAS', P: 'WWAWDDSSS' };
 
   it('keys a front by its tape event rather than the world turn it sits on', () => {
     const m = match({ mode: 'bootstrap' });

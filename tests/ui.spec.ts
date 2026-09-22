@@ -1085,11 +1085,11 @@ test.describe('dock', () => {
 
     const before = await metrics();
     // Two inversions put Rook on three lanes.
-    const mine = ['D', 'H', 'I', 'H', 'I', 'H'];
+    const mine = ['D', 'H', 'I', 'S', 'I', 'H'];
     for (let turn = 0; turn < mine.length; turn++) {
       await resolveTurn(page, turn, mine[turn]!, 'H', turn === 0 ? 'Bishop' : undefined);
     }
-    await expect(page.locator('#board .tokslot')).toHaveCount(2);
+    await expect(page.locator('#board .tokslot')).toHaveCount(3);
 
     const after = await metrics();
     expect(after.tick).toBe('10px');
@@ -1456,7 +1456,7 @@ test.describe('turn animation', () => {
     await startBootstrap(page);
     // Rook grabs the key and inverts; on the last turn it walks into Bishop, who wins the tile
     // and takes the key, so one slot owes both a bounce and a fade.
-    const mine = ['D', 'H', 'H', 'I', 'H', 'S'];
+    const mine = ['D', 'A', 'D', 'I', 'H', 'S'];
     const theirs = ['H', 'H', 'H', 'I', 'A', 'W'];
     for (let turn = 0; turn < mine.length; turn++) {
       await resolveTurn(page, turn, mine[turn]!, theirs[turn]!, turn === 0 ? 'Bishop' : undefined);

@@ -94,7 +94,7 @@ function assertOver(m: MatchInstance, color: string): void {
 
 // Purple picks up at (4,3) on turn 2 with side [-1,0]; its p4 body sits at (4,2) at t4, so the
 // steal tile for that body is (3,2) at t4. Coral loops back in time and lands there on turn 8.
-const EXAMPLE3: Script = { C: 'DDHHHHIHS', P: 'WWAWDDSSS' };
+const EXAMPLE3: Script = { C: 'DDHHDHIAS', P: 'WWAWDDSSS' };
 
 describe('bootstrap: pickup', () => {
   it('picks the key up by walking next to the center', () => {
@@ -270,7 +270,7 @@ describe('bootstrap: two grabs on one turn at different world turns (example 2)'
   it('records both and the later one loses on the fourth turn after', () => {
     const m = match();
     // Turn 8: coral steps onto (3,2) at t9; purple, after two inversions, steps onto (4,3) at t3.
-    run(m, { C: 'DDHHHHHHS', P: 'WWHHIHHIA' });
+    run(m, { C: 'DDHHHHHHS', P: 'WWHHISAIW' });
 
     assert.deepEqual([view(m, 'C').me.t, view(m, 'C').me.p], [9, 9]);
     assert.deepEqual([view(m, 'P').me.t, view(m, 'P').me.p], [3, 9]);
@@ -379,10 +379,11 @@ describe('bootstrap: win', () => {
 
   it('does not win on the spawn tile itself', () => {
     const m = match();
-    // ... (1,2) t1, invert, (1,1) t2, invert, hold to (1,1) t1, hold to (1,1) t0.
-    run(m, { C: 'DSSIAWIWIHH', P: 'HHHHHHHHHHH' });
+    // Coral stays at its spawn by inverting while purple returns the key to t0 beside it.
+    // Coral steals there, but standing on its spawn is not a win.
+    run(m, { C: 'IIIIIIIIIIIII', P: 'WAADWHIAAWHAH' });
     assert.deepEqual([view(m, 'C').me.t, view(m, 'C').me.x, view(m, 'C').me.y], [0, 1, 1]);
-    assert.ok(keysOf(m, 'C', 'C').includes(11), 'coral holds');
+    assert.ok(keysOf(m, 'C', 'C').includes(13), 'coral holds');
     assert.deepEqual(m.outcome(), { status: 'running' });
   });
 
@@ -397,7 +398,7 @@ describe('bootstrap: win', () => {
   it('resolves a simultaneous win by that turn priority', () => {
     // Purple picks up on turn 2; coral steals from purple p4 on turn 10 with gap 5; both reach t0
     // next to their spawns on turn 14 while still holding.
-    const script: Script = { C: 'DDHHHHHIHHSAAH', P: 'WWAWDDSISSHHHH' };
+    const script: Script = { C: 'DDHHDHAIHHSAAH', P: 'WWAWDDSISSHHHH' };
     const winners: Color[] = [];
     for (const seed of ['test', 's2']) {
       const m = match({ seed });
@@ -507,7 +508,7 @@ describe('bootstrap: horizon', () => {
   it('shows a wave sitting on the center only when its front is within the horizon', () => {
     // Example 2 setup: purple front 5 on turn 8 with nothing beyond; coral horizon 9, purple 4.
     const m = match();
-    run(m, { C: 'DDHHHHHHS', P: 'WWHHIHHIA' });
+    run(m, { C: 'DDHHHHHHS', P: 'WWHHISAIW' });
     assert.deepEqual(frontsNoGap(m, 'C'), [{ t: 5, x: 3, y: 3, target: null }]);
     assert.deepEqual(frontsNoGap(m, 'P'), []);
   });
@@ -516,9 +517,9 @@ describe('bootstrap: horizon', () => {
 describe('bootstrap: stacked victims', () => {
   it('takes from the highest personal index on the victim tile', () => {
     const m = match();
-    // Purple picks up at t3, holds t4, inverts (p5 at t4), then walks back.
+    // Purple picks up at t3, holds t4, inverts (p5 at t4), then walks away.
     // Coral reaches the center at t5, inverts, and holds back onto t4.
-    run(m, { C: 'HDDSSI', P: 'WWAHIH' });
+    run(m, { C: 'HDDSSI', P: 'WWAHIS' });
     assert.deepEqual(view(m, 'C').bodies.filter((b) => b.t === 4 && b.x === 4 && b.y === 3).map((b) => b.color + b.p), ['P4', 'P5']);
     assert.deepEqual(keysOf(m, 'C', 'P'), [3, 4, 5, 6]);
 

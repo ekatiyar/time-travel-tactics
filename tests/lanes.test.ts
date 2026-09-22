@@ -142,9 +142,9 @@ describe('lanesOf: broken boundaries', () => {
 
   it('marks a boundary broken when the inversion joining it is past the horizon', () => {
     const m = match();
-    // Purple bounces between t0 and t1 so its horizon stops at t1. Coral walks out to t4,
-    // inverts there, and holds its way back, so purple sees the two ends and not the turn.
-    run(m, { C: 'DDDDIHHHH', P: 'DIHIHIHIH' });
+    // Purple stays at t1 so its horizon stops there. Coral walks out to t4, inverts there,
+    // and takes a separate route back, so purple sees the two ends and not the turn.
+    run(m, { C: 'DDDDISAAA', P: 'DIIIIIIII' });
     const view = named(m, 'P');
 
     assert.equal(view.me.horizon, 1);

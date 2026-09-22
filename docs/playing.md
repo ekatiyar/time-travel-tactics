@@ -21,6 +21,7 @@ Choose an action with the D-pad, arrow keys, or `W` `A` `S` `D`, then commit wit
 The board draws your four legal moves as outlined tiles, each labelled with the personal index and world turn it would produce. Click one to choose it. Hold and Turn around stay buttons in the actions rail.
 
 Hold advances through world time without moving. Invert changes your direction without advancing world time.
+Moves and holds cannot enter a cell that already contains any recorded body, including your own. Invert is the only action that can stack your bodies.
 
 A row of dots under Commit shows every player in this turn's priority order, leftmost first. A dot stays solid while that player is still choosing and fades once they commit. Hover it for the priority order and who has not committed.
 

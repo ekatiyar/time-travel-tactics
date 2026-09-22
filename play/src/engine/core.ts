@@ -106,7 +106,7 @@ export class Match {
     if (tg.x < 0 || tg.y < 0 || tg.x >= cfg.w || tg.y >= cfg.h) return 'off the board';
     if (this._walls.has(tileKey(tg.x, tg.y))) return 'wall';
     const who = occ.get(cellKey(tg.t, tg.x, tg.y));
-    if (tg.t <= pl.horizon && who && (who !== pl.color || tg.move)) return 'occupied';
+    if (action !== 'I' && tg.t <= pl.horizon && who) return 'occupied';
     return null;
   }
 

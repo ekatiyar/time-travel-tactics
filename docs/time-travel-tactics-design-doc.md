@@ -37,8 +37,8 @@ Recorded opponents beyond the horizon do not block move selection. If a blind mo
 Walls block movement. At a world turn:
 
 1. Different players cannot occupy the same tile.
-2. One player's bodies may occupy the same tile.
-3. After overlapping one of their bodies, a player's next step cannot land on that body's tile.
+2. Inversion may add one player's bodies to a tile they already occupy.
+3. A move or hold cannot enter a tile that any body already occupies.
 
 Inversion is always legal because it keeps the player on their recorded tile. Repeated inversions are legal. They freeze the player's horizon while adding targets to their timeline.
 
