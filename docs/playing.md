@@ -50,7 +50,7 @@ The board dims and stops taking clicks while the instrument is up. Release to dr
 
 ## Animation
 
-A resolved turn plays over about a second as a sequence: bodies slide, then inversions and key changes, then fronts. A body slides to its new tile, a blocked move lunges a third of the way and springs back, an inversion widens the round token into the two-index pill while an arc over the tile doubles back into the new direction, a grab slides the key square across under a yellow ring that pulses once, and a lost key fades. When your colour holds two tiles, each leg slides on its own. Scrubbing one world turn at a time slides bodies the same way; longer jumps snap. Any key or click ends the animation, and the system **reduce motion** setting disables it.
+A resolved turn plays over about a second as a sequence: bodies slide, then inversions and key changes, then fronts. A body slides to its new tile, a blocked move lunges a third of the way and springs back, an inversion widens the round token into the two-index pill and sweeps its fill from whole to half, a grab slides the key square across under a yellow ring that pulses once, and a lost key fades. When your colour holds two tiles, each leg slides on its own. The turn after an inversion parts the two bodies sharing the tile, and both of them travel off it together; scrubbing back onto that turn walks them back on. Scrubbing one world turn at a time slides bodies the same way; longer jumps snap. Any key or click ends the animation, and the system **reduce motion** setting disables it.
 
 ## Bootstrap
 

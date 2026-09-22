@@ -13,7 +13,7 @@ This is the current capability ledger. Rules and intended features live in the [
 - Always-visible commitment status, Enter/Space commit shortcuts, relative-direction markers, and compact index stacks.
 - A full-viewport play screen with a status bar, collapsible log and action rails, toasts over a folded log, on-board move targets labelled with the index and world turn they produce, and priority dots that fade on commit.
 - A timeline instrument raised while the world-turn scrub is held: one row per player, scaled to the furthest turn reached, legs between inversions joined by fold arcs, an index and direction per row, and hatching beyond the horizon. A row scrolls to its latest four legs, and legs joined past the horizon are drawn apart.
-- Staged turn animations for moves, bounces, inversions, grabs, key loss, and fronts, skippable by any input and off under `prefers-reduced-motion`.
+- Staged turn animations for moves, bounces, inversions, legs parting from and rejoining a shared tile, grabs, key loss, and fronts, skippable by any input and off under `prefers-reduced-motion`.
 
 ## Planned
 

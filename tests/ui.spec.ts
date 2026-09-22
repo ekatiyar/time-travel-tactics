@@ -1340,6 +1340,67 @@ test.describe('turn animation', () => {
     await expect.poll(() => slidKeys(page)).toEqual(['C/0', 'C/1']);
   });
 
+  // Coral inverts on (3,1) at t2, so t2 holds both legs on one tile. The S after it is the turn
+  // they part: t1 carries p1 on (2,1) and p4 on (3,2).
+  async function playToTheSplit(page: Page) {
+    await open(page);
+    await createMatch(page, { w: '7', h: '7' });
+    await sitDown(page);
+    const mine = ['D', 'D', 'I', 'S'];
+    for (let turn = 0; turn < mine.length; turn++) {
+      await resolveTurn(page, turn, mine[turn]!, 'H', turn === 0 ? 'Vale' : undefined);
+    }
+  }
+
+  test('the leg parting from the inversion tile travels off it', async ({ page }) => {
+    await playToTheSplit(page);
+
+    const split = page.locator('#board .tokslot[data-motion="split"]');
+    await expect(split).toHaveCount(1);
+    await expect(split).toHaveAttribute('data-key', 'C/1');
+    await expect(split).toHaveAttribute('data-tile', '3,2');
+    // One tile up from (3,2) is the (3,1) it shared, and it rides the .25s move beat.
+    expect(await split.evaluate((el) => [
+      getComputedStyle(el).animationName,
+      getComputedStyle(el).animationDelay,
+      el.style.getPropertyValue('--px'),
+      el.style.getPropertyValue('--py')
+    ])).toEqual(['slot-split', '0.25s', '0', '-1']);
+
+    await page.keyboard.press('Escape');
+    await expect(page.locator('#board .tokslot[data-motion]')).toHaveCount(0);
+  });
+
+  test('a leg rejoining the inversion tile travels onto it and leaves nothing behind', async ({ page }) => {
+    await playToTheSplit(page);
+    await page.keyboard.press('Escape');
+    await expect(page.locator('#board .tokslot[data-motion]')).toHaveCount(0);
+
+    // Scrubbing forward onto the inversion turn merges the two legs back onto one tile. Preact
+    // drops the newer leg's element, so the motion plays on a held copy.
+    await page.locator('#sl').press('ArrowRight');
+    await expect(page.locator('#slo')).toHaveText('t2');
+    const ghost = page.locator('#board .tokslot.ghost');
+    await expect(ghost).toHaveCount(1);
+    await expect(ghost).toHaveAttribute('data-motion', 'merge');
+    await expect(ghost).toHaveAttribute('aria-hidden', 'true');
+    expect(await ghost.evaluate((el) => [
+      getComputedStyle(el).animationName,
+      el.style.getPropertyValue('--px'),
+      el.style.getPropertyValue('--py')
+    ])).toEqual(['slot-merge', '0', '1']);
+
+    await page.keyboard.press('Escape');
+    await expect(page.locator('#board .tokslot.ghost')).toHaveCount(0);
+  });
+
+  test('a staged split finishes inside the animation window', async ({ page }) => {
+    await playToTheSplit(page);
+    await expect(page.locator('#board .tokslot[data-motion="split"]')).toHaveCount(1);
+    const last = await motionEnd(page);
+    expect(last.worst, last.where).toBeLessThanOrEqual(1200);
+  });
+
   test('a resolved turn stages its motions and a scrub does not', async ({ page }) => {
     await startMatch(page);
     await resolveTurn(page, 0, 'D', 'H', 'Vale');
@@ -1361,7 +1422,7 @@ test.describe('turn animation', () => {
     expect(await delayOf(page, 'C/0')).toBe('0s, 0s');
   });
 
-  test('an inversion settles the pill open and draws the turn-back arc', async ({ page }) => {
+  test('an inversion settles the pill open and draws nothing over it', async ({ page }) => {
     await startMatch(page);
     await resolveTurn(page, 0, 'D', 'H', 'Vale');
     await resolveTurn(page, 1, 'I', 'H');
@@ -1373,7 +1434,7 @@ test.describe('turn animation', () => {
     await expect(tok).toHaveClass(/tok-many/);
     await expect(tok).toHaveAttribute('data-direction', 'mixed');
     expect(await tok.evaluate((el) => getComputedStyle(el).animationName)).toBe('tok-settle');
-    await expect(slot.locator('.turnback')).toBeVisible();
+    await expect(page.locator('#board .turnback')).toHaveCount(0);
 
     // The settle ends on what the renderer already draws, so nothing jumps when the motion clears.
     const ended = await tok.evaluate((el) => {

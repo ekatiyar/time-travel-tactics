@@ -64,7 +64,7 @@ export function keyHolders(view: NamedView): Map<string, Vec> {
 export type Token = {
   key: string;
   color: Color; p: number; t: number; x: number; y: number; dir: Dir;
-  live: boolean; keySide: Vec | null;
+  leg: number; live: boolean; keySide: Vec | null;
 };
 
 // One tile's worth of bodies at the focus turn. The occupancy rule keeps a stack single-colour.
@@ -93,6 +93,8 @@ export type Scene = {
 
 const tile = (x: number, y: number): string => x + ',' + y;
 
+const stackKey = (color: Color, leg: number): string => color + '/' + leg;
+
 function push<K, V>(m: Map<K, V[]>, k: K, v: V): void {
   const list = m.get(k);
   if (list) list.push(v);
@@ -114,6 +116,7 @@ export function sceneAt(
       const token: Token = {
         key: b.color + ':' + b.p,
         color: b.color, p: b.p, t: b.t, x: b.x, y: b.y, dir: b.dir,
+        leg: legs.get(b.color + ':' + b.p) ?? 0,
         live: b.live, keySide: held.get(b.color + ':' + b.p) ?? null
       };
       tokens.push(token);
@@ -133,7 +136,7 @@ export function sceneAt(
   const stacks = [...byTile.values()];
   for (const s of stacks) {
     s.tokens.sort((a, b) => a.p - b.p);
-    s.key = s.color + '/' + (legs.get(s.tokens[0]!.key) ?? 0);
+    s.key = stackKey(s.color, s.tokens[0]!.leg);
   }
   // Order follows `view.bodies`, which the engine appends in each turn's priority order, and
   // priority rotates. Sorting by key keeps the keyed children stable, so a resolved turn is an
@@ -185,7 +188,13 @@ export type Motion =
   | { kind: 'bounce'; key: string; toward: Vec }
   | { kind: 'invert'; key: string }
   | { kind: 'grab'; key: string; from: Vec }
-  | { kind: 'lost'; key: string };
+  | { kind: 'lost'; key: string }
+  // The turn after an inversion parts the two co-located legs. The newer one has no element to
+  // transition from, and reading the other way the older one keeps the only element, so these two
+  // name the tile the leg has to travel from. `merge` also names where it lands: its subject is
+  // absent from `next`, so the renderer has no drawn position to read.
+  | { kind: 'split'; key: string; from: Vec }
+  | { kind: 'merge'; key: string; from: Vec; to: Vec };
 
 // The engine records no aimed-at tile, so read it off the other party's body instead.
 function adjacentTile(scene: Scene, color: Color | null, x: number, y: number): Vec | null {
@@ -204,6 +213,15 @@ const newestDir = (s: Stack): Dir => s.tokens[s.tokens.length - 1]!.dir;
 function stackAt(scene: Scene, color: Color, x: number, y: number): Stack | undefined {
   const s = scene.byTile.get(tile(x, y));
   return s && s.color === color ? s : undefined;
+}
+
+// Every leg a scene draws, keyed as its own stack key would be, so a leg sharing an element with
+// an older leg is still findable. Splits and merges are the legs whose home changes between
+// having an element and sharing one.
+function legHomes(scene: Scene): Map<string, Stack> {
+  const out = new Map<string, Stack>();
+  for (const s of scene.stacks) for (const t of s.tokens) out.set(stackKey(t.color, t.leg), s);
+  return out;
 }
 
 export function motionBetween(prev: Scene, next: Scene, events: readonly TurnEvent[]): Motion[] {
@@ -232,15 +250,37 @@ export function motionBetween(prev: Scene, next: Scene, events: readonly TurnEve
     }
   }
 
+  const homesBefore = legHomes(prev);
+  const homesAfter = legHomes(next);
+
   for (const s of next.stacks) {
     const was = from.get(s.key);
-    if (!was) continue;
+    if (!was) {
+      // No element last draw. A home on another tile means the leg was inside an older leg's
+      // element; anything else is a body appearing for the first time, which just lands.
+      const shared = homesBefore.get(s.key);
+      if (shared && (shared.x !== s.x || shared.y !== s.y)) {
+        out.push({ kind: 'split', key: s.key, from: [shared.x, shared.y] });
+      }
+      continue;
+    }
     if (!claimed.has(s.key) && (was.x !== s.x || was.y !== s.y)) {
       out.push({ kind: 'slide', key: s.key });
     }
     // Scrubbing has no events to read, so inversion shows up as a direction change.
     if (!events.length && newestDir(was) !== newestDir(s)) {
       out.push({ kind: 'invert', key: s.key });
+    }
+  }
+
+  // Reading the other way: a leg that loses its element still travels, into the tile the older
+  // leg's element now holds.
+  const to = new Map(next.stacks.map((s) => [s.key, s]));
+  for (const s of prev.stacks) {
+    if (to.has(s.key)) continue;
+    const shared = homesAfter.get(s.key);
+    if (shared && (shared.x !== s.x || shared.y !== s.y)) {
+      out.push({ kind: 'merge', key: s.key, from: [s.x, s.y], to: [shared.x, shared.y] });
     }
   }
 

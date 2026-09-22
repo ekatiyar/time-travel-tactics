@@ -173,13 +173,19 @@
     from{width:70cqmin;padding:0;border-radius:50%;background-position:0% 0;}
     to{width:88cqmin;padding:0 5cqmin;border-radius:9999px;background-position:50% 0;}
   }
-  @keyframes tb-draw{
-    0%{opacity:0;stroke-dashoffset:132;}
-    12%{opacity:1;}
-    60%{opacity:1;stroke-dashoffset:0;}
-    100%{opacity:0;stroke-dashoffset:0;}
+  /* The turn after an inversion parts the two co-located legs, or a scrub the other way rejoins
+     them. One --px/--py channel serves both: they are the same event read in two directions and
+     never land on the same element. Percentages resolve against .tokslot, which is one tile, so
+     the pair stays in whole tiles like --dx/--dy. */
+  @keyframes slot-split{
+    from{transform:translate(calc(var(--px,0) * 100%),calc(var(--py,0) * 100%));}
+    to{transform:none;}
   }
-  @keyframes tb-tip{0%,58%{opacity:0;}68%{opacity:1;}100%{opacity:0;}}
+  @keyframes slot-merge{
+    0%{transform:translate(calc(var(--px,0) * 100%),calc(var(--py,0) * 100%));opacity:1;}
+    70%{transform:none;opacity:1;}
+    100%{transform:none;opacity:0;}
+  }
   @keyframes key-slide{
     from{transform:translate(calc(var(--kx,0) * 100cqw),calc(var(--ky,0) * 100cqh));}
     to{transform:none;}
@@ -191,13 +197,12 @@
   /* Only a merged stack settles. A lone token whose direction flipped under a scrub still draws
      as a circle, so widening it would end somewhere the renderer never goes. */
   .tokslot[data-motion="invert"] .tok-many{animation:tok-settle .3s ease-out both;}
-  /* The arc crosses the token, which is its own colour, so it carries a dark rim to stay legible. */
-  .turnback{display:none;position:absolute;inset:0;overflow:visible;pointer-events:none;
-    filter:drop-shadow(0 0 1.5px var(--surface-0)) drop-shadow(0 0 1.5px var(--surface-0));}
-  .tokslot[data-motion="invert"] .turnback{display:block;}
-  .tb-arc{fill:none;stroke:var(--body-color);stroke-width:4;stroke-linecap:round;
-    stroke-dasharray:132;animation:tb-draw .5s ease-out both;}
-  .tb-tip{fill:var(--body-color);animation:tb-tip .5s linear both;}
+  /* .4s to match the left/top transition these two stand in for; `both` so the start frame holds
+     through the staged delay. */
+  .tokslot[data-motion="split"]{animation:slot-split .4s ease both;}
+  .tokslot[data-motion="merge"]{animation:slot-merge .5s ease both;}
+  /* A revived node still carries Preact's click listener. */
+  .tokslot.ghost,.tokslot.ghost *{pointer-events:none;}
   .tokslot[data-key-motion="grab"] .key-mark{animation:key-slide .3s ease-out both;}
   .tokslot[data-key-motion="grab"]::before{content:'';position:absolute;inset:14cqmin;border-radius:50%;
     border:4cqmin solid var(--key);animation:grab-ring .3s ease-out both;pointer-events:none;}
@@ -209,8 +214,10 @@
      .65s, fronts at .95s, all done by MOTION_MS. */
   .bodies.staged .tokslot{transition-delay:.25s;}
   .bodies.staged .tokslot[data-motion="bounce"] .tok{animation-delay:.25s;}
-  .bodies.staged .tokslot[data-motion="invert"] .tok-many,
-  .bodies.staged .tokslot[data-motion="invert"] .turnback path{animation-delay:.65s;}
+  /* Parting rides the move beat: the turn that parts the legs is an ordinary step for both. */
+  .bodies.staged .tokslot[data-motion="split"],
+  .bodies.staged .tokslot[data-motion="merge"]{animation-delay:.25s;}
+  .bodies.staged .tokslot[data-motion="invert"] .tok-many{animation-delay:.65s;}
   .bodies.staged .tokslot[data-key-motion="grab"] .key-mark,
   .bodies.staged .tokslot[data-key-motion="grab"]::before,
   .bodies.staged .tokslot[data-key-motion="lost"]::after{animation-delay:.65s;}
@@ -218,7 +225,8 @@
 
   @media(prefers-reduced-motion:reduce){
     .tokslot{transition:none;}
-    .turnback{display:none;}
+    .tokslot.ghost{display:none;}
+    .tokslot[data-motion="split"],.tokslot[data-motion="merge"],
     .tokslot[data-motion] .tok,.tokslot[data-key-motion] .key-mark,
     .tokslot[data-key-motion]::before,.tokslot[data-key-motion]::after{animation:none;}
     .tokslot[data-key-motion="lost"]::after{display:none;}

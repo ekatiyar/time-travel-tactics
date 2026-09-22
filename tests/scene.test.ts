@@ -169,6 +169,10 @@ describe('sceneAt: stacks', () => {
 
     assert.equal(stackAt(scene, 4, 1).key, 'C/0', 'the forward leg, even though p4 shares the tile');
     assert.equal(stackAt(scene, 5, 5).key, 'P/0');
+    assert.deepEqual(
+      stackAt(scene, 4, 1).tokens.map((t) => [t.p, t.leg]), [[3, 0], [4, 1]],
+      'each token carries its own leg, so the merged stack still names both'
+    );
   });
 
   it('gives each leg its own key when a colour splits across two tiles', () => {
@@ -471,6 +475,66 @@ describe('motionBetween: resolved turns', () => {
       { kind: 'slide', key: 'C/0' },
       { kind: 'slide', key: 'C/1' }
     ]);
+  });
+});
+
+describe('motionBetween: legs parting and rejoining', () => {
+  // Coral inverts on (3,1) at t2, so t2 carries p2 walking forward and p3 walking back on one
+  // tile. The next step parts them: t1 holds p1 on (2,1) and p4 on (3,2).
+  function parted(): { m: MatchInstance; prev: Scene; next: Scene; turn: number } {
+    const m = match();
+    run(m, { C: 'DDI', P: 'HHH' });
+    const prev = sceneAt(named(m, 'C'), 2, 4, false);
+    const turn = m.currentTurn();
+    run(m, { C: 'S', P: 'H' });
+    return { m, prev, next: sceneAt(named(m, 'C'), 1, 4, false), turn };
+  }
+
+  it('splits the newer leg off the tile it shared', () => {
+    const { m, prev, next, turn } = parted();
+
+    assert.deepEqual(prev.stacks.map((s) => [s.key, s.x, s.y]), [['C/0', 3, 1], ['P/0', 5, 5]]);
+    assert.deepEqual(
+      next.stacks.map((s) => [s.key, s.x, s.y]), [['C/0', 2, 1], ['C/1', 3, 2], ['P/0', 5, 5]]
+    );
+    assert.deepEqual(motionBetween(prev, next, eventsOn(m, 'C', turn)), [
+      { kind: 'slide', key: 'C/0' },
+      { kind: 'split', key: 'C/1', from: [3, 1] }
+    ], 'the older leg slides and the leg that just got its own element comes from the shared tile');
+  });
+
+  it('splits under a scrub too, with no events to read', () => {
+    const { prev, next } = parted();
+
+    assert.deepEqual(
+      motionBetween(prev, next, []).filter((m) => m.kind === 'split'),
+      [{ kind: 'split', key: 'C/1', from: [3, 1] }]
+    );
+  });
+
+  it('merges the newer leg back onto the shared tile when scrubbing the other way', () => {
+    const { prev, next } = parted();
+
+    assert.deepEqual(motionBetween(next, prev, []), [
+      { kind: 'slide', key: 'C/0' },
+      { kind: 'invert', key: 'C/0' },
+      { kind: 'merge', key: 'C/1', from: [3, 2], to: [3, 1] }
+    ], 'the survivor slides and settles; the leg losing its element still travels to the tile');
+  });
+
+  it('leaves a leg with no previous home to just land', () => {
+    const m = match();
+    // Coral inverts at t2 and walks back, so t3 is past everything its view can see.
+    run(m, { C: 'DDI', P: 'HHH' });
+    run(m, { C: 'S', P: 'H' });
+    const prev = sceneAt(named(m, 'C'), 3, 4, false);
+    const next = sceneAt(named(m, 'C'), 2, 4, false);
+
+    assert.deepEqual(prev.stacks.map((s) => s.key), [], 'nothing is drawn at t3');
+    assert.deepEqual(next.stacks.map((s) => s.key), ['C/0', 'P/0']);
+    assert.deepEqual(
+      motionBetween(prev, next, []).filter((m) => m.kind === 'split' || m.kind === 'merge'), []
+    );
   });
 });
 

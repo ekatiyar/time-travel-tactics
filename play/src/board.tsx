@@ -2,13 +2,16 @@ import { useLayoutEffect, useRef } from 'preact/hooks';
 import type { JSX } from 'preact';
 
 import { COLORS } from './engine/index.js';
-import type { Action, ActionOffer, Color, TurnEvent, ViewBody } from './engine/index.js';
+import type { Action, ActionOffer, Color, TurnEvent, Vec, ViewBody } from './engine/index.js';
 import { describe, motionBetween, relativeDirection } from './scene.js';
 import type { Motion, NamedView, Scene, SceneFront, Stack } from './scene.js';
 
 const MOTION_MS = 1200;
 
 const tile = (x: number, y: number): string => x + ',' + y;
+
+const at = (n: number): string => 'calc(' + n + ' * 100% / var(--bw))';
+const down = (n: number): string => 'calc(' + n + ' * 100% / var(--bh))';
 
 function reducedMotion(): boolean {
   return typeof matchMedia === 'function' && matchMedia('(prefers-reduced-motion: reduce)').matches;
@@ -37,6 +40,49 @@ function settle(layer: HTMLElement): void {
   void layer.offsetHeight;
 }
 
+type GhostKeeper = {
+  // This commit's elements by stack key.
+  remember(byKey: Map<string, HTMLElement>): void;
+  // Put back the node that carried `key` before this commit, to travel `from` -> `to`.
+  revive(layer: HTMLElement, key: string, from: Vec, to: Vec): void;
+  sweep(layer: HTMLElement): void;
+};
+
+// A leg rejoining a shared tile loses its element: Preact unmounts it before the layout effect
+// runs. So the elements of every commit are held, and the unmounted one is put back to carry the
+// motion. A revived node lives outside Preact's tree, which is why every effect sweeps before it
+// reads the layer.
+function ghostKeeper(): GhostKeeper {
+  // Two generations: `remember` runs before the motions are read, so the node a merge wants is
+  // the one from the commit before this one.
+  let before = new Map<string, HTMLElement>();
+  let now = new Map<string, HTMLElement>();
+  let ghosts: HTMLElement[] = [];
+  return {
+    remember(byKey) { before = now; now = new Map(byKey); },
+    revive(layer, key, from, to) {
+      const el = before.get(key);
+      // Still connected means the key was never unmounted, so a stale map is harmless.
+      if (!el || el.isConnected) return;
+      el.classList.add('ghost');
+      el.setAttribute('aria-hidden', 'true');
+      delete el.dataset.key;
+      el.dataset.tile = tile(to[0], to[1]);
+      el.style.left = at(to[0]);
+      el.style.top = down(to[1]);
+      el.style.setProperty('--px', String(from[0] - to[0]));
+      el.style.setProperty('--py', String(from[1] - to[1]));
+      el.dataset.motion = 'merge';
+      layer.appendChild(el);
+      ghosts.push(el);
+    },
+    sweep(layer) {
+      for (const el of ghosts) if (el.parentNode === layer) layer.removeChild(el);
+      ghosts = [];
+    }
+  };
+}
+
 // Motion attributes land after the new positions are committed, so the slide is already under way.
 function useMotions(
   root: { current: HTMLDivElement | null },
@@ -46,6 +92,8 @@ function useMotions(
   const prevTurn = useRef(turn);
   const timer = useRef<number | null>(null);
   const until = useRef(0);
+  const ghosts = useRef<GhostKeeper | null>(null);
+  ghosts.current ??= ghostKeeper();
 
   useLayoutEffect(() => {
     const layer = root.current;
@@ -56,7 +104,16 @@ function useMotions(
     prevTurn.current = turn;
     if (!layer) return;
 
+    const keeper = ghosts.current!;
+    keeper.sweep(layer);
     const slots = layer.querySelectorAll<HTMLElement>('.tokslot');
+    const byKey = new Map<string, HTMLElement>();
+    for (const el of slots) {
+      const k = el.dataset.key;
+      if (k) byKey.set(k, el);
+    }
+    // Ahead of every early return: a held map that skipped a commit would revive the wrong node.
+    keeper.remember(byKey);
     // A resolved turn plays as mockup 07's sequence; a scrub is one motion and starts now.
     // Set before paint so the delays apply to the transitions this commit just started.
     const stage = (on: boolean): void => {
@@ -71,6 +128,7 @@ function useMotions(
     }
     function clear(): void {
       until.current = 0;
+      keeper.sweep(layer!);
       for (const el of layer!.querySelectorAll<HTMLElement>('.tokslot')) reset(el);
       // Dropping the attribute ends the keyframes; the slide is a transition and needs a nudge.
       settle(layer!);
@@ -105,24 +163,22 @@ function useMotions(
     stage(resolved.length > 0);
     if (!motions.length) return;
 
-    const byKey = new Map<string, HTMLElement>();
-    for (const el of slots) {
-      const k = el.dataset.key;
-      if (k) byKey.set(k, el);
-    }
-
     for (const m of motions) {
+      // A merge is the one motion whose subject has no element left to find.
+      if (m.kind === 'merge') { keeper.revive(layer, m.key, m.from, m.to); continue; }
       const el = byKey.get(m.key);
       const channel = channelOf(m.kind);
       if (!el || el.dataset[channel]) continue;
+      const own = el.dataset.tile!.split(',');
       if (m.kind === 'bounce') {
-        const at = el.dataset.tile!.split(',');
-        el.style.setProperty('--dx', String(m.toward[0] - Number(at[0])));
-        el.style.setProperty('--dy', String(m.toward[1] - Number(at[1])));
+        el.style.setProperty('--dx', String(m.toward[0] - Number(own[0])));
+        el.style.setProperty('--dy', String(m.toward[1] - Number(own[1])));
       } else if (m.kind === 'grab') {
-        const at = el.dataset.tile!.split(',');
-        el.style.setProperty('--kx', String(m.from[0] - Number(at[0])));
-        el.style.setProperty('--ky', String(m.from[1] - Number(at[1])));
+        el.style.setProperty('--kx', String(m.from[0] - Number(own[0])));
+        el.style.setProperty('--ky', String(m.from[1] - Number(own[1])));
+      } else if (m.kind === 'split') {
+        el.style.setProperty('--px', String(m.from[0] - Number(own[0])));
+        el.style.setProperty('--py', String(m.from[1] - Number(own[1])));
       }
       el.dataset[channel] = m.kind;
     }
@@ -266,9 +322,6 @@ function Cell(
   );
 }
 
-const at = (n: number): string => 'calc(' + n + ' * 100% / var(--bw))';
-const down = (n: number): string => 'calc(' + n + ' * 100% / var(--bh))';
-
 function Slot(
   { view, stack, onClick }: { view: NamedView; stack: Stack; onClick: (() => void) | undefined }
 ) {
@@ -282,22 +335,10 @@ function Slot(
       onClick={onClick}
     >
       <Token view={view} stack={stack} />
-      <TurnBack />
       {[...sides.values()].map((side) => (
         <i key={side} class="key-mark" data-side={side} />
       ))}
     </div>
-  );
-}
-
-// The tile owns the turn-back arc rather than a token: an inversion leaves two co-located bodies
-// and a mark on the tile does not have to pick one. CSS reveals it while the slot is inverting.
-function TurnBack() {
-  return (
-    <svg class="turnback" viewBox="0 0 100 100" aria-hidden="true">
-      <path class="tb-arc" d="M64 62A28 28 0 1 1 92 34" />
-      <path class="tb-tip" d="M85 32H99L92 46z" />
-    </svg>
   );
 }
 
