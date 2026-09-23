@@ -64,26 +64,26 @@ Spawns sit one tile in from each corner: Coral at (1, 1), Purple at (w-2, h-2), 
 
 ### The key
 
-One key starts at the center at `t0`. The key has its own timeline. Index `i` reads either "at the center at world turn `i`" or a holder body with a key side. A grab at index `i` by body `(c, p)` makes index `i + d` read body `(c, p + d)` with the same side, for as long as the grab's front covers it. A body holds a key when some index reads it.
+One key starts at the center at `t0`. The key has its own timeline. Index `i` reads either "at the center at world turn `i`" or a holder body with a key side. A grab at index `i` by body `(c, p)` makes index `i + d` read body `(c, p + d)` with the same side, for as long as the grab's front covers it. A body holds a key when some index reads it. Several indices can read the same body, so one body can temporarily carry several incarnations of the key.
 
 The key side is the direction the key came from: toward the center after a pickup, toward the victim after a steal. It never rotates, and inversion does not change it.
 
 ### Grab
 
-After movement resolves, each body created this meta-turn is checked in priority order. It grabs when it stands on a grab tile at its world turn, does not already hold a key, and no grab has been recorded at that key index this turn. Every action counts, including hold and invert. A stuck player creates no body and cannot grab.
+After movement resolves, each body created this meta-turn is checked in priority order. It grabs when it stands on a grab tile at its world turn and no grab has been recorded at the affected key index this turn. Already holding one or more incarnations does not prevent a grab. Every action counts, including hold and invert. A stuck player creates no body and cannot grab.
 
 The grab tiles at world turn `t` are:
 
 - The four tiles orthogonally beside the center, while the key's index `t` reads the center.
 - The single tile beyond the holder's key side, while a body of another colour holds the key at `t`. The victim can be live or recorded.
 
-Two colours grabbing the unheld key at the same world turn resolve by priority order. The loser's grab is not recorded. Grabs at different world turns both record. When several opponent bodies beside the thief face it with their key side, the thief takes from the highest personal index. A player cannot steal from their own bodies.
+Two colours grabbing the unheld key at the same world turn resolve by priority order. The loser's grab is not recorded. Grabs at different world turns both record. When several opponent bodies beside the thief face it with their key side, the thief takes from the highest personal index. It takes every incarnation on the side facing the thief and records those key indices in ascending order. Other sides remain held. A player cannot steal from their own bodies.
 
 ### Fronts
 
-A grab at key index `i` starts a front at `i`. After this turn's grabs, every counting front advances two indices, in creation order. The front rewrites what later bodies carry: indices it has covered read the new holder. When a front passes the origin of a later grab, that grab breaks. Its bodies lose the key from that index on, and its own front freezes. Broken grabs never recover in bootstrap, so there is no restoration and no cycle.
+A grab at key index `i` starts a front at `i`; a steal of several incarnations starts one front per stolen index. After this turn's grabs, every counting front advances two indices, in creation order. The front rewrites what later bodies carry: indices it has covered read the new holder. When a front passes the origin of a later grab, that grab breaks. Its bodies lose the key from that index on, and its own front freezes. Broken grabs never recover in bootstrap, so there is no restoration and no cycle.
 
-Because the key and its holder advance together, a front at key index `i` sits on the holder's body at `p + (i - origin)`. A live body loses its key on the meta-turn the front reaches its present. Until then the key is real: it can be stolen and it can win. A grab overtaken later still records, then breaks when the older front passes it, even on the same meta-turn.
+Because the key and its holder advance together, a front at key index `i` sits on the holder's body at `p + (i - origin)`. A live body loses an incarnation on the meta-turn the front reaches it, and loses the key only when no incarnations remain. Until then each incarnation is real: it can be stolen and any one can win. A grab overtaken later still records, then breaks when the older front passes it, even on the same meta-turn.
 
 Example: A grabs at `t5` on meta-turn 5. On meta-turn 20 an inverted B grabs at `t3`. B's front covers indices 4 and 5 that turn, so A's grab breaks and A's later bodies lose the key two per meta-turn as the front reaches them. If C also grabs at `t9` on meta-turn 20, B's front reaches 9 on meta-turn 22 and C's live body loses the key on meta-turn 24.
 

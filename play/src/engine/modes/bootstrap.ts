@@ -16,16 +16,25 @@ function bodyOf(ev: TimelineEvent<Holder>, index: number): { color: Color; p: nu
   return { color: ev.value.color, p: ev.value.p + (index - ev.origin) };
 }
 
-// Every body that holds the key, per the tape right now.
-function holdings(s: State): Map<string, Hold> {
-  const out = new Map<string, Hold>();
+// Every key occurrence, per the tape right now. Several indices may name the same body.
+function holdings(s: State): Hold[] {
+  const out: Hold[] = [];
   let top = 0;
   for (const e of s.tape.events()) top = Math.max(top, e.front);
   for (let i = 0; i <= top; i++) {
     const r = s.tape.at(i);
     if (!r) continue;
     const b = bodyOf(r.event, i);
-    out.set(bodyKey(b.color, b.p), { color: b.color, p: b.p, index: i, side: r.event.value.side });
+    out.push({ color: b.color, p: b.p, index: i, side: r.event.value.side });
+  }
+  return out;
+}
+
+function holdingsByBody(held: readonly Hold[]): Map<string, Hold[]> {
+  const out = new Map<string, Hold[]>();
+  for (const h of held) {
+    const key = bodyKey(h.color, h.p), list = out.get(key);
+    if (list) list.push(h); else out.set(key, [h]);
   }
   return out;
 }
@@ -45,9 +54,9 @@ function findBody(bodies: readonly Body[], color: Color, p: number): Body | null
 
 function grabs(s: State, turn: TurnContext): void {
   const held = holdings(s);
+  const byBody = holdingsByBody(held);
   const taken = new Set<number>();
   for (const actor of turn.actors) {
-    if (held.has(bodyKey(actor.color, actor.p))) continue;
     const here: Vec = [actor.x, actor.y];
 
     const toCenter = adjacentDir(here, turn.center);
@@ -58,20 +67,24 @@ function grabs(s: State, turn: TurnContext): void {
       continue;
     }
 
-    let victim: Body | null = null, at: Hold | null = null, toward: Vec = [0, 0];
+    let victim: Body | null = null, at: Hold[] = [], toward: Vec = [0, 0];
     for (const m of MOVES) {
       const d = DIRS[m];
       for (const b of turn.bodiesAt(actor.t, actor.x + d[0], actor.y + d[1])) {
         if (b.color === actor.color) continue;
-        const h = held.get(bodyKey(b.color, b.p));
-        if (!h || h.side[0] !== -d[0] || h.side[1] !== -d[1]) continue;
+        const found = (byBody.get(bodyKey(b.color, b.p)) ?? []).filter((h) =>
+          h.side[0] === -d[0] && h.side[1] === -d[1] && !taken.has(h.index)
+        );
+        if (!found.length) continue;
         if (victim && b.p <= victim.p) continue;
-        victim = b; at = h; toward = d;
+        victim = b; at = found; toward = d;
       }
     }
-    if (!victim || !at || taken.has(at.index)) continue;
-    s.tape.record(at.index, { color: actor.color, p: actor.p, side: [toward[0], toward[1]] }, turn.turn);
-    taken.add(at.index);
+    if (!victim) continue;
+    for (const h of at) {
+      s.tape.record(h.index, { color: actor.color, p: actor.p, side: [toward[0], toward[1]] }, turn.turn);
+      taken.add(h.index);
+    }
     turn.events.push({ turn: turn.turn, color: actor.color, kind: 'grab', t: actor.t, x: actor.x, y: actor.y, by: victim.color, dir: actor.dir });
   }
 }
@@ -79,11 +92,9 @@ function grabs(s: State, turn: TurnContext): void {
 function liveHolds(s: State, turn: TurnContext): Map<Color, Hold> {
   const held = holdings(s);
   const out = new Map<Color, Hold>();
-  for (const c of turn.cfg.roster) {
-    const pl = turn.players[c];
-    if (!pl) continue;
-    const h = held.get(bodyKey(c, pl.p));
-    if (h) out.set(c, h);
+  for (const h of held) {
+    const pl = turn.players[h.color];
+    if (pl?.p === h.p) out.set(h.color, h);
   }
   return out;
 }
@@ -122,7 +133,7 @@ export const bootstrap: Mode<State> = {
 
   view(s, turn, horizon): ModeView {
     const out: ModeView = { keys: [], keyAtCenter: [], fronts: [] };
-    for (const h of holdings(s).values()) {
+    for (const h of holdings(s)) {
       const b = findBody(turn.bodies, h.color, h.p);
       if (b && b.t <= horizon) out.keys.push({ color: h.color, p: b.p, side: [h.side[0], h.side[1]] });
     }

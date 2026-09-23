@@ -95,6 +95,7 @@ function assertOver(m: MatchInstance, color: string): void {
 // Purple picks up at (4,3) on turn 2 with side [-1,0]; its p4 body sits at (4,2) at t4, so the
 // steal tile for that body is (3,2) at t4. Coral loops back in time and lands there on turn 8.
 const EXAMPLE3: Script = { C: 'DDHHDHIAS', P: 'WWAWDDSSS' };
+const MIXED_SIDES = { C: 'DSSIDWIH', P: 'WWWIAHII' } satisfies Script;
 
 describe('bootstrap: pickup', () => {
   it('picks the key up by walking next to the center', () => {
@@ -114,15 +115,15 @@ describe('bootstrap: pickup', () => {
     assert.equal(events(m, 'C', 'grab').length, 1, 'holding does not grab again');
   });
 
-  it('does nothing on the center itself, and a holder cannot pick up again', () => {
+  it('does nothing on the center itself, and a holder can pick up an earlier incarnation', () => {
     const m = match();
     // Grab at (2,3) t3, invert, step onto the center at t2, then back onto (2,3) at t1.
     run(m, { C: 'DSSIDA', P: 'HHHHHH' });
 
     assert.deepEqual([view(m, 'C').me.t, view(m, 'C').me.x, view(m, 'C').me.y], [1, 2, 3]);
-    assert.deepEqual(view(m, 'C').keyAtCenter, [0, 1, 2], 'index 1 and 2 still read center');
-    assert.equal(events(m, 'C', 'grab').length, 1, 'only the first grab is recorded');
-    assert.deepEqual(keys(m, 'C'), [3, 4, 5, 6].map((p) => ({ color: 'C' as Color, p, side: [1, 0] as [number, number] })));
+    assert.deepEqual(view(m, 'C').keyAtCenter, [0], 'the second front covers indices 1 and 2');
+    assert.equal(events(m, 'C', 'grab').length, 2, 'both grabs are recorded');
+    assert.deepEqual(keysOf(m, 'C', 'C'), [4, 5, 6, 6], 'p6 carries two incarnations');
   });
 
   it('never picks up in sandbox mode', () => {
@@ -132,6 +133,25 @@ describe('bootstrap: pickup', () => {
     assert.deepEqual(view(m, 'C').keyAtCenter, []);
     assert.deepEqual(view(m, 'C').fronts, []);
     assert.equal(events(m, 'C', 'grab').length, 0);
+  });
+
+  it('grabs an earlier incarnation while a front removes a later one', () => {
+    const m = match({
+      w: 16, h: 9, wallPct: 11, seed: '1dzex3', cap: 50, roster: ['C', 'P', 'T']
+    });
+    run(m, {
+      C: 'DDDDDDDISSAASD',
+      P: 'AAAAWWIWWASSID',
+      T: 'SAAASASAIIDIWD'
+    });
+
+    assert.ok(events(m, 'C', 'grab').map(brief).some((e) =>
+      e.turn === 13 && e.color === 'C' && e.t === 1 && e.x === 7 && e.y === 4 && e.by === null
+    ), 'coral picks up the earlier incarnation');
+    assert.ok(keys(m, 'C').some((k) => k.color === 'C' && k.p === 14 && k.side[0] === 1 && k.side[1] === 0));
+    assert.ok(!view(m, 'C').keyAtCenter.some((t) => t === 1), 'index 1 no longer reads the center');
+    assert.ok(!events(m, 'C', 'lost').some((e) => e.turn === 13 && e.color === 'C'), 'coral keeps a key');
+    assert.deepEqual(view(m, 'C').fronts.map((f) => f.color), ['C'], 'the earlier coral front breaks purple');
   });
 });
 
@@ -177,7 +197,7 @@ describe('bootstrap: key side and steal', () => {
     assert.deepEqual(keysOf(m, 'C', 'C'), [3, 4, 5, 6, 7]);
   });
 
-  it('cannot steal while already holding', () => {
+  it('can steal while already holding', () => {
     const m = match();
     run(m, EXAMPLE3);
     assert.equal(events(m, 'P', 'grab').length, 2, 'purple picked up, coral stole');
@@ -185,9 +205,60 @@ describe('bootstrap: key side and steal', () => {
     play(m, { C: 'S', P: 'A' });
 
     assert.deepEqual([view(m, 'C').me.t, view(m, 'C').me.x, view(m, 'C').me.y], [3, 3, 3]);
-    assert.equal(events(m, 'P', 'grab').length, 2, 'no third grab');
-    assert.ok(keysOf(m, 'P', 'P').includes(3), 'purple p3 still holds');
+    assert.equal(events(m, 'P', 'grab').length, 3, 'coral records the steal while holding');
+    assert.ok(!keysOf(m, 'P', 'P').includes(3), 'coral takes purple p3 on the exposed side');
     assert.ok(keysOf(m, 'P', 'C').includes(10), 'coral still holds');
+  });
+
+  it('steals every incarnation exposed on the matching side', () => {
+    const m = match({ seed: 's0' });
+    run(m, { C: 'DSSIDAI', P: 'WWAAIWH' });
+    assert.equal(keysOf(m, 'C', 'C').filter((p) => p === 7).length, 2,
+      'the recorded victim carries two keys on its center-facing side');
+
+    play(m, { C: 'H', P: 'S' });
+
+    assert.deepEqual(events(m, 'C', 'grab').map(brief).filter((e) => e.turn === 7), [
+      { turn: 7, color: 'P', t: 1, x: 3, y: 3, by: 'C' }
+    ], 'one action produces one player-facing grab');
+    assert.equal(keysOf(m, 'C', 'C').filter((p) => p === 7).length, 0,
+      'both matching incarnations leave the victim');
+    assert.ok(keysOf(m, 'C', 'P').includes(8), 'the thief receives the surviving incarnation');
+  });
+
+  it('steals one stacked body’s exposed side and leaves its other side', () => {
+    const m = match();
+    run(m, { C: MIXED_SIDES.C.slice(0, 7), P: MIXED_SIDES.P.slice(0, 7) });
+    assert.deepEqual(keys(m, 'C').filter((k) => k.color === 'C' && k.p === 7), [
+      { color: 'C', p: 7, side: [0, 1] },
+      { color: 'C', p: 7, side: [1, 0] }
+    ]);
+
+    play(m, { C: 'H', P: 'I' });
+
+    assert.deepEqual(events(m, 'C', 'grab').map(brief).filter((e) => e.turn === 7), [
+      { turn: 7, color: 'P', t: 1, x: 4, y: 2, by: 'C' }
+    ]);
+    assert.deepEqual(keys(m, 'C').filter((k) => k.color === 'C' && k.p === 7), [
+      { color: 'C', p: 7, side: [0, 1] }
+    ], 'the recorded body keeps its south-side incarnation');
+    assert.deepEqual(keys(m, 'C').filter((k) => k.color === 'C' && k.p === 6), [
+      { color: 'C', p: 6, side: [0, 1] }
+    ], 'the older body on the same tile is untouched');
+    assert.deepEqual(events(m, 'C', 'lost').filter((e) => e.turn === 7 && e.color === 'C'), []);
+  });
+
+  it('replays a multi-incarnation steal with both causal records', () => {
+    const m = match({ seed: 's0' });
+    run(m, { C: 'DSSIDAIH', P: 'WWAAIWHS' });
+
+    // The steal records origins 2 and 7. The older front overtakes 7 in this sweep.
+    assert.equal(m.stateHash(), '9e5d');
+    const imported = Match.fromExport(m.export());
+    assert.ok(imported.ok);
+    assert.equal(imported.value.match.stateHash(), m.stateHash());
+    assert.deepEqual(imported.value.match.view('C'), m.view('C'));
+    assert.deepEqual(imported.value.match.view('P'), m.view('P'));
   });
 });
 
@@ -259,10 +330,8 @@ describe('bootstrap: older wave breaks a later grab (example 1)', () => {
 
     play(m, { C: 'S', P: 'H' });
     assert.deepEqual(events(m, 'C', 'lost').map(brief), [{ turn: 6, color: 'C', t: 7, x: 3, y: 6, by: 'P' }]);
-    assert.deepEqual(keys(m, 'C'), [
-      { color: 'P', p: 6, side: [-1, 0] },
-      { color: 'P', p: 7, side: [-1, 0] }
-    ]);
+    assert.deepEqual(keys(m, 'C'), [{ color: 'P', p: 7, side: [-1, 0] }],
+      'purple picks up the earlier t2 incarnation while holding the later one');
   });
 });
 
@@ -298,6 +367,30 @@ describe('bootstrap: two grabs on one turn at different world turns (example 2)'
     assert.deepEqual(keysOf(m, 'C', 'C'), [], 'turn 12: purple front 13 passes coral live p13');
     assert.deepEqual(events(m, 'C', 'lost').map(brief), [{ turn: 12, color: 'C', t: 13, x: 3, y: 2, by: 'P' }]);
     assert.deepEqual(keysOf(m, 'C', 'P'), [9, 10, 11, 12, 13]);
+  });
+});
+
+describe('bootstrap: partial key loss', () => {
+  it('reports loss only after the final incarnation leaves the live body', () => {
+    const m = match();
+    run(m, {
+      C: MIXED_SIDES.C + 'H',
+      P: MIXED_SIDES.P + 'S'
+    });
+    assert.deepEqual(keys(m, 'C').filter((k) => k.color === 'C' && k.p === 9).map((k) => k.side),
+      [[0, 1], [1, 0]], 'the live body begins with two sides');
+
+    play(m, { C: 'H', P: 'I' });
+    assert.deepEqual(keys(m, 'C').filter((k) => k.color === 'C' && k.p === 10).map((k) => k.side),
+      [[0, 1]], 'the first front removes one incarnation');
+    assert.deepEqual(events(m, 'C', 'lost').filter((e) => e.color === 'C'), [],
+      'partial loss has no lost event');
+
+    play(m, { C: 'H', P: 'H' });
+    assert.deepEqual(keys(m, 'C').filter((k) => k.color === 'C' && k.p === 11), []);
+    assert.deepEqual(events(m, 'C', 'lost').map(brief).filter((e) => e.color === 'C'), [
+      { turn: 10, color: 'C', t: 5, x: 3, y: 2, by: 'P' }
+    ], 'the final incarnation produces one loss');
   });
 });
 
