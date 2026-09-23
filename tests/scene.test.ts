@@ -108,8 +108,23 @@ describe('scene helpers', () => {
     const m = match({ mode: 'bootstrap' });
     run(m, { C: 'DSS', P: 'HHH' });
     const v = named(m, 'C');
-    assert.deepEqual([...keyHolders(v)], [['C:3', [1, 0]]]);
+    assert.deepEqual([...keyHolders(v)], [['C:3', [{ side: [1, 0], count: 1 }]]]);
     assert.deepEqual([...keyHolders(named(match(), 'C'))], [], 'sandbox holds no keys');
+  });
+
+  it('counts every key incarnation by body and side', () => {
+    const v = named(match({ mode: 'bootstrap' }), 'C');
+    const p = bodyOf(v, 'C', 0).p;
+    v.keys = [
+      { color: 'C', p, side: [1, 0] },
+      { color: 'C', p, side: [1, 0] },
+      { color: 'C', p, side: [0, 1] }
+    ];
+
+    assert.deepEqual([...keyHolders(v)], [['C:0', [
+      { side: [1, 0], count: 2 },
+      { side: [0, 1], count: 1 }
+    ]]]);
   });
 });
 
@@ -125,7 +140,7 @@ describe('sceneAt: tokens', () => {
       ['C:2', 'P:2'],
       'the key is the colour and the personal index'
     );
-    assert.ok(scene.tokens.every((t) => t.keySide === null), 'sandbox tokens hold no key');
+    assert.ok(scene.tokens.every((t) => t.keySides.length === 0), 'sandbox tokens hold no key');
     const c = scene.tokens.find((t) => t.color === 'C');
     assert.deepEqual(
       { p: c?.p, x: c?.x, y: c?.y, dir: c?.dir, live: c?.live },
@@ -142,8 +157,8 @@ describe('sceneAt: tokens', () => {
 
     const holder = scene.tokens.find((t) => t.key === 'C:3');
     const other = scene.tokens.find((t) => t.key === 'P:3');
-    assert.deepEqual(holder?.keySide, [1, 0], 'the side points at the center');
-    assert.equal(other?.keySide, null);
+    assert.deepEqual(holder?.keySides, [{ side: [1, 0], count: 1 }], 'the side points at the center');
+    assert.deepEqual(other?.keySides, []);
   });
 });
 

@@ -1571,6 +1571,16 @@ test.describe('bootstrap', () => {
     await expect(page.locator('#btnCommit')).toBeHidden();
   });
 
+  test('shows the number of key incarnations on each side', async ({ page }) => {
+    await resume(page,
+      'X1:M1:bootstrap:7x7:0:test:40:CP|CDPH,CSPH,CSPH,CIPH,CDPH,CAPH|C~Rook,P~Vale');
+
+    const mark = page.locator('#board .key-mark[data-side="1,0"]');
+    await expect(mark).toHaveCount(1);
+    await expect(mark).toHaveAttribute('data-count', '2');
+    await expect(mark).toHaveAttribute('aria-label', '2 keys on side 1,0');
+  });
+
   test('a steal from a recorded body shows a front until it reaches the holder', async ({ page }) => {
     await startBootstrap(page);
     const mine = ['D', 'H', 'H', 'H', 'H', 'H'];

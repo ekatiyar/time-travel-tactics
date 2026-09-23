@@ -55,11 +55,11 @@ A resolved turn plays over about a second as a sequence: bodies slide, then inve
 
 ## Bootstrap
 
-The key sits on the center tile at `t0`. End an action on any tile beside the center to pick it up. The key attaches to the side you came from and shows as a small square on that side of your body. A key drawn on the center tile means nobody holds it at the focused world turn.
+The key sits on the center tile at `t0`. End an action on any tile beside the center to pick it up. You can pick up another incarnation while already carrying one. Each key attaches to the side it came from and shows as a small square on that side of your body. A number on the square counts incarnations when that side holds more than one. A key drawn on the center tile means nobody holds it at the focused world turn.
 
-To steal, end an action on the tile beyond an opponent's key side at the same world turn. Recorded bodies can be robbed too. The log reports every pickup, steal, and loss.
+To steal, end an action on the tile beyond an opponent's key side at the same world turn. You take every incarnation exposed on that side; keys on its other sides stay put. Recorded bodies can be robbed too. The log reports each pickup, steal, and complete loss.
 
-Each grab starts a front that walks the key's earlier holders, two indices per turn. A triangle in the grabber's colour marks a front on the board and in its own strip row, and slides to its new tile when a turn resolves. Hover it for the turns until it reaches you, or read the chip in the top bar when it is aimed at you. When it reaches your present you lose the key, and any grab it passes is undone.
+Each grabbed key index starts a front that walks the key's earlier holders, two indices per turn. A triangle in the grabber's colour marks a front on the board and in its own strip row, and slides to its new tile when a turn resolves. Hover it for the turns until it reaches you, or read the chip in the top bar when it is aimed at you. A front removes the incarnation it reaches; you lose the key only when none remain. Any grab it passes is undone.
 
 Win by ending an action at `t0` on a tile next to your own spawn while holding the key. Your spawn tile has a dashed outline in your colour. A match with no winner at the cap is a draw.
 

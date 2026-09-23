@@ -100,6 +100,8 @@
   .time-head[data-direction="opposing"]{background:transparent;}
   .key-mark{position:absolute;width:16cqmin;height:16cqmin;min-width:4px;min-height:4px;
     background:var(--key);border:1px solid var(--surface-0);border-radius:2cqmin;pointer-events:none;}
+  .key-mark[data-count]::after{content:attr(data-count);position:absolute;left:50%;top:50%;
+    transform:translate(-50%,-50%);font-size:9cqmin;font-weight:700;line-height:1;color:#2B2410;}
   .key-mark[data-side="0,-1"]{top:4cqmin;left:0;right:0;margin:0 auto;}
   .key-mark[data-side="0,1"]{bottom:4cqmin;left:0;right:0;margin:0 auto;}
   .key-mark[data-side="-1,0"]{left:4cqmin;top:0;bottom:0;margin:auto 0;}

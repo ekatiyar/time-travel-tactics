@@ -55,16 +55,27 @@ export function shade(
   return out;
 }
 
-export function keyHolders(view: NamedView): Map<string, Vec> {
-  const out = new Map<string, Vec>();
-  for (const k of view.keys) out.set(k.color + ':' + k.p, k.side);
+export type KeySideCount = { side: Vec; count: number };
+
+export function keyHolders(view: NamedView): Map<string, KeySideCount[]> {
+  const grouped = new Map<string, Map<string, KeySideCount>>();
+  for (const k of view.keys) {
+    const body = k.color + ':' + k.p, side = k.side.join(',');
+    let sides = grouped.get(body);
+    if (!sides) { sides = new Map(); grouped.set(body, sides); }
+    const found = sides.get(side);
+    if (found) found.count++;
+    else sides.set(side, { side: [k.side[0], k.side[1]], count: 1 });
+  }
+  const out = new Map<string, KeySideCount[]>();
+  for (const [body, sides] of grouped) out.set(body, [...sides.values()]);
   return out;
 }
 
 export type Token = {
   key: string;
   color: Color; p: number; t: number; x: number; y: number; dir: Dir;
-  leg: number; live: boolean; keySide: Vec | null;
+  leg: number; live: boolean; keySides: KeySideCount[];
 };
 
 // One tile's worth of bodies at the focus turn. The occupancy rule keeps a stack single-colour.
@@ -117,7 +128,7 @@ export function sceneAt(
         key: b.color + ':' + b.p,
         color: b.color, p: b.p, t: b.t, x: b.x, y: b.y, dir: b.dir,
         leg: legs.get(b.color + ':' + b.p) ?? 0,
-        live: b.live, keySide: held.get(b.color + ':' + b.p) ?? null
+        live: b.live, keySides: held.get(b.color + ':' + b.p) ?? []
       };
       tokens.push(token);
       const k = tile(b.x, b.y);

@@ -325,8 +325,11 @@ function Cell(
 function Slot(
   { view, stack, onClick }: { view: NamedView; stack: Stack; onClick: (() => void) | undefined }
 ) {
-  const sides = new Map<string, string>();
-  for (const t of stack.tokens) if (t.keySide) sides.set(t.keySide.join(','), t.keySide.join(','));
+  const sides = new Map<string, number>();
+  for (const t of stack.tokens) for (const held of t.keySides) {
+    const side = held.side.join(',');
+    sides.set(side, (sides.get(side) ?? 0) + held.count);
+  }
 
   return (
     <div
@@ -335,8 +338,12 @@ function Slot(
       onClick={onClick}
     >
       <Token view={view} stack={stack} />
-      {[...sides.values()].map((side) => (
-        <i key={side} class="key-mark" data-side={side} />
+      {[...sides].map(([side, count]) => (
+        <i
+          key={side} class="key-mark" data-side={side}
+          data-count={count > 1 ? count : undefined}
+          role="img" aria-label={count + (count === 1 ? ' key' : ' keys') + ' on side ' + side}
+        />
       ))}
     </div>
   );
