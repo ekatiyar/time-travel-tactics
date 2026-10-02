@@ -248,30 +248,13 @@ describe('movement and blocking', () => {
   });
 
   it('blocks a backward hold onto your own earlier instance', () => {
-    const replay = Match.fromExport(
-      'X1:M1:bootstrap:16x9:11:1ulbbm:60:CPT|PATACS,PACSTA,PATSCD,PATACD,PITACD,PATICI,PATACD,PWTACD,PWCSTS,PITHCD,PDTWCD,PITICI,PSCSTA,PICITS,PHTSCA,PATICI,PITSCS',
-    );
-    assert.ok(replay.ok, replay.error);
-    const m = replay.value.match;
-    const purple = view(m, 'P');
+    const m = match();
+    play(m, { C: 'H', P: 'H' });
+    play(m, { C: 'I', P: 'H' });
 
-    assert.deepEqual(purple.me, {
-      color: 'P', p: 17, t: 2, x: 8, y: 6, dir: -1, horizon: 4, stuck: false,
-    });
-    assert.ok(
-      purple.bodies.some((b) => b.color === 'P' && b.p === 8 && b.t === 1 && b.x === 8 && b.y === 6),
-      'purple p8 occupies the hold target',
-    );
-    assert.deepEqual(
-      purple.actions.find((offer) => offer.action === 'H'),
-      { action: 'H', reason: 'occupied', t: 1, x: 8, y: 6, move: false },
-    );
-
-    const result = m.submit({
-      turn: m.currentTurn(), color: 'P', action: 'H', hash: m.stateHash(),
-    });
-    assert.equal(result.ok, false);
-    assert.equal(errorText(result), 'illegal: occupied');
+    assert.equal(legalNow(m, 'C').H, 'occupied', 'holding backward would return to the spawn body');
+    const result = m.submit({ turn: m.currentTurn(), color: 'C', action: 'H', hash: m.stateHash() });
+    assert.deepEqual(result, { ok: false, error: 'illegal: occupied' });
   });
 
   it("blocks a backward move onto another colour's recorded body", () => {

@@ -4,7 +4,7 @@ import type { JSX } from 'preact';
 import { COLORS } from './engine/index.js';
 import type { Action, ActionOffer, Color, TurnEvent, Vec, ViewBody } from './engine/index.js';
 import { describe, motionBetween, relativeDirection } from './scene.js';
-import type { Motion, NamedView, Scene, SceneFront, Stack } from './scene.js';
+import type { NamedView, Scene, SceneFront, Stack } from './scene.js';
 
 const MOTION_MS = 1200;
 
@@ -17,22 +17,12 @@ function reducedMotion(): boolean {
   return typeof matchMedia === 'function' && matchMedia('(prefers-reduced-motion: reduce)').matches;
 }
 
-// The key mark animates on its own channel. Grabbing or losing a key while also moving or being
-// blocked is the normal case, and one attribute per slot would let the first motion win and drop
-// the key animation.
-const channelOf = (kind: Motion['kind']): 'motion' | 'keyMotion' => (
-  kind === 'grab' || kind === 'lost' ? 'keyMotion' : 'motion'
-);
-
 function reset(el: HTMLElement): void {
   delete el.dataset.motion;
   delete el.dataset.keyMotion;
 }
 
-// Land any running transition on its end position now, and leave transitions armed for the next
-// commit. A requestAnimationFrame is too late: the input that ends a motion also drives a Preact
-// re-render, which commits the next positions synchronously in the same task and lands them with
-// transitions still off.
+// Re-arm transitions synchronously; the same input may commit new positions before the next frame.
 function settle(layer: HTMLElement): void {
   layer.classList.add('snap');
   void layer.offsetHeight;
@@ -41,25 +31,20 @@ function settle(layer: HTMLElement): void {
 }
 
 type GhostKeeper = {
-  // This commit's elements by stack key.
   remember(byKey: Map<string, HTMLElement>): void;
-  // Put back the node that carried `key` before this commit, to travel `from` -> `to`.
   revive(layer: HTMLElement, key: string, from: Vec, to: Vec): void;
   sweep(layer: HTMLElement): void;
 };
 
-// A leg rejoining a shared tile loses its element: Preact unmounts it before the layout effect
-// runs. So the elements of every commit are held, and the unmounted one is put back to carry the
-// motion. A revived node lives outside Preact's tree, which is why every effect sweeps before it
-// reads the layer.
+// Preact unmounts a merging leg before the layout effect. Revive it for the animation,
+// then sweep it before reading the next commit because Preact no longer owns it.
 function ghostKeeper(): GhostKeeper {
-  // Two generations: `remember` runs before the motions are read, so the node a merge wants is
-  // the one from the commit before this one.
+  // remember runs before revive, so retain the previous commit too.
   let before = new Map<string, HTMLElement>();
   let now = new Map<string, HTMLElement>();
   let ghosts: HTMLElement[] = [];
   return {
-    remember(byKey) { before = now; now = new Map(byKey); },
+    remember(byKey) { before = now; now = byKey; },
     revive(layer, key, from, to) {
       const el = before.get(key);
       // Still connected means the key was never unmounted, so a stale map is harmless.
@@ -114,8 +99,7 @@ function useMotions(
     }
     // Ahead of every early return: a held map that skipped a commit would revive the wrong node.
     keeper.remember(byKey);
-    // A resolved turn plays as mockup 07's sequence; a scrub is one motion and starts now.
-    // Set before paint so the delays apply to the transitions this commit just started.
+    // Set delays before paint so they apply to this commit's transitions.
     const stage = (on: boolean): void => {
       for (const el of slots) reset(el);
       layer.classList.toggle('staged', on);
@@ -134,19 +118,16 @@ function useMotions(
       settle(layer!);
       detach();
     }
-    // Any input skips to the end.
     function arm(ms: number): () => void {
       document.addEventListener('keydown', clear, true);
       document.addEventListener('pointerdown', clear, true);
       timer.current = window.setTimeout(clear, ms);
-      // Teardown only detaches: clearing here would reflow the committed positions with
-      // transitions off and kill the slide the next effect is about to start.
+      // Clearing on teardown would disable the next commit's slide during reflow.
       return detach;
     }
 
     if (!before || reducedMotion()) { stage(resolved.length > 0); return; }
 
-    // A jump of more than one world turn has no motion to read, so it snaps.
     if (Math.abs(scene.focusT - before.focusT) > 1) {
       until.current = 0;
       stage(false);
@@ -155,8 +136,7 @@ function useMotions(
     }
 
     const motions = motionBetween(before, scene, resolved);
-    // Nothing new to start: committing an action flips `choosing`, which rebuilds the scene
-    // without moving anything, so resetting here would cut a running sequence off partway.
+    // Committing an action rebuilds the scene without moving bodies; preserve any running animation.
     const left = until.current - performance.now();
     if (!motions.length && left > 0) return arm(left);
 
@@ -164,10 +144,10 @@ function useMotions(
     if (!motions.length) return;
 
     for (const m of motions) {
-      // A merge is the one motion whose subject has no element left to find.
       if (m.kind === 'merge') { keeper.revive(layer, m.key, m.from, m.to); continue; }
       const el = byKey.get(m.key);
-      const channel = channelOf(m.kind);
+      // Key changes can accompany movement, so they need a separate animation channel.
+      const channel = m.kind === 'grab' || m.kind === 'lost' ? 'keyMotion' : 'motion';
       if (!el || el.dataset[channel]) continue;
       const own = el.dataset.tile!.split(',');
       if (m.kind === 'bounce') {
@@ -218,15 +198,16 @@ export function Board({ view, scene, turn, events, picked, onPick }: BoardProps)
   for (let y = 0; y < view.h; y++) {
     for (let x = 0; x < view.w; x++) {
       const k = tile(x, y);
+      const target = scene.targets.get(k);
       cells.push(
         <Cell
           key={k}
           view={view}
           wall={walls.has(k)}
-          target={scene.targets.get(k)}
+          target={target}
           nextIndex={nextIndex}
           picked={picked}
-          onClick={click(scene.targets.get(k))}
+          onClick={click(target)}
           past={scene.trails.get(k)}
           occupied={scene.byTile.has(k)}
           op={scene.shade}
@@ -334,7 +315,7 @@ function Slot(
   return (
     <div
       class="tokslot" data-key={stack.key} data-tile={tile(stack.x, stack.y)}
-      style={{ left: at(stack.x), top: down(stack.y), '--body-color': COLORS[stack.color].hex }}
+      style={{ left: at(stack.x), top: down(stack.y) }}
       onClick={onClick}
     >
       <Token view={view} stack={stack} />

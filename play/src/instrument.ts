@@ -1,9 +1,6 @@
-// Lays out the timeline instrument: one column per world turn, one row per player, lanes within
-// a row. Pure so the arithmetic can be tested without a DOM.
-
 import { MAX_LANES, lanesOf } from './lanes.js';
 import type { PlayerLanes } from './lanes.js';
-import type { NamedView } from './scene.js';
+import type { View } from './engine/index.js';
 
 const GUTTER = 78;
 const RIGHT = 16;
@@ -35,14 +32,11 @@ export type InstrumentRow = PlayerLanes & {
 export type Instrument = {
   height: number;
   cap: number;
-  // The furthest world turn the viewer has reached, and the last column drawn.
-  horizon: number;
   colW: number;
   x: (t: number) => number;
   ticks: number[];
   // Turns `from` … `to` are past the viewer's horizon. Null once the horizon reaches the cap.
   fog: { x: number; w: number; from: number; to: number } | null;
-  capX: number;
   left: number;
   right: number;
   top: number;
@@ -50,12 +44,11 @@ export type Instrument = {
   rows: InstrumentRow[];
 };
 
-export function instrumentAt(view: NamedView, width: number): Instrument {
+export function instrumentAt(view: View, width: number): Instrument {
   const cap = Math.max(0, Math.floor(view.cap));
   const horizon = Math.min(Math.max(0, view.me.horizon), cap);
 
-  // Columns cover the turns reached and nothing else. Most matches never approach the cap, so
-  // scaling to it would squeeze every played turn into a sliver.
+  // Scale to the horizon so a distant cap does not squeeze the played turns.
   const left = GUTTER;
   const right = width - RIGHT;
   const colW = (right - left - (horizon < cap ? FOG_W : 0)) / (horizon + 1);
@@ -71,19 +64,16 @@ export function instrumentAt(view: NamedView, width: number): Instrument {
   const step = tickStep(horizon);
   const ticks: number[] = [];
   for (let t = 0; t <= horizon; t += step) ticks.push(t);
-  if (!ticks.length) ticks.push(0);
 
   const fogX = x(horizon) + colW / 2;
 
   return {
     height,
     cap,
-    horizon,
     colW,
     x,
     ticks,
     fog: horizon < cap ? { x: fogX, w: Math.max(0, right - fogX), from: horizon + 1, to: cap } : null,
-    capX: horizon < cap ? right : fogX,
     left,
     right,
     top: 6,

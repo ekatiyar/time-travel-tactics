@@ -45,8 +45,7 @@ function Swatch({ color }: { color: Color }) {
 }
 
 const FLEX_ROW = 'display:flex;gap:2px;';
-// Every row carries the unexplored slot, explored or not, so one column width serves all four.
-// Without it the bars compress and the numbers below drift out of line.
+// Reserve the same unexplored width in each row to keep columns aligned.
 const TAIL = 'flex:2;min-width:14px;';
 
 function Strip({ view, focusT, lookBack }: { view: SessionView; focusT: number; lookBack: number }) {
@@ -115,8 +114,7 @@ function Strip({ view, focusT, lookBack }: { view: SessionView; focusT: number; 
         })}
         {beyond && (
           <div style={TAIL} title={'unexplored · t' + (view.me.horizon + 1) + ' … t' + view.cap}>
-            {/* The dash rides on a child: a border on the flex item itself lands outside its
-                basis and pushes this row's last column 2px wide of the others. */}
+            {/* A border on the flex item would misalign this row by 2px. */}
             <div style="height:9px;border-radius:2px;border:1px dashed var(--border);" />
           </div>
         )}
@@ -527,7 +525,6 @@ function LegendPopover({ view }: { view: SessionView }) {
   );
 }
 
-// Below this the chart is unreadable whatever we do, so it draws nothing.
 const MIN_IW = 320;
 
 function TimelineInstrument({ view, focusT, lookBack }: {
@@ -536,8 +533,7 @@ function TimelineInstrument({ view, focusT, lookBack }: {
   const box = useRef<HTMLDivElement | null>(null);
   const [width, setWidth] = useState(0);
 
-  // The chart draws in CSS pixels so its type keeps one size however many lanes the rows need,
-  // which means it has to be told how wide it is.
+  // Measure CSS pixels to keep chart text at a fixed size.
   useLayoutEffect(() => {
     const el = box.current;
     if (!el) return;
@@ -563,7 +559,7 @@ const ROW_SUB = 'font-family:var(--mono);font-size:9.5px;fill:var(--text-muted);
 function InstrumentSvg({ view, focusT, lookBack, width }: {
   view: SessionView; focusT: number; lookBack: number; width: number;
 }) {
-  const { height: H, cap, colW, x, ticks, fog, capX, left, right, top, bottom, rows } =
+  const { height: H, cap, colW, x, ticks, fog, left, right, top, bottom, rows } =
     instrumentAt(view, width);
   const focus = Math.min(Math.max(0, focusT), cap);
   const lo = Math.max(0, focus - Math.max(0, lookBack));
@@ -602,9 +598,9 @@ function InstrumentSvg({ view, focusT, lookBack, width }: {
           </text>
         </g>
       ))}
-      <line x1={capX} x2={capX} y1={top} y2={bottom}
+      <line x1={right} x2={right} y1={top} y2={bottom}
         stroke="var(--bad-br)" stroke-width="2" />
-      <text x={capX - 4} y={H - 8} text-anchor="end"
+      <text x={right - 4} y={H - 8} text-anchor="end"
         style={TICK + 'fill:var(--text-secondary)'}>cap {cap}</text>
 
       {rows.map((r, i) => {
@@ -614,6 +610,9 @@ function InstrumentSvg({ view, focusT, lookBack, width }: {
         const lastLeg = r.legs[r.legs.length - 1];
         // Past your horizon a player has no live body, so the newest one you can see stands in.
         const newest = r.live ?? lastLeg?.bodies[lastLeg.bodies.length - 1] ?? null;
+        const live = r.live;
+        const liveY = laneY(r.legs.find((leg) => live && leg.bodies.includes(live))?.lane ?? 0);
+        const matching = live?.dir === view.me.dir;
         return (
           <g key={r.color}>
             {i > 0 && (
@@ -627,8 +626,6 @@ function InstrumentSvg({ view, focusT, lookBack, width }: {
                 {nameOf(view, r.color)}
               </text>
               {newest && (
-                // No live body means the index and the direction are both last-seen, so one fade
-                // marks the whole readout stale.
                 <text x="3" y={laneY(0) + 14} style={ROW_SUB + (r.live ? '' : 'opacity:.45;')}>
                   {'p' + newest.p + ' · ' + (newest.dir === 1 ? 'fwd' : 'back')}
                   <title>{describe(view, newest)}</title>
@@ -669,9 +666,7 @@ function InstrumentSvg({ view, focusT, lookBack, width }: {
                       stroke={hex} stroke-width="2.5" stroke-linecap="round" opacity={fade} />
                   )}
                   {leg.brokenBefore ? (
-                    // The two legs meet at an inversion past your horizon, not here. Fray the
-                    // visible ends toward the hatch and draw no fold. The previous leg may have
-                    // scrolled off; this one frays either way.
+                    // The unseen inversion joins these legs beyond the hatch.
                     <g stroke={hex} stroke-width="2.5" stroke-dasharray="3 4"
                       stroke-linecap="round" opacity={Math.min(fade, 0.7)}>
                       {prevLast && (
@@ -681,8 +676,7 @@ function InstrumentSvg({ view, focusT, lookBack, width }: {
                       <line x1={x(first.t) + 4} x2={x(first.t) + 4 + stub} y1={ly} y2={ly} />
                     </g>
                   ) : prev ? (
-                    // An inversion lands on the world turn it left from, so without this the two
-                    // legs are loose dots in one column. The arc folds away from the new heading.
+                    // Fold away from the new heading to join bodies at the same world turn.
                     <path
                       d={`M${x(first.t) + (first.dir === 1 ? -6 : 6)},${from}`
                         + `a6,${(ly - from) / 2} 0 0 1 0,${ly - from}`}
@@ -712,24 +706,19 @@ function InstrumentSvg({ view, focusT, lookBack, width }: {
               );
             })}
 
-            {r.live && (() => {
-              const b = r.live;
-              const lane = r.legs.find((l) => l.bodies.includes(b))?.lane ?? 0;
-              const matching = relativeDirection(view, b) === 'matching';
-              return (
-                <g>
-                  <circle cx={x(b.t)} cy={laneY(lane)} r="7"
-                    fill={matching ? hex : 'var(--surface-1)'} stroke={hex} stroke-width="2.5">
-                    <title>{describe(view, b)}</title>
-                  </circle>
-                  <text x={x(b.t)} y={laneY(lane) + 3.5} text-anchor="middle"
-                    style={TICK + 'font-size:8.5px;font-weight:600;fill:'
-                      + (matching ? COLORS[r.color].ink : 'var(--text-primary)')}>
-                    {b.p}
-                  </text>
-                </g>
-              );
-            })()}
+            {live && (
+              <g>
+                <circle cx={x(live.t)} cy={liveY} r="7"
+                  fill={matching ? hex : 'var(--surface-1)'} stroke={hex} stroke-width="2.5">
+                  <title>{describe(view, live)}</title>
+                </circle>
+                <text x={x(live.t)} y={liveY + 3.5} text-anchor="middle"
+                  style={TICK + 'font-size:8.5px;font-weight:600;fill:'
+                    + (matching ? COLORS[r.color].ink : 'var(--text-primary)')}>
+                  {live.p}
+                </text>
+              </g>
+            )}
           </g>
         );
       })}
@@ -784,10 +773,9 @@ function PlayScreen({ session, view, onNew, theme, onTheme }: PlayProps) {
   }, [raised]);
 
   const names = v.roster.map((c) => v.names[c] ?? '').join(',');
-  const sceneKey = v.hash + '|' + v.me.color + '|' + focusT + '|' + back + '|' + choosing + '|' + theme + '|' + names;
   const scene = useMemo(
     () => sceneAt(v, focusT, back, choosing, dotFloor()),
-    [sceneKey]
+    [v.hash, v.me.color, focusT, back, choosing, theme, names]
   );
   const resolved = useMemo(
     () => v.events.filter((e) => e.turn === v.turn - 1),

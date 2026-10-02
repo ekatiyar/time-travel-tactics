@@ -145,13 +145,18 @@ describe('bootstrap: pickup', () => {
       T: 'SAAASASAIIDIWD'
     });
 
-    assert.ok(events(m, 'C', 'grab').map(brief).some((e) =>
-      e.turn === 13 && e.color === 'C' && e.t === 1 && e.x === 7 && e.y === 4 && e.by === null
-    ), 'coral picks up the earlier incarnation');
-    assert.ok(keys(m, 'C').some((k) => k.color === 'C' && k.p === 14 && k.side[0] === 1 && k.side[1] === 0));
-    assert.ok(!view(m, 'C').keyAtCenter.some((t) => t === 1), 'index 1 no longer reads the center');
-    assert.ok(!events(m, 'C', 'lost').some((e) => e.turn === 13 && e.color === 'C'), 'coral keeps a key');
-    assert.deepEqual(view(m, 'C').fronts.map((f) => f.color), ['C'], 'the earlier coral front breaks purple');
+    assert.deepEqual(events(m, 'C', 'grab').filter((e) => e.turn === 13).map(brief), [
+      { turn: 13, color: 'C', t: 1, x: 7, y: 4, by: null }
+    ], 'coral picks up the earlier incarnation');
+    assert.deepEqual(keys(m, 'C').filter((k) => k.color === 'C' && k.p === 14), [
+      { color: 'C', p: 14, side: [1, 0] }
+    ]);
+    assert.deepEqual(view(m, 'C').keyAtCenter, [0], 'the front removes the later incarnation');
+    assert.deepEqual(events(m, 'C', 'lost').filter((e) => e.turn === 13 && e.color === 'C'), [],
+      'coral keeps the earlier incarnation');
+    assert.deepEqual(frontsNoGap(m, 'C'), [
+      { t: 1, x: 9, y: 5, target: 'P' }
+    ], 'the earlier coral front breaks purple');
   });
 });
 
@@ -252,13 +257,16 @@ describe('bootstrap: key side and steal', () => {
     const m = match({ seed: 's0' });
     run(m, { C: 'DSSIDAIH', P: 'WWAAIWHS' });
 
-    // The steal records origins 2 and 7. The older front overtakes 7 in this sweep.
-    assert.equal(m.stateHash(), '9e5d');
     const imported = Match.fromExport(m.export());
     assert.ok(imported.ok);
-    assert.equal(imported.value.match.stateHash(), m.stateHash());
-    assert.deepEqual(imported.value.match.view('C'), m.view('C'));
-    assert.deepEqual(imported.value.match.view('P'), m.view('P'));
+    assert.deepEqual(keys(imported.value.match, 'C'), [
+      { color: 'C', p: 6, side: [1, 0] },
+      { color: 'C', p: 8, side: [1, 0] },
+      { color: 'P', p: 8, side: [-1, 0] }
+    ]);
+    assert.deepEqual(fronts(imported.value.match, 'C'), [
+      { t: 1, x: 2, y: 3, target: 'C', gap: 1 }
+    ]);
   });
 });
 

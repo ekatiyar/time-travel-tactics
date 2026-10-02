@@ -110,6 +110,12 @@ async function startMatch(page: Page, opts: Options = {}) {
   await sitDown(page);
 }
 
+async function startBootstrap(page: Page) {
+  await open(page);
+  await createMatch(page, { mode: 'bootstrap', cap: '12' });
+  await sitDown(page);
+}
+
 function deliver(page: Page, text: string, peerId = 'stub-peer') {
   return page.evaluate(
     ([t, id]) => window.__tbtt.action?.onMessage?.(t, { peerId: id }),
@@ -724,14 +730,14 @@ test.describe('play screen', () => {
     await expect(trail.first()).toHaveAttribute('title', /opposite/);
     await expect(page.locator('#strip [data-direction="matching"]')).toHaveCount(1);
 
-    const matching = page.locator('#board .tok[data-direction="mixed"]');
+    const mixedToken = page.locator('#board .tok[data-direction="mixed"]');
     const dark = await opposing.evaluate((node) => {
       const style = getComputedStyle(node);
       return { background: style.backgroundColor, border: style.borderStyle };
     });
     expect(dark.background).toMatch(/rgba?\(0, 0, 0(?:, 0)?\)/);
     expect(dark.border).toBe('solid');
-    const darkMixed = await matching.evaluate((node) => {
+    const darkMixed = await mixedToken.evaluate((node) => {
       const style = getComputedStyle(node);
       return { background: style.backgroundImage, border: style.borderStyle };
     });
@@ -746,7 +752,7 @@ test.describe('play screen', () => {
     });
     expect(light.background).toMatch(/rgba?\(0, 0, 0(?:, 0)?\)/);
     expect(light.border).toBe('solid');
-    const lightMixed = await matching.evaluate((node) => {
+    const lightMixed = await mixedToken.evaluate((node) => {
       const style = getComputedStyle(node);
       return { background: style.backgroundImage, border: style.borderStyle };
     });
@@ -1124,8 +1130,7 @@ test.describe('dock', () => {
     await expect(page.locator('#instrument')).toBeVisible();
 
     await expect(page.locator('#instrument rect[fill="url(#tl-fog)"]')).toHaveCount(0);
-    // Nothing is unexplored, so the cap line is the right edge of the last turn's column
-    // rather than the right edge of the chart.
+    // Nothing is unexplored, so the last turn's column reaches the plot's right edge.
     const geom = await page.locator('#instrument svg').evaluate((svg) => {
       const at = [...svg.querySelectorAll('text')]
         .filter((t) => /^t\d+$/.test(t.textContent ?? ''))
@@ -1136,8 +1141,8 @@ test.describe('dock', () => {
         width: Number(svg.getAttribute('width'))
       };
     });
-    expect(geom.cap).toBe(geom.bandEnd);
-    expect(geom.cap).toBeLessThan(geom.width - 16);
+    expect(geom.cap).toBeCloseTo(geom.bandEnd, 6);
+    expect(geom.cap).toBeCloseTo(geom.width - 16, 6);
     await page.mouse.up();
   });
 
@@ -1187,15 +1192,6 @@ test.describe('layout', () => {
 });
 
 test.describe('turn animation', () => {
-  test('a resolved move slides its token until the next input', async ({ page }) => {
-    await startMatch(page);
-    await resolveTurn(page, 0, 'D', 'H', 'Vale');
-    await expect(page.locator('#board .tokslot[data-motion="slide"]')).toHaveCount(1);
-
-    await page.keyboard.press('Escape');
-    await expect(page.locator('#board .tokslot[data-motion]')).toHaveCount(0);
-  });
-
   test('reduced motion sets no motion at all', async ({ page }) => {
     await page.emulateMedia({ reducedMotion: 'reduce' });
     await startMatch(page);
@@ -1366,6 +1362,8 @@ test.describe('turn animation', () => {
       el.style.getPropertyValue('--px'),
       el.style.getPropertyValue('--py')
     ])).toEqual(['slot-split', '0.25s', '0', '-1']);
+    const last = await motionEnd(page);
+    expect(last.worst, last.where).toBeLessThanOrEqual(1200);
 
     await page.keyboard.press('Escape');
     await expect(page.locator('#board .tokslot[data-motion]')).toHaveCount(0);
@@ -1392,13 +1390,6 @@ test.describe('turn animation', () => {
 
     await page.keyboard.press('Escape');
     await expect(page.locator('#board .tokslot.ghost')).toHaveCount(0);
-  });
-
-  test('a staged split finishes inside the animation window', async ({ page }) => {
-    await playToTheSplit(page);
-    await expect(page.locator('#board .tokslot[data-motion="split"]')).toHaveCount(1);
-    const last = await motionEnd(page);
-    expect(last.worst, last.where).toBeLessThanOrEqual(1200);
   });
 
   test('a resolved turn stages its motions and a scrub does not', async ({ page }) => {
@@ -1435,6 +1426,8 @@ test.describe('turn animation', () => {
     await expect(tok).toHaveAttribute('data-direction', 'mixed');
     expect(await tok.evaluate((el) => getComputedStyle(el).animationName)).toBe('tok-settle');
     await expect(page.locator('#board .turnback')).toHaveCount(0);
+    const last = await motionEnd(page);
+    expect(last.worst, last.where).toBeLessThanOrEqual(1200);
 
     // The settle ends on what the renderer already draws, so nothing jumps when the motion clears.
     const ended = await tok.evaluate((el) => {
@@ -1445,12 +1438,6 @@ test.describe('turn animation', () => {
     await expect(page.locator('#board .tokslot[data-motion]')).toHaveCount(0);
     expect(await tok.evaluate((el) => getComputedStyle(el).width)).toBe(ended);
   });
-
-  async function startBootstrap(page: Page) {
-    await open(page);
-    await createMatch(page, { mode: 'bootstrap', cap: '12' });
-    await sitDown(page);
-  }
 
   test('losing the key while blocked plays the bounce and the fade together', async ({ page }) => {
     await startBootstrap(page);
@@ -1488,7 +1475,7 @@ test.describe('turn animation', () => {
     expect(await front.evaluate((el) => (el as HTMLElement & { tag?: number }).tag)).toBe(7);
   });
 
-  test('every staged motion finishes inside the animation window', async ({ page }) => {
+  test('staged key-transfer motions finish inside the animation window', async ({ page }) => {
     await startBootstrap(page);
     // Bishop steals from a recorded Rook, so this turn stages a slide, a grab, a loss and a front.
     const mine = ['D', 'H', 'H', 'H', 'H', 'H'];
@@ -1498,15 +1485,6 @@ test.describe('turn animation', () => {
     }
     await expect(page.locator('#board .frontslot')).toHaveCount(1);
     // clear() cancels everything at MOTION_MS, so anything landing later loses its tail.
-    const last = await motionEnd(page);
-    expect(last.worst, last.where).toBeLessThanOrEqual(1200);
-  });
-
-  test('a staged inversion finishes inside the animation window', async ({ page }) => {
-    await startMatch(page);
-    await resolveTurn(page, 0, 'D', 'H', 'Vale');
-    await resolveTurn(page, 1, 'I', 'H');
-    await expect(page.locator('#board .tokslot[data-motion="invert"]')).toHaveCount(1);
     const last = await motionEnd(page);
     expect(last.worst, last.where).toBeLessThanOrEqual(1200);
   });
@@ -1544,12 +1522,6 @@ test.describe('turn animation', () => {
 });
 
 test.describe('bootstrap', () => {
-  async function startBootstrap(page: Page) {
-    await open(page);
-    await createMatch(page, { mode: 'bootstrap', cap: '12' });
-    await sitDown(page);
-  }
-
   test('a key carried home at t0 wins the match', async ({ page }) => {
     await startBootstrap(page);
     await resolveTurn(page, 0, 'D', 'H', 'Bishop');

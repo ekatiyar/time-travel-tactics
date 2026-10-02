@@ -41,19 +41,16 @@
   input[type=range]{accent-color:var(--text-secondary);padding:0;border:0;background:none;}
   label.f{display:flex;align-items:center;gap:8px;font-size:13px;color:var(--text-secondary);margin-bottom:8px;}
   label.f input,label.f select{margin-left:auto;width:150px;}
-  .row{display:flex;align-items:center;gap:10px;margin:10px 0 4px;}
-  .row>label{font-size:13px;color:var(--text-secondary);width:78px;flex:none;}
-  .row .out{font-size:13px;font-family:var(--mono);width:26px;text-align:right;}
   .mono{font-family:var(--mono);font-size:12.5px;}
   .muted{color:var(--text-muted);}
   .sec{color:var(--text-secondary);}
 
-  .boardframe{background:var(--surface-2);border:1px solid var(--border);border-radius:8px;
-    padding:6px;display:flex;justify-content:center;}
+  /* Fill the stage so the board can measure its available width and height. */
+  .boardframe{width:100%;height:100%;display:flex;align-items:center;justify-content:center;
+    container-type:size;border-radius:8px;}
   #board{
-    --maxh:min(70vh,720px);
     display:grid;position:relative;
-    width:min(100%, calc(var(--maxh) * var(--bw) / var(--bh)));
+    width:min(100%, calc(100cqh * var(--bw) / var(--bh)));
     aspect-ratio:var(--bw) / var(--bh);
     grid-template-columns:repeat(var(--bw),1fr);
     grid-template-rows:repeat(var(--bh),1fr);
@@ -81,8 +78,7 @@
   .tok-many{width:88cqmin;border-radius:9999px;padding:0 5cqmin;text-overflow:ellipsis;}
   .tok[data-direction="matching"]{background:var(--body-color);color:var(--body-ink);}
   .tok[data-direction="opposing"]{background:transparent;color:var(--text-primary);}
-  /* A 200%-wide two-stop gradient: background-position 0% is a full fill, 50% is the even split,
-     so the settle can sweep between them without @property. */
+  /* A double-width gradient lets background-position animate from full to half fill. */
   .tok[data-direction="mixed"]{
     background-image:linear-gradient(90deg,var(--body-color) 50%,transparent 50%);
     background-size:200% 100%;background-position:50% 0;color:var(--text-primary);
@@ -162,23 +158,16 @@
     .lobby-actions{justify-content:flex-start;margin-bottom:12px;}
   }
 
-  /* Turn resolution. The slide is the .tokslot transition, the token motions hang off
-     data-motion, and the key mark has its own channel so it plays alongside them. */
   @keyframes tok-bounce{
     0%{transform:translate(0,0);}
     40%{transform:translate(calc(var(--dx,0) * 33%),calc(var(--dy,0) * 33%));}
     100%{transform:translate(0,0);}
   }
-  /* Split and settle: hold the round single token, then widen it into the two-index pill while
-     the mixed fill sweeps from whole to half. The end frame is what the renderer already draws. */
   @keyframes tok-settle{
     from{width:70cqmin;padding:0;border-radius:50%;background-position:0% 0;}
     to{width:88cqmin;padding:0 5cqmin;border-radius:9999px;background-position:50% 0;}
   }
-  /* The turn after an inversion parts the two co-located legs, or a scrub the other way rejoins
-     them. One --px/--py channel serves both: they are the same event read in two directions and
-     never land on the same element. Percentages resolve against .tokslot, which is one tile, so
-     the pair stays in whole tiles like --dx/--dy. */
+  /* Split and merge offsets use whole tiles because .tokslot fills one tile. */
   @keyframes slot-split{
     from{transform:translate(calc(var(--px,0) * 100%),calc(var(--py,0) * 100%));}
     to{transform:none;}
@@ -196,11 +185,9 @@
   @keyframes key-lost{0%{opacity:1;transform:scale(1);}100%{opacity:0;transform:scale(1.6);}}
 
   .tokslot[data-motion="bounce"] .tok{animation:tok-bounce .4s ease-out;}
-  /* Only a merged stack settles. A lone token whose direction flipped under a scrub still draws
-     as a circle, so widening it would end somewhere the renderer never goes. */
+  /* A lone token stays circular when scrubbing reverses its direction. */
   .tokslot[data-motion="invert"] .tok-many{animation:tok-settle .3s ease-out both;}
-  /* .4s to match the left/top transition these two stand in for; `both` so the start frame holds
-     through the staged delay. */
+  /* Fill backwards to hold the start position through the staged delay. */
   .tokslot[data-motion="split"]{animation:slot-split .4s ease both;}
   .tokslot[data-motion="merge"]{animation:slot-merge .5s ease both;}
   /* A revived node still carries Preact's click listener. */
@@ -212,11 +199,9 @@
     width:16cqmin;height:16cqmin;border-radius:2cqmin;background:var(--key);
     animation:key-lost .3s ease-in forwards;pointer-events:none;}
 
-  /* A resolved turn reads as a sequence, not one blur: moves at .25s, inversions and grabs at
-     .65s, fronts at .95s, all done by MOTION_MS. */
+  /* Keep all staged motions within board.tsx's MOTION_MS. */
   .bodies.staged .tokslot{transition-delay:.25s;}
   .bodies.staged .tokslot[data-motion="bounce"] .tok{animation-delay:.25s;}
-  /* Parting rides the move beat: the turn that parts the legs is an ordinary step for both. */
   .bodies.staged .tokslot[data-motion="split"],
   .bodies.staged .tokslot[data-motion="merge"]{animation-delay:.25s;}
   .bodies.staged .tokslot[data-motion="invert"] .tok-many{animation-delay:.65s;}
@@ -234,7 +219,6 @@
     .tokslot[data-key-motion="lost"]::after{display:none;}
   }
 
-  /* Board-first play screen shell (mockups/01-board-first.html). */
   body.playing{padding:0;}
   .play{display:grid;grid-template-rows:46px 1fr auto;height:100vh;}
 
@@ -245,7 +229,6 @@
   .hud button{padding:4px 10px;font-size:12.5px;}
   .spacer{flex:1;}
   .warnchip{display:inline-flex;align-items:center;gap:6px;font-size:12px;
-    /* mock.css's --warn has no counterpart here; --bad-br is the same "pay attention" orange. */
     color:var(--bad-br);border:1px solid var(--bad-br);border-radius:20px;padding:2px 10px;}
   .tri{width:0;height:0;border-left:5px solid transparent;border-right:5px solid transparent;
     border-bottom:9px solid var(--front-color);}
@@ -293,10 +276,9 @@
 
   .dock{border-top:1px solid var(--border);background:var(--surface-1);padding:8px 14px;
     display:flex;flex-direction:column;gap:6px;position:relative;
-    /* Above .scrim, or the dim sheet covers the instrument the scrub just raised. */
+    /* Keep the chart above the board's scrim. */
     z-index:11;}
-  /* No horizontal padding: the chart measures this box and draws in its pixels, and its own
-     gutter and right margin supply the insets. */
+  /* The chart supplies its own horizontal insets. */
   #instrument{position:absolute;left:0;right:0;bottom:100%;background:var(--surface-1);
     border-top:1px solid var(--border);z-index:9;padding:6px 0;}
   #instrument svg{display:block;}
@@ -322,8 +304,7 @@
   .dot[data-state="bad"]{background:var(--bad-br);}
   #netInfo{display:inline-flex;align-items:center;gap:6px;}
 
-  /* A 4px track with its own fill and a 16px thumb. --fill is set inline from the current
-     value: a native range has no cross-browser fill. */
+  /* --fill supplies the range fill missing from WebKit's native control. */
   #sl{-webkit-appearance:none;appearance:none;height:22px;cursor:pointer;
     --scrub-fill:color-mix(in srgb,var(--text-secondary) 55%,transparent);}
   #sl::-webkit-slider-runnable-track{height:4px;border-radius:2px;background:var(--surface-3);
@@ -337,10 +318,3 @@
   .dots{display:flex;gap:6px;}
   .pdot{width:10px;height:10px;border-radius:50%;flex:none;}
   .pdot[data-state="done"]{opacity:.28;}
-
-  /* The frame must fill the stage or the board's min(100%,...) width has nothing to measure and
-     cqh has no container to read. It carries no surface of its own: the board sits bare on the
-     stage, as in mockup 01. */
-  .stagearea .boardframe{width:100%;height:100%;align-items:center;container-type:size;
-    background:none;border:0;padding:0;}
-  .play #board{width:min(100%, calc(100cqh * var(--bw) / var(--bh)));height:auto;}

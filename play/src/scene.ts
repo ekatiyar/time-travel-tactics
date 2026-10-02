@@ -1,6 +1,3 @@
-// Turns a view into what the board draws, and the difference between two draws into motions.
-// Pure so the bucketing and the motion diff can be tested without a DOM.
-
 import { COLORS } from './engine/index.js';
 import type { ActionOffer, Color, Dir, TurnEvent, Vec, View, ViewBody } from './engine/index.js';
 import { legIndexes } from './lanes.js';
@@ -41,7 +38,7 @@ export function frontText(view: NamedView, f: Front): string {
 }
 
 // Spread trail opacity across visible turns, not raw distance.
-export function shade(
+function shade(
   bodies: readonly ViewBody[], focusT: number, lookBack: number, floor: number
 ): Map<number, number> {
   const lo = Math.max(0, focusT - lookBack);
@@ -72,10 +69,8 @@ export function keyHolders(view: NamedView): Map<string, KeySideCount[]> {
   return out;
 }
 
-export type Token = {
-  key: string;
-  color: Color; p: number; t: number; x: number; y: number; dir: Dir;
-  leg: number; live: boolean; keySides: KeySideCount[];
+export type Token = Pick<ViewBody, 'color' | 'p' | 't' | 'dir' | 'live'> & {
+  leg: number; keySides: KeySideCount[];
 };
 
 // One tile's worth of bodies at the focus turn. The occupancy rule keeps a stack single-colour.
@@ -92,7 +87,6 @@ export type SceneFront = {
 export type Scene = {
   focusT: number;
   center: Vec;
-  tokens: Token[];
   stacks: Stack[];
   byTile: Map<string, Stack>;
   trails: Map<string, ViewBody[]>;
@@ -106,12 +100,6 @@ const tile = (x: number, y: number): string => x + ',' + y;
 
 const stackKey = (color: Color, leg: number): string => color + '/' + leg;
 
-function push<K, V>(m: Map<K, V[]>, k: K, v: V): void {
-  const list = m.get(k);
-  if (list) list.push(v);
-  else m.set(k, [v]);
-}
-
 export function sceneAt(
   view: NamedView, focusT: number, lookBack: number, choosing: boolean, floor = 0.14
 ): Scene {
@@ -119,48 +107,42 @@ export function sceneAt(
   const held = keyHolders(view);
   const legs = legIndexes(view);
 
-  const tokens: Token[] = [];
   const trails = new Map<string, ViewBody[]>();
   const byTile = new Map<string, Stack>();
   for (const b of view.bodies) {
     if (b.t === focusT) {
       const token: Token = {
-        key: b.color + ':' + b.p,
-        color: b.color, p: b.p, t: b.t, x: b.x, y: b.y, dir: b.dir,
+        color: b.color, p: b.p, t: b.t, dir: b.dir,
         leg: legs.get(b.color + ':' + b.p) ?? 0,
         live: b.live, keySides: held.get(b.color + ':' + b.p) ?? []
       };
-      tokens.push(token);
       const k = tile(b.x, b.y);
       const stack = byTile.get(k);
       if (stack) stack.tokens.push(token);
       else byTile.set(k, { key: '', color: b.color, x: b.x, y: b.y, tokens: [token] });
     } else if (b.t >= lo && b.t < focusT) {
-      push(trails, tile(b.x, b.y), b);
+      const k = tile(b.x, b.y);
+      const trail = trails.get(k);
+      if (trail) trail.push(b);
+      else trails.set(k, [b]);
     }
   }
   for (const list of trails.values()) list.sort((a, b) => b.t - a.t);
 
-  // Key a stack by colour and leg rather than by whether the colour happens to be split, so
-  // every leg keeps one element and slides. Two legs share a tile on the turn an inversion
-  // lands; the older one names the stack, so the element survives that merge.
+  // The older leg names a shared stack so its element survives an inversion merge.
   const stacks = [...byTile.values()];
   for (const s of stacks) {
     s.tokens.sort((a, b) => a.p - b.p);
     s.key = stackKey(s.color, s.tokens[0]!.leg);
   }
-  // Order follows `view.bodies`, which the engine appends in each turn's priority order, and
-  // priority rotates. Sorting by key keeps the keyed children stable, so a resolved turn is an
-  // update in place and its left/top transition runs instead of an insertBefore teleport.
+  // Stable DOM order preserves transitions when the engine's priority order rotates.
   stacks.sort((a, b) => (a.key < b.key ? -1 : a.key > b.key ? 1 : 0));
 
   const fronts: SceneFront[] = [];
   const perTile = new Map<string, number>();
   const seq = new Map<Color, number>();
   for (const f of view.fronts) {
-    // Fronts arrive in tape order, so a colour's nth front is its nth counting tape event. Count
-    // before the window test: keying on the event instead of the world turn is what lets one
-    // element survive the front sweeping forward, and the count has to be window-independent.
+    // Tape order identifies each front across turns. Count before filtering to keep keys stable.
     const nthOfColor = seq.get(f.color) ?? 0;
     seq.set(f.color, nthOfColor + 1);
     if (f.t < lo || f.t > focusT) continue;
@@ -183,7 +165,6 @@ export function sceneAt(
   return {
     focusT,
     center: [view.center[0], view.center[1]],
-    tokens,
     stacks,
     byTile,
     trails,
@@ -200,10 +181,7 @@ export type Motion =
   | { kind: 'invert'; key: string }
   | { kind: 'grab'; key: string; from: Vec }
   | { kind: 'lost'; key: string }
-  // The turn after an inversion parts the two co-located legs. The newer one has no element to
-  // transition from, and reading the other way the older one keeps the only element, so these two
-  // name the tile the leg has to travel from. `merge` also names where it lands: its subject is
-  // absent from `next`, so the renderer has no drawn position to read.
+  // Split/merge legs lack an element in one scene, so carry their missing positions.
   | { kind: 'split'; key: string; from: Vec }
   | { kind: 'merge'; key: string; from: Vec; to: Vec };
 
@@ -226,9 +204,7 @@ function stackAt(scene: Scene, color: Color, x: number, y: number): Stack | unde
   return s && s.color === color ? s : undefined;
 }
 
-// Every leg a scene draws, keyed as its own stack key would be, so a leg sharing an element with
-// an older leg is still findable. Splits and merges are the legs whose home changes between
-// having an element and sharing one.
+// Include legs sharing an older leg's element so splits and merges can find them.
 function legHomes(scene: Scene): Map<string, Stack> {
   const out = new Map<string, Stack>();
   for (const s of scene.stacks) for (const t of s.tokens) out.set(stackKey(t.color, t.leg), s);
@@ -236,7 +212,6 @@ function legHomes(scene: Scene): Map<string, Stack> {
 }
 
 export function motionBetween(prev: Scene, next: Scene, events: readonly TurnEvent[]): Motion[] {
-  // Jumps of more than one world turn snap.
   if (Math.abs(next.focusT - prev.focusT) > 1) return [];
 
   const out: Motion[] = [];
@@ -267,8 +242,7 @@ export function motionBetween(prev: Scene, next: Scene, events: readonly TurnEve
   for (const s of next.stacks) {
     const was = from.get(s.key);
     if (!was) {
-      // No element last draw. A home on another tile means the leg was inside an older leg's
-      // element; anything else is a body appearing for the first time, which just lands.
+      // Animate a split from its shared stack; a newly visible body just appears.
       const shared = homesBefore.get(s.key);
       if (shared && (shared.x !== s.x || shared.y !== s.y)) {
         out.push({ kind: 'split', key: s.key, from: [shared.x, shared.y] });
@@ -284,8 +258,6 @@ export function motionBetween(prev: Scene, next: Scene, events: readonly TurnEve
     }
   }
 
-  // Reading the other way: a leg that loses its element still travels, into the tile the older
-  // leg's element now holds.
   const to = new Map(next.stacks.map((s) => [s.key, s]));
   for (const s of prev.stacks) {
     if (to.has(s.key)) continue;

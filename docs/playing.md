@@ -18,40 +18,39 @@ After you click Play, the browser address becomes a resume link and updates afte
 
 Choose an action with the D-pad, arrow keys, or `W` `A` `S` `D`, then commit with Enter or Space. Shortcuts do nothing while a control has focus. Your choice stays private until every player commits, and you can change it until the turn opens.
 
-The board draws your four legal moves as outlined tiles, each labelled with the personal index and world turn it would produce. Click one to choose it. Hold and Turn around stay buttons in the actions rail.
+The board outlines your four legal moves as tiles, each labelled with the personal index and world turn it would produce. Click one to choose it. Hold and Turn around stay buttons in the actions rail.
 
-Hold advances through world time without moving. Invert changes your direction without advancing world time.
-Moves and holds cannot enter a cell that already contains any recorded body, including your own. Invert is the only action that can stack your bodies.
+Hold advances through world time without moving. Invert changes your direction without advancing world time. Moves and holds cannot enter a cell with any recorded body, including yours. Invert is the only action that can stack your bodies.
 
-A row of dots under Commit shows every player in this turn's priority order, leftmost first. A dot stays solid while that player is still choosing and fades once they commit. Hover it for the priority order and who has not committed.
+Dots under Commit show this turn's priority order from left to right. They fade as players commit. Hover for the order and who is still choosing.
 
 Body markers are filled when moving in your direction and outlined when moving in the opposite direction. A half-filled stack contains both directions. Trail and timeline dots use the same filled or outlined style.
 
 Stacks show up to two personal indices. Larger stacks show the first and last, such as `16 … 18`; hover text lists them all.
 
-The world-turn scrub and the history presets change what history you see. They do not change the match. History offers `0`, `2`, `4`, and the maximum for this board, which is a quarter of the turn cap rounded up.
+The world-turn scrub and history presets change what history you see, not the match. Presets are `0`, `2`, `4`, and the board maximum: a quarter of the turn cap, rounded up.
 
 A move into unexplored time may collide with a body you could not see when choosing it. The recorded body wins as a holder, and your move falls back normally.
 
 ## The screen
 
-The play screen fills the window. A 46px bar across the top carries your colour, personal index, world turn, direction and tile, then the turn counter or the outcome, the connection and its dot, the state hash, and the theme and **New match** buttons. A chip appears beside your identity only when a front is walking toward you.
+The play screen fills the window. Your identity, position, direction, turn or outcome, connection, state hash, theme and **New match** controls are in the top bar. A chip appears beside your identity when a front is approaching.
 
-The log sits in the left rail and the actions in the right rail. Either folds to a 52px strip with the arrow button in its header; the folded actions strip carries a change-action button, a commit button, the priority dots stacked top to bottom, and a count of who is still choosing. The folded log strip counts the events it holds. While the log is folded, the last three events ride over the board as fading toasts. Below 1120px wide both rails stay folded.
+The log is on the left and actions on the right. Fold either rail with its header arrow. The folded log shows its event count and the latest three events as fading toasts. The folded actions rail keeps the change-action and commit buttons, priority dots and waiting count. Both rails stay folded below 1120px wide.
 
-The bottom dock holds the timeline strip, the world-turn scrub, and the history presets. Hover the strip's dashed block for the range of world turns you have not explored yet. The **?** button opens the legend on hover; it also lists the keyboard shortcuts.
+The bottom dock holds the timeline strip, world-turn scrub and history presets. Hover the strip's dashed block to see which world turns you have not explored. Hover **?** for the legend and keyboard shortcuts.
 
-Press and hold the world-turn scrub to raise the timeline instrument: one row per player, each row split into legs between inversions, beads for bodies filled or hollow by direction, and a hatched block for everything past your horizon. An arc folds each leg into the next at the inversion that split them, and a red line marks the turn cap. The columns cover the turns you have reached and nothing further, so the chart does not shrink to a sliver of a cap nobody will reach. Hover the hatching for the turns it covers.
+Hold the world-turn scrub to open the timeline chart. Each player has a row split into legs at inversions, with body markers filled or hollow by direction. A hatched area marks turns beyond your horizon; hover it to see the range. Arcs connect legs at inversions, and a red line marks the turn cap. The chart scales to turns reached.
 
-A row shows four legs. Past that it scrolls to the latest four and writes `+3 earlier` under the player's name. Every row is the same height whatever its lane count, and carries that player's index and direction, such as `p17 · back`. When their present is past your horizon that readout is the last you saw, and the whole line dims to say so.
+Rows show the latest four legs and label any hidden earlier legs. Each row shows the player's latest visible index and direction. If their present is beyond your horizon, the readout dims to show it is last known.
 
-Two legs joined by an inversion you could not see are drawn apart, each frayed into the hatching with a dashed stub and no arc between them. It means they turned around somewhere past your horizon, not on the turn where the line stops.
+Legs joined by an inversion beyond your horizon end in dashed stubs at the hatch, without an arc. The inversion happened out of view.
 
-The board dims and stops taking clicks while the instrument is up. Release to drop back to the strip.
+The board dims and stops taking clicks while the chart is open. Release the scrub to close it.
 
 ## Animation
 
-A resolved turn plays over about a second as a sequence: bodies slide, then inversions and key changes, then fronts. A body slides to its new tile, a blocked move lunges a third of the way and springs back, an inversion widens the round token into the two-index pill and sweeps its fill from whole to half, a grab slides the key square across under a yellow ring that pulses once, and a lost key fades. When your colour holds two tiles, each leg slides on its own. The turn after an inversion parts the two bodies sharing the tile, and both of them travel off it together; scrubbing back onto that turn walks them back on. Scrubbing one world turn at a time slides bodies the same way; longer jumps snap. Any key or click ends the animation, and the system **reduce motion** setting disables it.
+Resolved turns animate for about a second: bodies move or bounce, inversions and key changes play, then fronts advance. Legs split after an inversion and rejoin when you scrub back. Scrubbing one turn at a time slides bodies; longer jumps snap. Any key or click ends the animation, and the system **reduce motion** setting disables it.
 
 ## Bootstrap
 

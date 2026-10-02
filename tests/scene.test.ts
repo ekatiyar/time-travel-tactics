@@ -4,8 +4,8 @@ import assert from 'node:assert/strict';
 import { Match } from '../play/src/engine/index.js';
 import type { Color, ConfigInput, TurnEvent, ViewBody } from '../play/src/engine/index.js';
 import {
-  describe as describeBody, frontText, keyHolders, motionBetween, nameOf, plural,
-  relativeDirection, sceneAt, shade
+  describe as describeBody, keyHolders, motionBetween, nameOf, plural,
+  relativeDirection, sceneAt
 } from '../play/src/scene.js';
 import type { NamedView, Scene } from '../play/src/scene.js';
 
@@ -66,6 +66,10 @@ function stackAt(scene: Scene, x: number, y: number): Scene['stacks'][number] {
   const s = scene.byTile.get(x + ',' + y);
   assert.ok(s, `no stack at ${x},${y}`);
   return s;
+}
+
+function tokensOf(scene: Scene): Scene['stacks'][number]['tokens'] {
+  return scene.stacks.flatMap((stack) => stack.tokens);
 }
 
 describe('scene helpers', () => {
@@ -136,15 +140,15 @@ describe('sceneAt: tokens', () => {
     const scene = sceneAt(v, 2, 3, false);
 
     assert.deepEqual(
-      scene.tokens.map((t) => t.key).sort(),
+      tokensOf(scene).map((t) => t.color + ':' + t.p).sort(),
       ['C:2', 'P:2'],
-      'the key is the colour and the personal index'
+      'one body from each colour sits at the focus turn'
     );
-    assert.ok(scene.tokens.every((t) => t.keySides.length === 0), 'sandbox tokens hold no key');
-    const c = scene.tokens.find((t) => t.color === 'C');
+    assert.ok(tokensOf(scene).every((t) => t.keySides.length === 0), 'sandbox tokens hold no key');
+    const c = stackAt(scene, 3, 1).tokens.find((t) => t.color === 'C');
     assert.deepEqual(
-      { p: c?.p, x: c?.x, y: c?.y, dir: c?.dir, live: c?.live },
-      { p: 2, x: 3, y: 1, dir: 1, live: true }
+      { p: c?.p, dir: c?.dir, live: c?.live },
+      { p: 2, dir: 1, live: true }
     );
     assert.equal(scene.focusT, 2);
     assert.deepEqual(scene.center, v.center);
@@ -155,8 +159,8 @@ describe('sceneAt: tokens', () => {
     run(m, { C: 'DSS', P: 'HHH' });
     const scene = sceneAt(named(m, 'C'), 3, 3, false);
 
-    const holder = scene.tokens.find((t) => t.key === 'C:3');
-    const other = scene.tokens.find((t) => t.key === 'P:3');
+    const holder = tokensOf(scene).find((t) => t.color === 'C' && t.p === 3);
+    const other = tokensOf(scene).find((t) => t.color === 'P' && t.p === 3);
     assert.deepEqual(holder?.keySides, [{ side: [1, 0], count: 1 }], 'the side points at the center');
     assert.deepEqual(other?.keySides, []);
   });
@@ -174,7 +178,7 @@ describe('sceneAt: stacks', () => {
     assert.deepEqual(c.tokens.map((t) => t.p), [3, 4], 'ascending by personal index');
     assert.equal(c.color, 'C');
     assert.equal(scene.byTile.size, 2);
-    assert.equal(scene.tokens.length, 3, 'two coral bodies and one purple body at t3');
+    assert.equal(tokensOf(scene).length, 3, 'two coral bodies and one purple body at t3');
   });
 
   it('keys a stack by its colour and leg', () => {
@@ -238,7 +242,6 @@ describe('sceneAt: shade', () => {
     assert.equal(scene.shade.get(3), 1, 'newest');
     assert.equal(scene.shade.get(2), 0.625);
     assert.equal(scene.shade.get(1), 0.25, 'oldest sits on the floor');
-    assert.deepEqual(scene.shade, shade(v.bodies, 4, 3, 0.25));
   });
 
   it('gives a single visible turn full opacity', () => {
@@ -313,7 +316,7 @@ describe('sceneAt: fronts', () => {
     assert.equal(front.t, 6);
 
     assert.deepEqual(sceneAt(v, 6, 9, false).fronts, [
-      { key: 'C#0', color: 'C', x: front.x, y: front.y, nth: 0, text: frontText(v, front) }
+      { key: 'C#0', color: 'C', x: front.x, y: front.y, nth: 0, text: 'reaches you in 3 turns' }
     ]);
     assert.equal(sceneAt(v, 7, 9, false).fronts[0]?.key, 'C#0', 'the key is the same element');
     assert.equal(sceneAt(v, 9, 9, false).fronts[0]?.text, 'reaches you in 3 turns');
@@ -349,11 +352,13 @@ describe('sceneAt: fronts', () => {
     const m = match({ mode: 'bootstrap' });
     run(m, EXAMPLE3);
     const v = named(m, 'P');
+    const front = v.fronts[0]!;
+    v.fronts = [front, { ...front }];
 
-    for (const focusT of [6, 7, 8, 9]) {
-      const keys = sceneAt(v, focusT, 9, false).fronts.map((f) => f.key);
-      assert.equal(new Set(keys).size, keys.length, 'focus ' + focusT);
-    }
+    assert.deepEqual(sceneAt(v, 9, 9, false).fronts.map((f) => [f.key, f.nth]), [
+      ['C#0', 0],
+      ['C#1', 1]
+    ]);
   });
 });
 

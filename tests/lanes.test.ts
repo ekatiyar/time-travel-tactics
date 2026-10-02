@@ -2,10 +2,9 @@ import { describe, it } from 'node:test';
 import assert from 'node:assert/strict';
 
 import { Match } from '../play/src/engine/index.js';
-import type { Color, ConfigInput } from '../play/src/engine/index.js';
+import type { Color, ConfigInput, View } from '../play/src/engine/index.js';
 import { lanesOf } from '../play/src/lanes.js';
 import type { PlayerLanes } from '../play/src/lanes.js';
-import type { NamedView } from '../play/src/scene.js';
 
 type MatchInstance = ReturnType<typeof Match.fromConfig>;
 type Script = Record<string, string>;
@@ -42,11 +41,7 @@ function run(m: MatchInstance, script: Script): void {
   }
 }
 
-function named(m: MatchInstance, color: string): NamedView {
-  return { ...m.view(color), names: {} };
-}
-
-function lanesFor(view: NamedView, color: Color): PlayerLanes {
+function lanesFor(view: View, color: Color): PlayerLanes {
   const found = lanesOf(view).find((l) => l.color === color);
   assert.ok(found, `no lanes for ${color}`);
   return found;
@@ -62,19 +57,18 @@ describe('lanesOf: roster', () => {
     const m = match({ roster: ['P', 'C', 'T'] });
     run(m, { C: 'D', P: 'A', T: 'A' });
 
-    assert.deepEqual(lanesOf(named(m, 'C')).map((l) => l.color), ['P', 'C', 'T']);
+    assert.deepEqual(lanesOf(m.view('C')).map((l) => l.color), ['P', 'C', 'T']);
   });
 
   it('gives a colour one leg from its spawn body alone', () => {
     const m = match();
-    const lanes = lanesOf(named(m, 'C'));
+    const lanes = lanesOf(m.view('C'));
 
     assert.equal(lanes.length, 2);
     assert.deepEqual(lanes.map((l) => shape(l)), [
       [[0, 1, [0]]],
       [[0, 1, [0]]]
     ], 'before any turn resolves each colour has only its spawn body');
-    assert.deepEqual(lanes.map((l) => l.laneCount), [1, 1]);
   });
 });
 
@@ -82,10 +76,9 @@ describe('lanesOf: legs', () => {
   it('puts a colour that only walked forward in one lane', () => {
     const m = match();
     run(m, { C: 'DDD', P: 'HHH' });
-    const lanes = lanesFor(named(m, 'C'), 'C');
+    const lanes = lanesFor(m.view('C'), 'C');
 
     assert.deepEqual(shape(lanes), [[0, 1, [0, 1, 2, 3]]]);
-    assert.equal(lanes.laneCount, 1);
     assert.equal(lanes.live?.p, 3);
   });
 
@@ -93,21 +86,20 @@ describe('lanesOf: legs', () => {
     const m = match();
     // Forward to (2,1) at t1, invert, step back to (3,1) at t0, invert, hold forward to t1.
     run(m, { C: 'DIDIH', P: 'HHHHH' });
-    const lanes = lanesFor(named(m, 'C'), 'C');
+    const lanes = lanesFor(m.view('C'), 'C');
 
     assert.deepEqual(shape(lanes), [
       [0, 1, [0, 1]],
       [1, -1, [2, 3]],
       [2, 1, [4, 5]]
     ]);
-    assert.equal(lanes.laneCount, 3);
   });
 
   it('scrolls to the latest four legs once a colour has more', () => {
     const m = match();
     // Six legs: the spawn body walking forward, then one per inversion.
     run(m, { C: 'IIIII', P: 'HHHHH' });
-    const lanes = lanesFor(named(m, 'C'), 'C');
+    const lanes = lanesFor(m.view('C'), 'C');
 
     assert.deepEqual(shape(lanes), [
       [0, 1, [2]],
@@ -116,13 +108,12 @@ describe('lanesOf: legs', () => {
       [3, -1, [5]]
     ], 'the two oldest legs are dropped and the rest slide up to lane 0');
     assert.equal(lanes.scrolledOff, 2, 'two legs sit off the top of the window');
-    assert.equal(lanes.laneCount, 4);
   });
 
   it('reports nothing scrolled off while a colour fits in four lanes', () => {
     const m = match();
     run(m, { C: 'III', P: 'HHH' });
-    const lanes = lanesFor(named(m, 'C'), 'C');
+    const lanes = lanesFor(m.view('C'), 'C');
 
     assert.equal(lanes.legs.length, 4);
     assert.equal(lanes.scrolledOff, 0);
@@ -134,7 +125,7 @@ describe('lanesOf: broken boundaries', () => {
   it('leaves a boundary unbroken when the two legs are adjacent indexes', () => {
     const m = match();
     run(m, { C: 'DIDIH', P: 'HHHHH' });
-    const lanes = lanesFor(named(m, 'C'), 'C');
+    const lanes = lanesFor(m.view('C'), 'C');
 
     assert.deepEqual(lanes.legs.map((l) => l.brokenBefore), [false, false, false],
       'the viewer saw every inversion, so no boundary is broken');
@@ -145,7 +136,7 @@ describe('lanesOf: broken boundaries', () => {
     // Purple stays at t1 so its horizon stops there. Coral walks out to t4, inverts there,
     // and takes a separate route back, so purple sees the two ends and not the turn.
     run(m, { C: 'DDDDISAAA', P: 'DIIIIIIII' });
-    const view = named(m, 'P');
+    const view = m.view('P');
 
     assert.equal(view.me.horizon, 1);
     const lanes = lanesFor(view, 'C');
@@ -162,12 +153,8 @@ describe('lanesOf: ordering', () => {
   it('sorts the bodies of every leg by personal index', () => {
     const m = match();
     run(m, { C: 'DDIHH', P: 'HHHHH' });
-    const lanes = lanesFor(named(m, 'C'), 'C');
+    const lanes = lanesFor(m.view('C'), 'C');
 
-    for (const leg of lanes.legs) {
-      const ps = leg.bodies.map((b) => b.p);
-      assert.deepEqual(ps, ps.slice().sort((a, b) => a - b), 'ascending within a leg');
-    }
     assert.deepEqual(lanes.legs.flatMap((l) => l.bodies.map((b) => b.p)), [0, 1, 2, 3, 4, 5]);
   });
 });
@@ -176,7 +163,7 @@ describe('lanesOf: live body', () => {
   it('finds the live body of each colour the viewer can see', () => {
     const m = match();
     run(m, { C: 'DDD', P: 'HHH' });
-    const view = named(m, 'C');
+    const view = m.view('C');
 
     assert.equal(lanesFor(view, 'C').live?.p, 3);
     assert.equal(lanesFor(view, 'P').live?.p, 3);
@@ -187,7 +174,7 @@ describe('lanesOf: live body', () => {
     const m = match();
     // Purple inverts twice then holds, so its horizon stops at t1 while coral reaches t3.
     run(m, { C: 'DDD', P: 'IIH' });
-    const view = named(m, 'P');
+    const view = m.view('P');
 
     assert.equal(view.me.horizon, 1);
     assert.equal(lanesFor(view, 'C').live, null, 'coral p3 sits at t3, beyond the horizon');
