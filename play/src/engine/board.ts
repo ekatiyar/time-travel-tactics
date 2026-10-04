@@ -21,6 +21,21 @@ export function centerOf(w: number, h: number): Vec {
   return [Math.floor(w / 2), Math.floor(h / 2)];
 }
 
+export type BoardPreviewData = {
+  w: number; h: number; roster: Color[]; walls: Vec[];
+  spawns: Partial<Record<Color, Vec>>; center: Vec; keyAtCenter: boolean;
+};
+
+export function previewBoard(input: ConfigInput): BoardPreviewData {
+  const cfg = normalizeConfig(input);
+  const spawns: Partial<Record<Color, Vec>> = {};
+  for (const color of cfg.roster) spawns[color] = spawnFor(color, cfg.w, cfg.h);
+  return {
+    w: cfg.w, h: cfg.h, roster: cfg.roster, walls: [...genWalls(cfg)].map(unkey).sort((a, b) => a[1] - b[1] || a[0] - b[0]),
+    spawns, center: centerOf(cfg.w, cfg.h), keyAtCenter: cfg.mode === 'bootstrap'
+  };
+}
+
 export function protectedTiles(cfg: Config): Set<string> {
   const out = new Set<string>();
   for (const c of cfg.roster) {
