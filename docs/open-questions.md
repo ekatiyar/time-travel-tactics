@@ -3,7 +3,6 @@
 ## Game rules
 
 - Is two indices per meta-turn the right front rate? It gives an index gap that matches turns remaining and a six-index cycle rhythm.
-- Should two players be the default? Three players give cycles an outside attacker.
 - Do cycle windows create useful defense or stall games?
 - How should time charges branch the timeline? Does it need a cap on branches?
 - What rules govern mines and grenades when their owner is erased?
@@ -36,3 +35,9 @@
 
 - When should an authoritative server replace horizon trust?
 - What match format supports branching mechanics without losing deterministic replay?
+
+## Settled prototype choices
+
+- Setup defaults to two players and offers three or four. Fresh colours are assigned automatically with fixed spawns.
+- Every player readies individually; all configured seats are required. Hosting transfers on departure.
+- Resume links hold the completed match. Snapshot differences require the group to open the same chosen link, with no automatic catch-up or reconciliation.

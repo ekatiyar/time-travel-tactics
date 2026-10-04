@@ -1,42 +1,35 @@
-import { createHash, randomBytes } from 'node:crypto';
+import { tmpdir } from 'node:os';
+import { join } from 'node:path';
+import { build } from 'esbuild';
 import { expect, test, type Page } from '@playwright/test';
 
 declare global {
   interface Window {
     __tbtt: {
       peers: string[];
-      sent: string[];
-      action: {
-        send: (text: string) => void;
-        onMessage: ((text: string, context: { peerId: string }) => void) | null;
-      } | null;
+      remoteName: string;
+      remoteExport?: string;
+      ready: () => void;
+      consent: () => void;
+      commit: (action: string, color?: string) => Promise<void>;
+      release: () => void;
+      views: () => Array<{ localColor: string | null; canCommit: boolean }>;
+      inject: (text: string, sender?: string) => void;
+      depart: (id?: string) => void;
     };
     __historyCalls?: Array<{ state: unknown; title: string; url: string | null }>;
   }
 }
 
-// Stub Trystero's lazy chunk to keep UI tests off the network.
+// Only the channel adapter is substituted; opponent rules run in real Sessions.
 const ROOM_STUB = `
-export function joinRoom(config, roomId) {
-  const hub = globalThis.__tbtt;
-  return {
-    onPeerJoin: null,
-    onPeerLeave: null,
-    getPeers() {
-      const out = {};
-      hub.peers.forEach((id) => { out[id] = {}; });
-      return out;
-    },
-    makeAction() {
-      hub.action = { send: (text) => hub.sent.push(String(text)), onMessage: null };
-      return hub.action;
-    },
-    leave() {},
-  };
-}
+import { makeRoom } from '/ui-fixture.js';
+export const selfId = 'ui-player';
+export function joinRoom() { return makeRoom(globalThis.__tbtt); }
 `;
+const fixture = build({ entryPoints: ['tests/ui-fixture.ts'], bundle: true, format: 'esm', write: false });
 
-type Options = { peers?: string[]; offline?: boolean; fragment?: string };
+type Options = { peers?: string[]; offline?: boolean; fragment?: string; remoteName?: string; remoteExport?: string };
 
 let errors: string[] = [];
 let blocked: string[] = [];
@@ -56,8 +49,8 @@ async function open(page: Page, opts: Options = {}) {
   const peers = opts.peers ?? ['stub-peer'];
   const server = test.info().project.use.baseURL ?? '';
   await page.addInitScript((ids) => {
-    window.__tbtt = { peers: ids, sent: [], action: null };
-  }, peers);
+    window.__tbtt = { peers: ids.peers, remoteName: ids.remoteName, remoteExport: ids.remoteExport } as Window['__tbtt'];
+  }, { peers, remoteName: opts.remoteName ?? 'Purple', remoteExport: opts.remoteExport });
 
   // Block every request outside the test server.
   await page.route(/.*/, (route) => {
@@ -78,30 +71,49 @@ async function open(page: Page, opts: Options = {}) {
       ? route.abort()
       : route.fulfill({ contentType: 'text/javascript', body: ROOM_STUB });
   });
+  await page.route('**/ui-fixture.js', async (route) => route.fulfill({ contentType: 'text/javascript', body: (await fixture).outputFiles![0]!.text }));
   await page.goto('/index.html' + (opts.fragment ? '#' + opts.fragment : ''));
 }
 
 const MATCH = { mode: 'sandbox', w: '5', h: '5', wall: '0', seed: 'tst', cap: '8', roster: 'CP' };
 
-async function createMatch(page: Page, cfg: Partial<typeof MATCH> = {}) {
+async function fillMatch(page: Page, cfg: Partial<typeof MATCH> = {}) {
   const c = { ...MATCH, ...cfg };
-  await page.locator('#fMode').selectOption(c.mode);
+  await page.locator(`[data-mode="${c.mode}"]`).click();
+  await page.getByText('Advanced', { exact: true }).click();
   await page.locator('#fW').fill(c.w);
   await page.locator('#fH').fill(c.h);
   await page.locator('#fWall').fill(c.wall);
   await page.locator('#fSeed').fill(c.seed);
-  await page.locator('#fRoster').selectOption(c.roster);
+  await page.locator(`[data-roster="${c.roster}"]`).click();
   await page.locator('#fCap').fill(c.cap);
+}
+
+async function createMatch(page: Page, cfg: Partial<typeof MATCH> = {}) {
+  await fillMatch(page, cfg);
   await page.locator('#btnMake').click();
 }
 
+async function preparePeers(page: Page) {
+  await expect.poll(() => page.evaluate(() => typeof window.__tbtt.ready)).toBe('function');
+  await page.evaluate(() => window.__tbtt.ready());
+  await expect.poll(() => page.evaluate(() => window.__tbtt.views().every((view) => view.localColor !== null))).toBe(true);
+  await page.evaluate(() => window.__tbtt.consent());
+}
+
 async function sitDown(page: Page, color = 'C', name = 'Rook') {
-  const row = page.locator(`#pickRows .pickrow[data-color="${color}"]`);
-  await row.click();
-  await page.locator('#pickName').fill(name);
-  await expect(page.locator('#btnPlay')).toBeEnabled();
-  await page.locator('#btnPlay').click();
+  if (await page.getByRole('button', { name: `Claim ${color === 'C' ? 'Coral' : 'Purple'}`, exact: true }).count()) {
+    await page.getByRole('button', { name: `Claim ${color === 'C' ? 'Coral' : 'Purple'}`, exact: true }).click();
+  }
+  if (new URL(page.url()).hash.startsWith('#join=')) {
+    await expect(page.locator('#pickName')).toBeEditable();
+    await page.locator('#pickName').fill(name);
+  }
+  await preparePeers(page);
+  await expect(page.locator('#btnReady')).toBeEnabled();
+  await page.locator('#btnReady').click();
   await expect(page.locator('#play')).toBeVisible();
+  await expect(page.locator('#btnCommit')).toBeEnabled();
 }
 
 async function startMatch(page: Page, opts: Options = {}) {
@@ -111,16 +123,19 @@ async function startMatch(page: Page, opts: Options = {}) {
 }
 
 async function startBootstrap(page: Page) {
-  await open(page);
+  await open(page, { remoteName: 'Bishop' });
   await createMatch(page, { mode: 'bootstrap', cap: '12' });
   await sitDown(page);
 }
 
-function deliver(page: Page, text: string, peerId = 'stub-peer') {
-  return page.evaluate(
-    ([t, id]) => window.__tbtt.action?.onMessage?.(t, { peerId: id }),
-    [text, peerId] as const,
-  );
+function deliver(page: Page, text: string, peerId = 'foreign') {
+  return page.evaluate(([t, id]) => window.__tbtt.inject(t, id), [text, peerId] as const);
+}
+function peerCommit(page: Page, action: string) {
+  return page.evaluate((value) => window.__tbtt.commit(value), action);
+}
+function releasePeer(page: Page) {
+  return page.evaluate(() => window.__tbtt.release());
 }
 
 async function stateHash(page: Page) {
@@ -141,37 +156,21 @@ function dotStates(page: Page) {
   return dots(page).evaluateAll((els) => els.map((e) => e.getAttribute('data-state')));
 }
 
-// Simulate the other player's commit.
-function seal(turn: number, color: string, action: string) {
-  const nonce = randomBytes(16).toString('hex');
-  const digest = createHash('sha256')
-    .update(`${turn}:${color}:${action}:${nonce}`)
-    .digest('hex')
-    .slice(0, 32);
-  return { nonce, commitment: `#${turn}${color}:${digest}` };
-}
-
-function revealOf(turn: number, color: string, action: string, hash: string, nonce: string, name?: string) {
-  const named = turn === 0 && name ? `~${name}` : '';
-  return `${turn}${color}:${action}#${hash}${named}|${nonce}`;
-}
-
-// Commit one turn and hand back the opponent's reveal, so a probe can straddle the resolution.
-async function commitTurn(page: Page, turn: number, mine: string, theirs: string, name?: string) {
-  const hash = await stateHash(page);
-  const { nonce, commitment } = seal(turn, 'P', theirs);
-  await deliver(page, commitment);
+// Delay real Session reveal packets so tests can inspect the committed frame.
+async function commitTurn(page: Page, turn: number, mine: string, theirs: string, _name?: string) {
+  await expect(page.locator('#turnInfo')).toContainText(`turn ${turn} / `);
+  await peerCommit(page, theirs);
   await page.locator(`#moveRail [data-act="${mine}"]`).click();
   await page.locator('#btnCommit').click();
   await expect(page.locator('#phaseShare')).toBeVisible();
-  return () => deliver(page, revealOf(turn, 'P', theirs, hash, nonce, name));
+  return () => releasePeer(page);
 }
 
-// Resolve one turn with a simulated opponent.
 async function resolveTurn(page: Page, turn: number, mine: string, theirs: string, name?: string) {
   const reveal = await commitTurn(page, turn, mine, theirs, name);
   await reveal();
   await expect(page.locator('#phaseShare')).toBeHidden();
+  if (await page.locator('#phaseOver').isHidden()) await expect(page.locator('#btnCommit')).toBeEnabled();
 }
 
 test.describe('setup screen', () => {
@@ -180,6 +179,7 @@ test.describe('setup screen', () => {
     await expect(page.getByRole('heading', { name: 'Time travel tactics' })).toBeVisible();
     await expect(page.locator('#setup')).toBeVisible();
     await expect(page.locator('#play')).toBeHidden();
+    await page.getByText('Advanced', { exact: true }).click();
     await expect(page.locator('#fSeed')).not.toHaveValue('');
   });
 
@@ -192,9 +192,66 @@ test.describe('setup screen', () => {
 
   test('the turn cap follows the board size', async ({ page }) => {
     await open(page);
+    await page.getByText('Advanced', { exact: true }).click();
     await page.locator('#fW').fill('20');
     await page.locator('#fH').fill('10');
     await expect(page.locator('#fCap')).toHaveValue('51');
+  });
+
+  test('defaults to Bootstrap, Standard and two prominent players', async ({ page }) => {
+    await open(page);
+    await expect(page.locator('[data-mode="bootstrap"]')).toHaveAttribute('aria-pressed', 'true');
+    await expect(page.locator('[data-size="Standard"]')).toHaveAttribute('aria-pressed', 'true');
+    await expect(page.locator('[data-roster="CP"]')).toHaveAttribute('aria-pressed', 'true');
+    await expect(page.getByRole('group', { name: 'Players', exact: true }).getByRole('button')).toHaveText(['2 players', '3 players', '4 players']);
+    await expect(page.locator('details.advanced')).not.toHaveAttribute('open', '');
+    await expect(page.locator('.preview-panel > .board-preview .cell')).toHaveCount(16 * 9);
+    await expect(page.locator('.seed-option')).toHaveCount(3);
+  });
+
+  test('presets update exact previews while preserving a manually edited cap', async ({ page }) => {
+    await open(page);
+    await page.locator('[data-size="Small"]').click();
+    await expect(page.locator('.preview-panel > .board-preview .cell')).toHaveCount(9 * 7);
+    await expect(page.locator('#fCap')).toHaveValue('28');
+    await page.getByText('Advanced', { exact: true }).click();
+    await page.locator('#fCap').fill('77');
+    await page.locator('[data-size="Large"]').click();
+    await expect(page.locator('.preview-panel > .board-preview .cell')).toHaveCount(24 * 13);
+    await expect(page.locator('#fCap')).toHaveValue('77');
+    await page.locator('#fW').fill('23');
+    await expect(page.getByRole('heading', { name: 'Board size · Custom' })).toBeVisible();
+    await expect(page.locator('#fCap')).toHaveValue('77');
+  });
+
+  test('candidate selection preserves alternatives and Reroll replaces all three', async ({ page }) => {
+    await open(page);
+    const candidates = page.locator('.seed-option > span');
+    const initial = await candidates.allTextContents();
+    expect(new Set(initial).size).toBe(3);
+    await page.getByRole('button', { name: 'Select seed 2', exact: true }).click();
+    await expect(page.locator('#fSeed')).toHaveValue(initial[1]!);
+    expect(await candidates.allTextContents()).toEqual(initial);
+    await page.getByText('Advanced', { exact: true }).click();
+    await page.locator('#fSeed').fill('custom-seed');
+    expect(await candidates.allTextContents()).toEqual([initial[0], 'custom-seed', initial[2]]);
+    await page.locator('#btnReroll').click();
+    const rerolled = await candidates.allTextContents();
+    expect(rerolled.every((seed, index) => seed !== initial[index])).toBe(true);
+    await expect(page.getByRole('button', { name: 'Select seed 1', exact: true })).toHaveAttribute('aria-pressed', 'true');
+    await expect(page.locator('#fSeed')).toHaveValue(rerolled[0]!);
+  });
+
+  test('invalid fields remove the preview until corrected', async ({ page }) => {
+    await open(page);
+    await page.getByText('Advanced', { exact: true }).click();
+    await page.locator('#fW').fill('4');
+    await expect(page.locator('#btnMake')).toBeDisabled();
+    await expect(page.locator('.preview-panel > .board-preview')).toHaveCount(0);
+    await expect(page.locator('#setupErr')).not.toHaveText('');
+    await page.locator('#fW').fill('5');
+    await expect(page.locator('#btnMake')).toBeEnabled();
+    await expect(page.locator('.preview-panel > .board-preview .cell')).toHaveCount(5 * 9);
   });
 
   test('the theme button toggles', async ({ page }) => {
@@ -209,32 +266,36 @@ test.describe('setup screen', () => {
 
   test('an oversized board is refused', async ({ page }) => {
     await open(page);
-    await createMatch(page, { w: '999' });
+    await fillMatch(page, { w: '999' });
+    await expect(page.locator('#btnMake')).toBeDisabled();
     await expect(page.locator('#setupErr')).toHaveText('board must be between 5x5 and 64x64');
     await expect(page.locator('#pickCard')).toBeHidden();
   });
 
   test('a wall density over 45 is refused', async ({ page }) => {
     await open(page);
-    await createMatch(page, { wall: '80' });
+    await fillMatch(page, { wall: '80' });
+    await expect(page.locator('#btnMake')).toBeDisabled();
     await expect(page.locator('#setupErr')).toHaveText('wall density must be 0-45');
   });
 
   test('a seed with a space is refused', async ({ page }) => {
     await open(page);
-    await createMatch(page, { seed: 'two words' });
+    await fillMatch(page, { seed: 'two words' });
+    await expect(page.locator('#btnMake')).toBeDisabled();
     await expect(page.locator('#setupErr')).toHaveText('seed must be 1-24 letters, digits, - or _');
   });
 
   test('a turn cap over 400 is refused', async ({ page }) => {
     await open(page);
-    await createMatch(page, { cap: '500' });
+    await fillMatch(page, { cap: '500' });
+    await expect(page.locator('#btnMake')).toBeDisabled();
     await expect(page.locator('#setupErr')).toHaveText('turn cap must be 2-400');
   });
 
   test('opens a valid join deep link directly in the picker', async ({ page }) => {
     await open(page, { fragment: 'join=' + encodeURIComponent('M1:sandbox:5x5:0:tst:8:CP') });
-    await expect(page.locator('#pickRows .pickrow')).toHaveCount(2);
+    await expect(page.locator('#pickRows li')).toHaveCount(2);
     await expect(page.locator('#setupErr')).toHaveCount(0);
     await expect(page.locator('#paneJoin')).toHaveCount(0);
   });
@@ -242,10 +303,10 @@ test.describe('setup screen', () => {
   test('opens a valid resume deep link with saved names', async ({ page }) => {
     const exported = 'X1:M1:sandbox:5x5:0:tst:8:CP||C~Rook,P~Vale';
     await open(page, { fragment: 'resume=' + encodeURIComponent(exported) });
-    await expect(page.locator('#pickRows .pickrow')).toHaveCount(2);
-    await page.locator('#pickRows .pickrow[data-color="C"]').click();
-    await expect(page.locator('#pickName')).toHaveValue('Rook');
-    await expect(page.locator('#pickName')).toBeDisabled();
+    await expect(page.locator('#pickRows li')).toHaveCount(2);
+    await page.getByRole('button', { name: 'Claim Coral', exact: true }).click();
+    await expect(page.locator('#pickRows li[data-color="C"]')).toContainText('Rook');
+    await expect(page.locator('#pickName')).toHaveCount(0);
     await expect(page.locator('#paneImport')).toHaveCount(0);
   });
 
@@ -265,7 +326,7 @@ test.describe('setup screen', () => {
         replace(state, title, url);
       };
     });
-    await open(page);
+    await open(page, { remoteName: 'Vale' });
     const historyLength = await page.evaluate(() => history.length);
     await createMatch(page);
     await expect.poll(() => page.evaluate(() => location.hash))
@@ -336,102 +397,90 @@ test.describe('setup screen', () => {
   });
 });
 
-test.describe('colour picker', () => {
-  test('shows join-link controls and one row per roster colour', async ({ page }) => {
+test.describe('lobby', () => {
+  test('automatically assigns the creator Coral and shows the roster', async ({ page }) => {
     await open(page);
     await createMatch(page);
     await expect(page.locator('#btnCopyJoin')).toHaveText('Copy join link');
-    await expect(page.locator('#pickRows .pickrow')).toHaveCount(2);
-    await expect(page.locator('#pickRows .pickrow[data-color="C"]')).toContainText('Coral');
-    await expect(page.locator('#pickRows .pickrow[data-color="P"]')).toContainText('Purple');
-    await expect(page.locator('#btnPlay')).toBeDisabled();
+    await expect(page.locator('#pickRows li')).toHaveCount(2);
+    await expect(page.locator('#pickRows li[data-color="C"]')).toContainText('Coral');
+    await expect(page.locator('#pickRows li[data-color="C"]')).toContainText('you');
+    await expect(page.locator('#pickRows li[data-color="C"]')).toContainText('host');
+    await expect(page.locator('#pickName')).toHaveValue('Coral');
+    await expect(page.locator('#pickName')).toBeEditable();
+    await expect(page.getByRole('button', { name: /^Claim / })).toHaveCount(0);
+    await expect(page.locator('#btnReady')).toBeEnabled();
   });
 
-  test('waits for a room short of players', async ({ page }) => {
+  test('Ready is individual consent and can be withdrawn while seats are vacant', async ({ page }) => {
+    await open(page, { peers: [] });
+    await createMatch(page);
+    await page.locator('#btnReady').click();
+    await expect(page.locator('#btnReady')).toHaveText('Not ready');
+    await expect(page.locator('#play')).toBeHidden();
+    await page.locator('#btnReady').click();
+    await expect(page.locator('#btnReady')).toHaveText('Ready');
+  });
+
+  test('changing your name clears your readiness', async ({ page }) => {
+    await open(page, { peers: [] });
+    await createMatch(page);
+    await page.locator('#btnReady').click();
+    await expect(page.locator('#btnReady')).toHaveText('Not ready');
+    await page.locator('#pickName').fill('Rook');
+    await expect(page.locator('#btnReady')).toHaveText('Ready');
+    await expect(page.locator('#play')).toBeHidden();
+  });
+
+  test('waits for every configured seat', async ({ page }) => {
     await open(page, { peers: ['one-peer'] });
     await createMatch(page, { roster: 'CPT' });
-    await page.locator('#pickRows .pickrow[data-color="C"]').click();
-    await page.locator('#pickName').fill('Rook');
-    await expect(page.locator('#pickWait')).toHaveText(
-      'Waiting for 1 player.');
-    await expect(page.locator('#btnPlay')).toBeDisabled();
+    await preparePeers(page);
+    await page.locator('#btnReady').click();
+    await expect(page.locator('#pickWait')).toContainText(/waiting/i);
+    await expect(page.locator('#play')).toBeHidden();
   });
 
   test('reports a connection that never opened', async ({ page }) => {
     await open(page, { offline: true });
     await createMatch(page);
     await expect(page.locator('#pickWait')).toContainText('Could not connect.');
-    await expect(page.locator('#btnPlay')).toBeDisabled();
+    await expect(page.locator('#btnReady')).toHaveCount(0);
   });
 
-  test('greys out a colour someone else claimed', async ({ page }) => {
-    await open(page);
+  test('assigns a joining player Purple without a colour picker', async ({ page }) => {
+    await open(page, { remoteName: 'Rival' });
     await createMatch(page);
-    await expect(page.locator('#pickWait')).toHaveText('');
-    await deliver(page, '!P~Rival@other-client');
-
-    const taken = page.locator('#pickRows .pickrow[data-color="P"]');
-    await expect(taken).toHaveClass(/taken/);
-    await expect(taken).toHaveCSS('opacity', '0.45');
-    await taken.click();
-    await expect(page.locator('#pickName')).toHaveValue('Rival');
-    await expect(page.locator('#pickName')).toBeDisabled();
-    await expect(page.locator('#pickRows .pickrow[data-color="C"]')).not.toHaveClass(/taken/);
-  });
-
-  test('keeps the shared name draft when switching among free colours', async ({ page }) => {
-    await open(page);
-    await createMatch(page);
-    const coral = page.locator('#pickRows .pickrow[data-color="C"]');
-    const purple = page.locator('#pickRows .pickrow[data-color="P"]');
-    await coral.click();
-    await page.locator('#pickName').fill('Rook');
-    await purple.click();
-    await expect(page.locator('#pickName')).toHaveValue('Rook');
-
-    await deliver(page, '!P~Rival@other-client');
-    await expect(page.locator('#pickName')).toHaveValue('Rival');
-    await expect(page.locator('#pickName')).toBeDisabled();
-    await coral.click();
-    await expect(page.locator('#pickName')).toHaveValue('Rook');
-    await expect(page.locator('#pickName')).toBeEnabled();
-  });
-
-  test('lets occupied colours be inspected and shows their disabled name', async ({ page }) => {
-    await open(page);
-    await createMatch(page);
-    await deliver(page, '!P~Rival@other-client');
-    const taken = page.locator('#pickRows .pickrow[data-color="P"]');
-    await taken.click();
-    await expect(page.locator('#pickName')).toHaveValue('Rival');
-    await expect(page.locator('#pickName')).toBeDisabled();
-    await expect(taken).toHaveClass(/taken/);
-  });
-
-  test('a collision loser returns to the lobby with the contested colour selected', async ({ page }) => {
-    await startMatch(page);
-    await deliver(page, '!C~Thief@0-lower');
-    const contested = page.locator('#pickRows .pickrow[data-color="C"]');
-    await expect(contested).toHaveClass(/on/);
-    await expect(page.locator('#pickName')).toHaveValue('Thief');
-    await expect(page.locator('#pickName')).toBeDisabled();
-    await expect(page.locator('#btnPlay')).toBeDisabled();
-    await expect(page.locator('#pickErr')).toContainText('Coral was claimed first by Thief');
+    await preparePeers(page);
+    await expect(page.locator('#pickRows li[data-color="P"]')).toContainText('Rival');
+    await expect(page.locator('#pickRows li[data-color="P"]')).toContainText(/ready/i);
+    await expect(page.getByRole('button', { name: /^Claim / })).toHaveCount(0);
   });
 
   test('refuses a name with a space', async ({ page }) => {
     await open(page);
     await createMatch(page);
-    const row = page.locator('#pickRows .pickrow[data-color="C"]');
-    await row.click();
     await page.locator('#pickName').fill('my name');
     await expect(page.locator('#nameErr')).toHaveText(
-      'Use letters, digits, hyphens, or underscores. Max 12 characters.');
-    await expect(page.locator('#btnPlay')).toBeDisabled();
-
+      'Use 1–12 letters, digits, hyphens, or underscores.');
+    await expect(page.locator('#btnReady')).toBeDisabled();
     await page.locator('#pickName').fill('Rook');
     await expect(page.locator('#nameErr')).toHaveText('');
-    await expect(page.locator('#btnPlay')).toBeEnabled();
+    await expect(page.locator('#btnReady')).toBeEnabled();
+  });
+
+  test('resume offers historical seat requests and keeps the saved name', async ({ page }) => {
+    await open(page, { peers: [], fragment: 'resume=' + encodeURIComponent(
+      'X1:M1:sandbox:5x5:0:tst:8:CP||C~Rook,P~Vale') });
+    await expect(page.getByRole('button', { name: 'Claim Coral', exact: true })).toBeEnabled();
+    await expect(page.getByRole('button', { name: 'Claim Purple', exact: true })).toBeEnabled();
+    await page.getByRole('button', { name: 'Claim Purple', exact: true }).click();
+    await expect(page.locator('#pickRows li[data-color="P"]')).toContainText('Vale');
+    await expect(page.locator('#pickName')).toHaveCount(0);
+    await expect(page.locator('#btnReady')).toBeEnabled();
+    await page.locator('#btnReady').click();
+    await expect(page.locator('#btnReady')).toHaveText('Not ready');
+    await expect(page.locator('#play')).toBeHidden();
   });
 
   test('copies the join link', async ({ page, context }) => {
@@ -458,6 +507,82 @@ test.describe('colour picker', () => {
     await expect(page.locator('#copyErr')).toContainText(/copy|clipboard/i);
   });
 });
+
+test('an invalid seed can be replaced by another valid candidate', async ({ page }) => {
+  await open(page);
+  await page.getByText('Advanced', { exact: true }).click();
+  await page.locator('#fSeed').fill('bad seed');
+  await expect(page.locator('#btnMake')).toBeDisabled();
+  await page.getByRole('button', { name: 'Select seed 2', exact: true }).click();
+  await expect(page.locator('#btnMake')).toBeEnabled();
+  await expect(page.locator('.preview-panel > .board-preview')).toBeVisible();
+});
+
+test('a resumed player can take Purple while the other player takes Coral', async ({ page }) => {
+  const saved = 'X1:M1:sandbox:5x5:0:tst:8:CP||C~Rook,P~Vale';
+  await open(page, { fragment: 'resume=' + encodeURIComponent(saved) });
+  await expect(page.getByRole('button', { name: 'Claim Purple', exact: true })).toBeEnabled();
+  await sitDown(page, 'P');
+  await expect(page.locator('#youAre')).toHaveText('Vale');
+  await expect(page.locator('#youAt')).toContainText('(3,3)');
+});
+
+test('host departure returns surviving players to the recovery lobby', async ({ page }) => {
+  const saved = 'X1:M1:sandbox:5x5:0:tst:8:CP||C~Rook,P~Vale';
+  await open(page, { fragment: 'resume=' + encodeURIComponent(saved) });
+  await expect(page.getByRole('button', { name: 'Claim Coral', exact: true })).toBeEnabled();
+  await sitDown(page);
+  await page.evaluate(() => window.__tbtt.depart());
+  await expect(page.locator('#play')).toHaveCount(0);
+  await expect(page.locator('#pickCard')).toBeVisible();
+  await expect(page.locator('#pickRows li[data-color="C"]')).toContainText('you · host');
+  await expect(page.locator('#pickRows li[data-color="C"] .seat-status')).toHaveText('Ready');
+  await expect(page.locator('#pickRows li[data-color="P"]')).toContainText('seat available');
+  await expect(page.locator('#btnCopyJoin')).toHaveText('Copy resume link');
+});
+
+test('snapshot mismatch explains shared-link recovery without replacing local history', async ({ page, context }) => {
+  await context.grantPermissions(['clipboard-read', 'clipboard-write']);
+  const local = 'X1:M1:sandbox:5x5:0:tst:8:CP||C~Rook,P~Vale';
+  const remote = 'X1:M1:sandbox:5x5:0:tst:8:CP|CHPH|C~Rook,P~Vale';
+  await open(page, { fragment: 'resume=' + encodeURIComponent(local), remoteExport: remote });
+  await expect(page.locator('#pickWait')).toContainText('Snapshots differ');
+  await expect(page.locator('#btnReady')).toHaveCount(0);
+  await page.getByRole('button', { name: 'Copy my resume link', exact: true }).click();
+  const copied = await page.evaluate(() => navigator.clipboard.readText());
+  expect(new URLSearchParams(new URL(copied).hash.slice(1)).get('resume')).toBe(local);
+  expect(new URLSearchParams(new URL(page.url()).hash.slice(1)).get('resume')).toBe(local);
+});
+
+for (const [roster, peers] of [['CPT', ['peer-p', 'peer-t']], ['CPTA', ['peer-p', 'peer-t', 'peer-a']]] as const) {
+  test(`${roster.length} players all agree before entering play`, async ({ page }) => {
+    await open(page, { peers: [...peers] });
+    await createMatch(page, { roster });
+    await sitDown(page);
+    await expect(dots(page)).toHaveCount(roster.length);
+    await expect(page.locator('#turnInfo')).toHaveText('turn 0 / 8');
+  });
+}
+
+for (const [size, width] of [['desktop', 1280], ['narrow', 390]] as const) {
+  for (const theme of ['dark', 'light'] as const) {
+    test(`setup and lobby layout ${size} ${theme}`, async ({ page }) => {
+      await page.setViewportSize({ width, height: 900 });
+      await open(page, { peers: [] });
+      if (theme === 'light') await page.locator('#btnTheme').click();
+      await expect(page.locator('.preview-panel > .board-preview')).toBeVisible();
+      expect(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth)).toBe(true);
+      await page.screenshot({ path: join(tmpdir(), `tbtt-stage3-setup-${size}-${theme}.png`), fullPage: true });
+      await createMatch(page);
+      await expect(page.locator('#pickName')).toHaveValue('Coral');
+      expect(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth)).toBe(true);
+      await page.screenshot({ path: join(tmpdir(), `tbtt-stage3-lobby-${size}-${theme}.png`), fullPage: true });
+      await page.locator('#pickName').focus();
+      await page.keyboard.press('Tab');
+      await expect(page.locator('#btnReady')).toBeFocused();
+    });
+  }
+}
 
 test.describe('play screen', () => {
   test('draws the board and names the seat', async ({ page }) => {
@@ -491,7 +616,7 @@ test.describe('play screen', () => {
   });
 
   test('disables a move off the board', async ({ page }) => {
-    await startMatch(page);
+    await startMatch(page, { remoteName: 'Rival' });
     // Spawn is inset from the corner now, so walk to (0,0) first.
     await resolveTurn(page, 0, 'A', 'H', 'Rival');
     await resolveTurn(page, 1, 'W', 'H');
@@ -532,14 +657,12 @@ test.describe('play screen', () => {
   });
 
   test('shows commitment status throughout the turn, including the local player', async ({ page }) => {
-    await startMatch(page);
-    await deliver(page, '!P~Vale@other-client');
+    await startMatch(page, { remoteName: 'Vale' });
+    // The peer name was frozen when both owners readied.
     await expect(page.locator('#pending')).toHaveAttribute('title', /Still choosing: You, Vale\./);
     await expect.poll(() => dotStates(page)).toEqual(['choosing', 'choosing']);
 
-    const hash = await stateHash(page);
-    const { nonce, commitment } = seal(0, 'P', 'H');
-    await deliver(page, commitment);
+    await peerCommit(page, 'H');
     await expect(page.locator('#pending')).toHaveAttribute('title', /Still choosing: You\./);
     await expect.poll(() => dotStates(page)).toEqual(['choosing', 'done']);
 
@@ -547,7 +670,7 @@ test.describe('play screen', () => {
     await page.locator('#btnCommit').click();
     await expect(page.locator('#pending')).toHaveAttribute('title', /All actions are in\.$/);
     await expect.poll(() => dotStates(page)).toEqual(['done', 'done']);
-    await deliver(page, revealOf(0, 'P', 'H', hash, nonce, 'Vale'));
+    await releasePeer(page);
   });
 
   test('Space commits only from general gameplay focus', async ({ page }) => {
@@ -568,10 +691,8 @@ test.describe('play screen', () => {
   });
 
   test('a resolved turn moves the board, the log and the status line', async ({ page }) => {
-    await startMatch(page);
-    const hash = await stateHash(page);
-    const { nonce, commitment } = seal(0, 'P', 'H');
-    await deliver(page, commitment);
+    await startMatch(page, { remoteName: 'Rival' });
+    await peerCommit(page, 'H');
 
     await page.locator('#moveRail [data-act="D"]').click();
     await page.locator('#btnCommit').click();
@@ -579,7 +700,7 @@ test.describe('play screen', () => {
     await expect.poll(() => dotStates(page)).toEqual(['done', 'done']);
     await expect(page.locator('#btnUndo')).toBeHidden();
 
-    await deliver(page, revealOf(0, 'P', 'H', hash, nonce, 'Rival'));
+    await releasePeer(page);
 
     await expect(page.locator('#turnInfo')).toContainText('turn 1 / 8');
     await expect(page.locator('#youAt')).toHaveText('index 1 · t1 · forward · (2,1)');
@@ -593,13 +714,11 @@ test.describe('play screen', () => {
 
   test('the world turn slider scrubs the playhead back', async ({ page }) => {
     await startMatch(page);
-    const hash = await stateHash(page);
-    const { nonce, commitment } = seal(0, 'P', 'H');
-    await deliver(page, commitment);
+    await peerCommit(page, 'H');
     await page.locator('#moveRail [data-act="D"]').click();
     await page.locator('#btnCommit').click();
     await expect(page.locator('#phaseShare')).toBeVisible();
-    await deliver(page, revealOf(0, 'P', 'H', hash, nonce));
+    await releasePeer(page);
     await expect(page.locator('#slo')).toHaveText('t1');
 
     await expect(page.locator('#board .tok')).toHaveCount(2);
@@ -618,13 +737,11 @@ test.describe('play screen', () => {
 
   test('the history control drops the trail', async ({ page }) => {
     await startMatch(page);
-    const hash = await stateHash(page);
-    const { nonce, commitment } = seal(0, 'P', 'H');
-    await deliver(page, commitment);
+    await peerCommit(page, 'H');
     await page.locator('#moveRail [data-act="D"]').click();
     await page.locator('#btnCommit').click();
     await expect(page.locator('#phaseShare')).toBeVisible();
-    await deliver(page, revealOf(0, 'P', 'H', hash, nonce));
+    await releasePeer(page);
     await expect(page.locator('#board .trail')).toHaveCount(2);
 
     await expect(page.locator('#rd button.on')).toHaveText('2');
@@ -635,13 +752,12 @@ test.describe('play screen', () => {
     await expect(page.locator('#board .tok')).toHaveCount(2);
   });
 
-  test('losing the seat sends you back to the picker', async ({ page }) => {
+  test('foreign legacy claims cannot replace an agreed owner', async ({ page }) => {
     await startMatch(page);
-    await deliver(page, '!C~Thief@0-lower');
-
-    await expect(page.locator('#setup')).toBeVisible();
-    await expect(page.locator('#play')).toBeHidden();
-    await expect(page.locator('#pickErr')).toContainText('Coral was claimed first by Thief');
+    await deliver(page, '!C~Thief@0-lower', '0-lower');
+    await expect(page.locator('#play')).toBeVisible();
+    await expect(page.locator('#youAre')).toHaveText('Rook');
+    await expect(page.locator('#btnCommit')).toBeEnabled();
   });
 
   test('the dot row names both seats in priority order', async ({ page }) => {
@@ -651,16 +767,15 @@ test.describe('play screen', () => {
     await expect(page.locator('#pending')).toHaveAttribute('title', /Priority this turn: Rook \u203a Purple\./);
   });
 
-  test('a claim names the other seat before a single turn resolves', async ({ page }) => {
-    await startMatch(page);
-    await expect(page.locator('#pending')).toHaveAttribute('title', /Purple/);
-    await deliver(page, '!P~Rival@other-client');
+  test('the agreed roster names the other seat before any turns resolve', async ({ page }) => {
+    await startMatch(page, { remoteName: 'Rival' });
     await expect(page.locator('#pending')).toHaveAttribute('title', /Rival/);
-    await expect(page.locator('#pending')).not.toHaveAttribute('title', /Purple/);
+    await expect(page.locator('#legend')).toContainText('Rival');
+    await expect(page.locator('#log')).toHaveText('No turns yet.');
   });
 
   test('the log rules off between turns', async ({ page }) => {
-    await startMatch(page);
+    await startMatch(page, { remoteName: 'Rival' });
     await resolveTurn(page, 0, 'H', 'H', 'Rival');
     await expect(page.locator('#log li.turnsep')).toHaveCount(0);
     await resolveTurn(page, 1, 'H', 'H');
@@ -669,7 +784,7 @@ test.describe('play screen', () => {
   });
 
   test('switching theme redraws the trail at the new floor', async ({ page }) => {
-    await startMatch(page);
+    await startMatch(page, { remoteName: 'Rival' });
     await resolveTurn(page, 0, 'H', 'H', 'Rival');
     await resolveTurn(page, 1, 'H', 'H');
     await resolveTurn(page, 2, 'H', 'H');
@@ -685,8 +800,7 @@ test.describe('play screen', () => {
     await open(page, { fragment: 'resume=' + encodeURIComponent(
       'X1:M1:sandbox:5x5:0:tst:8:CP|CIPH,CIPH,CIPH,CIPH|C~Rook,P~Vale'
     ) });
-    await page.locator('#pickRows .pickrow[data-color="C"]').click();
-    await page.locator('#btnPlay').click();
+    await sitDown(page);
 
     const token = page.locator('#board .tok-many');
     await expect(token).toHaveCount(1);
@@ -712,8 +826,7 @@ test.describe('play screen', () => {
     await open(page, { fragment: 'resume=' + encodeURIComponent(
       'X1:M1:sandbox:5x5:0:tst:8:CP|CDPH,CIPH|C~Rook,P~Vale'
     ) });
-    await page.locator('#pickRows .pickrow[data-color="C"]').click();
-    await page.locator('#btnPlay').click();
+    await sitDown(page);
 
     const opposing = page.locator('#board .tok[data-direction="opposing"]');
     const mixed = page.locator('#board .tok[data-direction="mixed"]');
@@ -764,8 +877,7 @@ test.describe('play screen', () => {
     await open(page, { fragment: 'resume=' + encodeURIComponent(
       'X1:M1:sandbox:5x5:0:tst:8:CP|CIPH|C~Rook,P~Vale'
     ) });
-    await page.locator('#pickRows .pickrow[data-color="C"]').click();
-    await page.locator('#btnPlay').click();
+    await sitDown(page);
     const token = page.locator('#board .tok-many');
     await expect(token).toHaveText('0·1');
     await expect(token).toHaveAttribute('title', /index 0/);
@@ -775,13 +887,13 @@ test.describe('play screen', () => {
   });
 
   test('marks opposing timeline dots', async ({ page }) => {
-    await startMatch(page);
+    await startMatch(page, { remoteName: 'Vale' });
     await resolveTurn(page, 0, 'H', 'I', 'Vale');
     await expect(page.locator('#strip .time-head[data-direction="opposing"]')).toHaveCount(1);
   });
 
   test('reclassifies relative directions after viewer inversion', async ({ page }) => {
-    await startMatch(page);
+    await startMatch(page, { remoteName: 'Vale' });
     await expect(page.locator('#board .tok[data-direction="matching"]')).toHaveCount(2);
     await resolveTurn(page, 0, 'I', 'H', 'Vale');
     await expect(page.locator('#board .tok[data-direction="mixed"]')).toHaveCount(1);
@@ -792,8 +904,7 @@ test.describe('play screen', () => {
     await open(page, { fragment: 'resume=' + encodeURIComponent(
       'X1:M1:sandbox:5x5:0:tst:8:CP|CIPH,CIPH,CIPH,CIPH|C~Rook,P~Vale'
     ) });
-    await page.locator('#pickRows .pickrow[data-color="C"]').click();
-    await page.locator('#btnPlay').click();
+    await sitDown(page);
     const token = page.locator('#board .tok-many');
     for (const index of [0, 1, 2, 3, 4]) {
       await expect(token).toHaveAttribute('title', new RegExp('index ' + index + '\\b'));
@@ -829,8 +940,7 @@ test.describe('play screen', () => {
     await open(page, { fragment: 'resume=' + encodeURIComponent(
       'X1:M1:sandbox:5x5:0:tst:8:CP|CAPH,CWPH,CHPH|C~Rook,P~Vale'
     ) });
-    await page.locator('#pickRows .pickrow[data-color="C"]').click();
-    await page.locator('#btnPlay').click();
+    await sitDown(page);
 
     const cell = page.locator('#board .cell').first();
     await expect(cell.locator('.trail-cluster.corner')).toHaveCount(1);
@@ -861,7 +971,7 @@ test.describe('play screen', () => {
   });
 
   test('the turn cap freezes the match', async ({ page }) => {
-    await open(page);
+    await open(page, { remoteName: 'Rival' });
     await createMatch(page, { cap: '2' });
     await sitDown(page);
     await resolveTurn(page, 0, 'H', 'H', 'Rival');
@@ -891,7 +1001,7 @@ test.describe('play screen', () => {
   });
 
   test('the state hash moves with the match', async ({ page }) => {
-    await startMatch(page);
+    await startMatch(page, { remoteName: 'Vale' });
     const before = await stateHash(page);
     await expect(page.locator('#hashInfo')).toHaveText('state ' + before);
     await resolveTurn(page, 0, 'D', 'H', 'Vale');
@@ -907,8 +1017,7 @@ const INVERTED = 'X1:M1:sandbox:5x5:0:tst:8:CP|CDPH,CIPH|C~Rook,P~Vale';
 // Open a 5x5 match straight into play from a resume link.
 async function resume(page: Page, log: string) {
   await open(page, { fragment: 'resume=' + encodeURIComponent(log) });
-  await page.locator('#pickRows .pickrow[data-color="C"]').click();
-  await page.locator('#btnPlay').click();
+  await sitDown(page);
   await expect(page.locator('#play')).toBeVisible();
 }
 
@@ -953,7 +1062,7 @@ test.describe('board targets', () => {
   });
 
   test('a wall behind a move stays a wall and offers nothing', async ({ page }) => {
-    await open(page);
+    await open(page, { remoteName: 'Vale' });
     await createMatch(page, { seed: 'w0', wall: '20' });
     await sitDown(page);
     await resolveTurn(page, 0, 'S', 'H', 'Vale');
@@ -1011,7 +1120,7 @@ test.describe('rails', () => {
   });
 
   test('toasts stand in for the folded log, newest first', async ({ page }) => {
-    await startMatch(page);
+    await startMatch(page, { remoteName: 'Vale' });
     await resolveTurn(page, 0, 'H', 'H', 'Vale');
     await resolveTurn(page, 1, 'D', 'H');
     await expect(page.locator('#toasts')).toHaveCount(0);
@@ -1119,7 +1228,7 @@ test.describe('dock', () => {
   });
 
   test('a fully explored chart carries no hatching', async ({ page }) => {
-    await open(page);
+    await open(page, { remoteName: 'Vale' });
     await createMatch(page, { cap: '4' });
     await sitDown(page);
     for (let turn = 0; turn < 4; turn++) {
@@ -1159,7 +1268,7 @@ test.describe('dock', () => {
 
 test.describe('layout', () => {
   test('every strip row shares one column grid', async ({ page }) => {
-    await startMatch(page);
+    await startMatch(page, { remoteName: 'Vale' });
     await resolveTurn(page, 0, 'D', 'H', 'Vale');
     await resolveTurn(page, 1, 'D', 'H');
 
@@ -1194,7 +1303,7 @@ test.describe('layout', () => {
 test.describe('turn animation', () => {
   test('reduced motion sets no motion at all', async ({ page }) => {
     await page.emulateMedia({ reducedMotion: 'reduce' });
-    await startMatch(page);
+    await startMatch(page, { remoteName: 'Vale' });
     await expect(page.locator('#board')).toHaveClass(/noanim/);
     await resolveTurn(page, 0, 'D', 'H', 'Vale');
     await expect(page.locator('#youAt')).toHaveText('index 1 · t1 · forward · (2,1)');
@@ -1282,7 +1391,7 @@ test.describe('turn animation', () => {
   }
 
   test('a one-notch scrub slides', async ({ page }) => {
-    await startMatch(page);
+    await startMatch(page, { remoteName: 'Vale' });
     await resolveTurn(page, 0, 'D', 'H', 'Vale');
     await resolveTurn(page, 1, 'D', 'H');
     await page.keyboard.press('Escape');
@@ -1294,7 +1403,7 @@ test.describe('turn animation', () => {
   });
 
   test('a second scrub inside the motion window still slides', async ({ page }) => {
-    await startMatch(page);
+    await startMatch(page, { remoteName: 'Vale' });
     await resolveTurn(page, 0, 'D', 'H', 'Vale');
     await resolveTurn(page, 1, 'D', 'H');
     await resolveTurn(page, 2, 'D', 'H');
@@ -1309,7 +1418,7 @@ test.describe('turn animation', () => {
   });
 
   test('a resolved turn slides its token instead of teleporting', async ({ page }) => {
-    await startMatch(page);
+    await startMatch(page, { remoteName: 'Vale' });
     await resolveTurn(page, 0, 'D', 'H', 'Vale');
     await page.keyboard.press('Escape');
     await expect(page.locator('#board .tokslot[data-motion]')).toHaveCount(0);
@@ -1323,7 +1432,7 @@ test.describe('turn animation', () => {
   });
 
   test('both legs of a split colour slide', async ({ page }) => {
-    await open(page);
+    await open(page, { remoteName: 'Vale' });
     await createMatch(page, { w: '7', h: '7' });
     await sitDown(page);
     // Coral inverts on (3,1) and walks back down; the second S is the first turn both legs step.
@@ -1393,7 +1502,7 @@ test.describe('turn animation', () => {
   });
 
   test('a resolved turn stages its motions and a scrub does not', async ({ page }) => {
-    await startMatch(page);
+    await startMatch(page, { remoteName: 'Vale' });
     await resolveTurn(page, 0, 'D', 'H', 'Vale');
     const bodies = page.locator('#board .bodies');
     await expect(bodies).toHaveClass(/staged/);
@@ -1414,7 +1523,7 @@ test.describe('turn animation', () => {
   });
 
   test('an inversion settles the pill open and draws nothing over it', async ({ page }) => {
-    await startMatch(page);
+    await startMatch(page, { remoteName: 'Vale' });
     await resolveTurn(page, 0, 'D', 'H', 'Vale');
     await resolveTurn(page, 1, 'I', 'H');
 
@@ -1490,7 +1599,7 @@ test.describe('turn animation', () => {
   });
 
   test('a scene rebuild mid-animation leaves the running sequence alone', async ({ page }) => {
-    await startMatch(page);
+    await startMatch(page, { remoteName: 'Vale' });
     await resolveTurn(page, 0, 'D', 'H', 'Vale');
     const slot = page.locator('#board .tokslot[data-key="C/0"]');
     await expect(slot).toHaveAttribute('data-motion', 'slide');
@@ -1498,7 +1607,7 @@ test.describe('turn animation', () => {
     // Committing flips `choosing`, which is a real input to sceneAt, so the scene is rebuilt
     // while the slide is still running. Dispatched rather than clicked: a real pointerdown is
     // the deliberate skip-to-the-end, and that is not what this test is about.
-    await deliver(page, seal(1, 'P', 'H').commitment);
+    await peerCommit(page, 'H');
     await page.locator('#moveRail [data-act="D"]').dispatchEvent('click');
     await page.locator('#btnCommit').dispatchEvent('click');
     await expect(page.locator('#phaseShare')).toBeVisible();

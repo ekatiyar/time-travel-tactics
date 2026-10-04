@@ -1,9 +1,9 @@
 import { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } from 'preact/hooks';
 import { Fragment } from 'preact';
 
-import { COLORS, Match, Wire } from './engine/index.js';
-import type { Action, Color, ConfigInput, TurnEvent, ViewBody } from './engine/index.js';
-import { Board } from './board.js';
+import { COLORS, Match, Wire, previewBoard } from './engine/index.js';
+import type { Action, BoardPreviewData, Color, ConfigInput, TurnEvent, ViewBody } from './engine/index.js';
+import { Board, BoardPreview } from './board.js';
 import { instrumentAt, maxLookBack } from './instrument.js';
 import { describe, frontText, nameOf, plural, relativeDirection, sceneAt } from './scene.js';
 import type { Front } from './scene.js';
@@ -233,75 +233,111 @@ function messageOf(e: unknown): string {
 }
 
 type Form = { mode: string; w: string; h: string; wallPct: string; seed: string; cap: string; roster: string };
-
-function initialForm(): Form {
-  return {
-    mode: 'bootstrap', w: '16', h: '9', wallPct: '11',
-    seed: randomSeed(), cap: String(suggestCap(16, 9)), roster: 'CPTA'
-  };
-}
+const SIZES = [{ name: 'Small', w: 9, h: 7 }, { name: 'Standard', w: 16, h: 9 }, { name: 'Large', w: 24, h: 13 }];
 
 function SetupCard({ onMatch, initialError }: { onMatch: (m: Match) => void; initialError: string }) {
-  const [form, setForm] = useState<Form>(initialForm);
+  const [seeds, setSeeds] = useState(() => [randomSeed(), randomSeed(), randomSeed()]);
+  const [selected, setSelected] = useState(0);
+  const [form, setForm] = useState<Form>(() => ({
+    mode: 'bootstrap', w: '16', h: '9', wallPct: '11', seed: seeds[0]!, cap: String(suggestCap(16, 9)), roster: 'CP'
+  }));
+  const [customCap, setCustomCap] = useState(false);
   const [error, setError] = useState(initialError);
+  const layout = useMemo(() => {
+    try {
+      for (const key of ['w', 'h', 'wallPct', 'cap'] as const) {
+        if (!/^\d+$/.test(form[key])) throw new Error('Use whole numbers for dimensions, walls, and turn cap.');
+      }
+      const config: ConfigInput = { mode: form.mode, w: +form.w, h: +form.h, wallPct: +form.wallPct,
+        seed: form.seed.trim(), cap: +form.cap, roster: form.roster.split('') };
+      const board = previewBoard(config);
+      const candidates = seeds.map((seed, i) => {
+        if (i === selected) return board;
+        try { return previewBoard({ ...config, seed }); } catch { return null; }
+      });
+      return { config, board, candidates, error: '' };
+    } catch (e) { return { config: null, board: null, candidates: [], error: messageOf(e) }; }
+  }, [form, seeds, selected]);
 
-  // Board size resets the suggested cap.
-  const size = (key: 'w' | 'h') => (e: { currentTarget: HTMLInputElement }) => {
-    const value = e.currentTarget.value;
+  function update(key: keyof Form, value: string) {
+    setError('');
+    if (key === 'cap') setCustomCap(true);
+    if (key === 'seed') setSeeds((old) => old.map((seed, i) => i === selected ? value : seed));
     setForm((f) => {
       const next = { ...f, [key]: value };
-      return { ...next, cap: String(suggestCap(+next.w || 16, +next.h || 9)) };
+      if ((key === 'w' || key === 'h') && !customCap) next.cap = String(suggestCap(+next.w || 16, +next.h || 9));
+      return next;
     });
-  };
-  const field = (key: keyof Form) => (e: { currentTarget: HTMLInputElement | HTMLSelectElement }) => {
-    const value = e.currentTarget.value;
-    setForm((f) => ({ ...f, [key]: value }));
-  };
-
-  function make() {
-    const cfg: ConfigInput = {
-      mode: form.mode, w: +form.w, h: +form.h, wallPct: +form.wallPct,
-      seed: form.seed.trim(), cap: +form.cap, roster: form.roster.split('')
-    };
-    try {
-      onMatch(Match.fromConfig(cfg));
-      setError('');
-    } catch (e) {
-      setError(messageOf(e));
-    }
   }
-
+  function chooseSize(w: number, h: number) {
+    setError(''); setForm((f) => ({ ...f, w: String(w), h: String(h), cap: customCap ? f.cap : String(suggestCap(w, h)) }));
+  }
+  function chooseSeed(i: number) { setSelected(i); setError(''); setForm((f) => ({ ...f, seed: seeds[i]! })); }
+  function reroll() {
+    const next = [randomSeed(), randomSeed(), randomSeed()];
+    setSeeds(next); setSelected(0); setError(''); setForm((f) => ({ ...f, seed: next[0]! }));
+  }
+  const preset = SIZES.find((s) => s.w === +form.w && s.h === +form.h);
+  const input = (key: keyof Form) => (e: { currentTarget: HTMLInputElement }) => update(key, e.currentTarget.value);
   return (
-    <div class="card">
-      <div id="paneNew">
-        <h2>Set the board, then share the link.</h2>
-        <div class="grid2">
-          <div>
-            <label class="f">Width <input id="fW" type="number" min="5" max="64" value={form.w} onInput={size('w')} /></label>
-            <label class="f">Height <input id="fH" type="number" min="5" max="64" value={form.h} onInput={size('h')} /></label>
-            <label class="f">Walls (%) <input id="fWall" type="number" min="0" max="45" value={form.wallPct} onInput={field('wallPct')} /></label>
+    <div id="paneNew" class="intro-grid">
+      <div class="setup-controls">
+        <section class="card">
+          <h2>Choose a mode</h2>
+          <div class="mode-cards" role="group" aria-label="Mode">
+            <button data-mode="bootstrap" aria-pressed={form.mode === 'bootstrap'} class="mode-card" onClick={() => update('mode', 'bootstrap')}>
+              <strong>Bootstrap</strong><span>Grab the key, then return to t0 beside your own spawn to win.</span>
+            </button>
+            <button data-mode="sandbox" aria-pressed={form.mode === 'sandbox'} class="mode-card" onClick={() => update('mode', 'sandbox')}>
+              <strong>Sandbox</strong><span>Explore movement, inversion, and history. No key or winner.</span>
+            </button>
           </div>
-          <div>
-            <label class="f">Mode
-              <select id="fMode" value={form.mode} onChange={field('mode')}>
-                <option value="bootstrap">Bootstrap: bring the key home</option>
-                <option value="sandbox">Sandbox: no winner</option>
-              </select>
-            </label>
-            <label class="f">Seed <input id="fSeed" type="text" value={form.seed} onInput={field('seed')} /></label>
-            <label class="f">Turn cap <input id="fCap" type="number" min="2" max="400" value={form.cap} onInput={field('cap')} /></label>
-            <label class="f">Players
-              <select id="fRoster" value={form.roster} onChange={field('roster')}>
-                <option value="CP">2: Coral, Purple</option>
-                <option value="CPT">3: Coral, Purple, Teal</option>
-                <option value="CPTA">4: Coral, Purple, Teal, Amber</option>
-              </select>
-            </label>
+        </section>
+        <section class="card">
+          <h2>Board size {!preset && <span class="mono">· Custom</span>}</h2>
+          <div class="preset-buttons" role="group" aria-label="Board size">
+            {SIZES.map((s) => <button key={s.name} data-size={s.name} aria-pressed={preset?.name === s.name}
+              onClick={() => chooseSize(s.w, s.h)}>{s.name}<small>{s.w} × {s.h}</small></button>)}
           </div>
-        </div>
-        <button id="btnMake" style="width:100%;margin-top:6px;" onClick={make}>Create match</button>
+          <h2 class="players-heading">Players</h2>
+          <div class="player-buttons" role="group" aria-label="Players">
+            {['CP', 'CPT', 'CPTA'].map((roster) => <button key={roster} data-roster={roster}
+              aria-pressed={form.roster === roster} onClick={() => update('roster', roster)}>{roster.length} players</button>)}
+          </div>
+          <details class="advanced">
+            <summary>Advanced</summary>
+            <div class="grid2">
+              <div>
+                <label class="f">Width <input id="fW" type="number" min="5" max="64" step="1" value={form.w} onInput={input('w')} /></label>
+                <label class="f">Height <input id="fH" type="number" min="5" max="64" step="1" value={form.h} onInput={input('h')} /></label>
+                <label class="f">Walls (%) <input id="fWall" type="number" min="0" max="45" step="1" value={form.wallPct} onInput={input('wallPct')} /></label>
+              </div>
+              <div>
+                <label class="f">Turn cap <input id="fCap" type="number" min="2" max="400" step="1" value={form.cap} onInput={input('cap')} /></label>
+                <label class="f">Seed <input id="fSeed" type="text" maxLength={24} value={form.seed} onInput={input('seed')} /></label>
+              </div>
+            </div>
+          </details>
+        </section>
       </div>
-      <div id="setupErr" class="err">{error}</div>
+      <section class="card preview-panel">
+        <div class="preview-head"><h2>Board preview</h2><span class="mono">{form.w} × {form.h}</span></div>
+        {layout.board ? <BoardPreview board={layout.board} /> : <div class="preview-invalid">Enter valid settings to preview the board.</div>}
+        <div class="seed-options" role="group" aria-label="Seed candidates">
+          {seeds.map((seed, i) => <button key={i} class="seed-option" aria-label={'Select seed ' + (i + 1)}
+            aria-pressed={selected === i} onClick={() => chooseSeed(i)}>
+            {layout.candidates[i] && <BoardPreview board={layout.candidates[i]!} label={'Seed ' + (i + 1) + ' preview'} />}
+            <span>{seed || 'Empty seed'}</span>
+          </button>)}
+          <button id="btnReroll" onClick={reroll}>Reroll</button>
+        </div>
+        {layout.board && <p class="preview-summary">{form.w} × {form.h} · {form.roster.length} players · {layout.board.walls.length} walls<br />
+          <span class="mono">seed {form.seed}</span> · {form.cap} turns</p>}
+        <p id="setupErr" class="err" role="alert">{layout.error || error}</p>
+        <button id="btnMake" class="primary create-match" disabled={!layout.config} onClick={() => {
+          if (layout.config) onMatch(Match.fromConfig(layout.config));
+        }}>Create match</button>
+      </section>
     </div>
   );
 }
@@ -338,84 +374,76 @@ function CopyButton(
 
 const NAME_RE = /^[A-Za-z0-9_-]{1,12}$/;
 
-type PickerProps = {
-  link: string;
-  view: SessionView;
-  name: string;
-  setName: (name: string) => void;
-  chosen: Color | null;
-  setChosen: (c: Color) => void;
-  onSit: () => void;
-  onNew: () => void;
-};
+function lobbyStatus(v: SessionView): string {
+  if (v.status === 'failed' || v.status === 'offline') return 'Could not connect. Reopen the match link to try again.';
+  if (v.phase === 'connecting') return 'Connecting…';
+  if (v.phase === 'electing') return 'Choosing a host…';
+  if (v.phase === 'mismatch') return 'Snapshots differ. Everyone needs to open the same chosen resume link.';
+  if (v.phase === 'full') return 'Match full. All seats are occupied.';
+  if (v.phase === 'agreeing') return 'Confirming the roster and saved game…';
+  const missing = v.seats.filter((s) => !s.present).length;
+  if (missing) return 'Waiting for ' + plural(missing, 'player') + '. Share the link to fill the remaining seats.';
+  return 'Waiting for everyone to be ready.';
+}
 
-function PickCard(p: PickerProps) {
-  const seatOf = (c: Color) => p.view.seats.find((seat) => seat.color === c)!;
-
-  const chosenSeat = p.chosen ? seatOf(p.chosen) : null;
-  const fixed = Boolean(chosenSeat && (chosenSeat.locked || chosenSeat.state === 'taken'));
-  const fieldValue = fixed ? chosenSeat?.name ?? '' : p.name;
-  const typed = fieldValue.trim();
-  const badName = typed.length > 0 && !NAME_RE.test(typed);
-  const live = p.view.status === 'live';
-  const canPlay = Boolean(live && p.chosen && chosenSeat?.state !== 'taken' && typed && !badName);
-
-  const waiting = live ? '' : p.view.status === 'failed'
-    ? 'Could not connect. ' + (p.view.detail || 'The relays did not answer.')
-    : 'Waiting for ' + plural(p.view.peersNeeded, 'player') + '.';
-
-  function sit() {
-    if (!canPlay || !p.chosen) return;
-    p.onSit();
-  }
-
-  return (
-    <div id="pickCard">
-      <div class="card">
-        <div class="lobby-head">
-          <h2>Choose a color and a name.</h2>
-          <div class="lobby-actions">
-            <CopyButton id="btnCopyJoin" value={p.link} label="Copy join link" />
-            <button id="btnNewLobby" onClick={p.onNew}>New match</button>
-          </div>
-        </div>
-        <div id="pickRows">
-          {p.view.roster.map((c) => {
-            const seat = seatOf(c);
-            const taken = seat.state === 'taken';
-            return (
-              <div
-                key={c}
-                class={'pickrow' + (p.chosen === c ? ' on' : '') + (taken ? ' taken' : '')}
-                data-color={c}
-                onClick={() => {
-                  p.setChosen(c);
-                }}
-              >
-                <Swatch color={c} />
-                <span class="sec">{COLORS[c].name}</span>
-              </div>
-            );
-          })}
-        </div>
-        <label class="pickname sec" for="pickName">
-          Name
-          <input
-            id="pickName" type="text" maxLength={12} placeholder={p.chosen ? 'Name' : 'Choose a color first'}
-            value={fieldValue} disabled={!p.chosen || fixed}
-            onInput={(e) => { if (!fixed) p.setName(e.currentTarget.value); }}
-            onKeyDown={(e) => { if (e.key === 'Enter') sit(); }}
-          />
-        </label>
-        <div id="nameErr" class="err">
-          {badName ? 'Use letters, digits, hyphens, or underscores. Max 12 characters.' : ''}
-        </div>
-        <div id="pickErr" class="err">{p.view.notice || p.view.error || ''}</div>
-        <div id="pickWait" class="sec" style="margin-top:12px;">{waiting}</div>
-        <button id="btnPlay" style="width:100%;margin-top:12px;" disabled={!canPlay} onClick={sit}>Play</button>
+function Lobby({ session, view, link, onNew, name, setName }: {
+  session: Session; view: SessionView; link: string; onNew: () => void;
+  name: string | null; setName: (name: string) => void;
+}) {
+  const [notice, setNotice] = useState('');
+  const v = view, local = v.seats.find((s) => s.isLocal);
+  const historical = v.started;
+  const typed = name ?? local?.name ?? '';
+  const badName = !historical && !NAME_RE.test(typed.trim());
+  const preview: BoardPreviewData = { w: v.w, h: v.h, roster: v.roster, walls: v.walls, spawns: v.spawns,
+    center: v.center, keyAtCenter: v.mode === 'bootstrap' };
+  return <section id="pickCard" class="card lobby-card">
+    <div class="lobby-head">
+      <div><h2>{historical ? 'Resume the match' : 'Your lobby'}</h2>
+        <p class="sec">{historical ? 'Choose an available historical seat, then ready up.' : 'Your colour and spawn are assigned. Set your name, then ready up.'}</p></div>
+      <div class="lobby-actions">
+        <CopyButton id={v.phase === 'mismatch' ? 'btnCopyResume' : 'btnCopyJoin'} value={link}
+          label={v.phase === 'mismatch' ? 'Copy my resume link' : historical ? 'Copy resume link' : 'Copy join link'} />
+        <button id="btnNewLobby" onClick={onNew}>New match</button>
       </div>
     </div>
-  );
+    <div class="lobby-grid">
+      <div class="lobby-preview"><BoardPreview board={preview} label="Board layout and fixed spawns" />
+        <p class="preview-summary">{v.w} × {v.h} · {v.walls.length} walls · <span class="mono">seed {v.seed}</span><br />
+          {historical ? 'Saved turn ' + v.turn : 'Colours start at the marked corners.'}</p>
+      </div>
+      <div>
+        <ul id="pickRows" class="lobby-roster" aria-label="Players">
+          {v.seats.map((seat) => <li key={seat.color} data-color={seat.color} class={'lobby-seat' + (seat.isLocal ? ' local' : '')}>
+            <div class="seat-heading"><Swatch color={seat.color} /><strong>{COLORS[seat.color].name}</strong>
+              <span class="seat-tags">{[seat.isLocal ? 'you' : '', seat.isHost ? 'host' : ''].filter(Boolean).join(' · ')}</span></div>
+            <div class="seat-spawn mono">spawn ({v.spawns[seat.color]?.join(', ')})</div>
+            {seat.isLocal && !historical ? <label class="seat-name" for="pickName">Name
+              <input id="pickName" maxLength={12} disabled={!v.canEditName} value={typed} aria-invalid={badName} aria-describedby="nameErr"
+                onInput={(e) => {
+                  const text = e.currentTarget.value; setName(text); setNotice('');
+                  if (NAME_RE.test(text.trim())) {
+                    const result = session.join(text.trim()); if (!result.ok) setNotice(result.error ?? 'Could not update name.');
+                  } else session.ready(false);
+                }} />
+            </label> : <div class="seat-name">{seat.name || 'Waiting for a player'}</div>}
+            <div class={'seat-status' + (seat.ready ? ' ready' : '')}>{seat.present ? seat.ready ? 'Ready' : 'Not ready' : historical ? 'Disconnected · seat available' : 'Open seat'}</div>
+            {seat.canClaim && <button class="claim-seat" onClick={() => {
+              const r = session.requestSeat(seat.color); setNotice(r.error ?? '');
+            }}>Claim {COLORS[seat.color].name}</button>}
+          </li>)}
+        </ul>
+        {local && !historical && <p id="nameErr" class="err" role="alert">{badName ? 'Use 1–12 letters, digits, hyphens, or underscores.' : ''}</p>}
+        <p id="pickWait" class="lobby-status" role="status">{lobbyStatus(v)}</p>
+        <p id="pickErr" class="err" role="alert">{notice || v.error || v.notice || v.detail || ''}</p>
+        {local && v.phase !== 'mismatch' && <button id="btnReady" class="primary ready-button" disabled={!v.canReady || badName}
+          aria-pressed={local.ready} onClick={() => { const r = session.ready(!local.ready); setNotice(r.error ?? ''); }}>
+          {local.ready ? 'Not ready' : 'Ready'}
+        </button>}
+        {v.hostId === v.localId && !local && <p class="sec">You are hosting. You can choose any available seat.</p>}
+      </div>
+    </div>
+  </section>;
 }
 
 const LABEL: Record<Action, string> = {
@@ -727,11 +755,11 @@ function InstrumentSvg({ view, focusT, lookBack, width }: {
 }
 
 type PlayProps = {
-  session: Session; view: SessionView; onNew: () => void;
+  session: Session; view: SessionView; link: string; onNew: () => void;
   theme: Theme; onTheme: () => void;
 };
 
-function PlayScreen({ session, view, onNew, theme, onTheme }: PlayProps) {
+function PlayScreen({ session, view, link, onNew, theme, onTheme }: PlayProps) {
   const v = view;
 
   const [pick, setPick] = useState<Action | null>(null);
@@ -751,7 +779,7 @@ function PlayScreen({ session, view, onNew, theme, onTheme }: PlayProps) {
   const done = committed(v);
   const over = v.outcome.status !== 'running';
   const reasons = reasonsOf(v);
-  const choosing = !over && !done;
+  const choosing = v.canCommit && !over && !done;
   const showLog = logOpen && !narrow;
   const showMove = moveOpen && !narrow;
 
@@ -761,7 +789,7 @@ function PlayScreen({ session, view, onNew, theme, onTheme }: PlayProps) {
     return () => { document.body.classList.remove('playing'); };
   }, []);
 
-  useEffect(() => {
+  useLayoutEffect(() => {
     if (!raised) return;
     const drop = (): void => { setRaised(false); };
     window.addEventListener('pointerup', drop);
@@ -783,17 +811,17 @@ function PlayScreen({ session, view, onNew, theme, onTheme }: PlayProps) {
   );
 
   // Prefer hold, then invert, so Commit always names a legal action.
-  const active: Action | null = over || done ? null
+  const active: Action | null = !choosing ? null
     : pick && legalNow(v, pick) ? pick
       : legalNow(v, 'H') ? 'H' : legalNow(v, 'I') ? 'I' : null;
 
   const aim = useCallback((a: Action) => {
-    if (over || done || !legalNow(v, a)) return;
+    if (!v.canCommit || over || done || !legalNow(v, a)) return;
     setPick(a);
   }, [v, done]);
 
   const commit = useCallback(async () => {
-    if (!active || busy) return;
+    if (!v.canCommit || !active || busy) return;
     setBusy(true);
     const r = await session.commit(active);
     setBusy(false);
@@ -801,7 +829,7 @@ function PlayScreen({ session, view, onNew, theme, onTheme }: PlayProps) {
     setPickMsg('');
     setShareMsg('');
     setPick(null);
-  }, [session, active, busy]);
+  }, [session, active, busy, v.canCommit]);
 
   const undo = useCallback(() => {
     const r = session.withdraw();
@@ -849,7 +877,7 @@ function PlayScreen({ session, view, onNew, theme, onTheme }: PlayProps) {
         id={id}
         data-act={a}
         style={style}
-        disabled={reason !== null}
+        disabled={!v.canCommit || reason !== null}
         title={reason || hint}
         class={active === a ? 'sel' : ''}
         onClick={() => { aim(a); }}
@@ -862,7 +890,7 @@ function PlayScreen({ session, view, onNew, theme, onTheme }: PlayProps) {
   const movePanel = (
     <Fragment>
       <div id="phasePick" class={over || done ? 'hide' : ''}>
-        <h3>Your move</h3>
+        <h3>{v.pauseReason === 'checkpoint' ? 'Confirming the completed turn…' : 'Your move'}</h3>
         <div class="dpad" id="dpad">
           <div class="blank" />
           {padButton('W', '↑', 'W', 'move up')}
@@ -894,6 +922,7 @@ function PlayScreen({ session, view, onNew, theme, onTheme }: PlayProps) {
       </div>
 
       {!over && <Dots view={v} />}
+      <CopyButton id="btnCopyPlay" value={link} label="Copy resume link" />
       <div class="err" id="netErr">{v.error || v.notice || ''}</div>
     </Fragment>
   );
@@ -1029,7 +1058,7 @@ function PlayScreen({ session, view, onNew, theme, onTheme }: PlayProps) {
 
 type LinkKind = 'join' | 'resume';
 type Live = {
-  session: Session; link: string; resumeTurn: number | null;
+  session: Session; code: string;
 };
 
 type Startup = {
@@ -1087,104 +1116,58 @@ export function App({ loadRoom }: { loadRoom: RoomLoader }) {
   const [setupKey, setSetupKey] = useState(0);
   const [live, setLive] = useState<Live | null>(null);
   const liveRef = useRef<Live | null>(null);
-  const [name, setName] = useState('');
-  const [chosen, setChosen] = useState<Color | null>(null);
-  const [playing, setPlaying] = useState(false);
-  // Session mutates in place, so messages need an explicit redraw.
+  const [name, setName] = useState<string | null>(null);
   const [, setTick] = useState(0);
   const redraw = useCallback(() => { setTick((n) => n + 1); }, []);
 
-  const openMatch = useCallback((m: Match, imported: Names = {}, kind: LinkKind = 'join') => {
+  const openMatch = useCallback((m: Match, imported: Names = {}, entry: 'create' | LinkKind = 'create') => {
     const code = Wire.encodeMatchCode(m.config());
-    if (liveRef.current) liveRef.current.session.close();
+    liveRef.current?.session.close();
+    replaceLink(entry === 'resume' ? 'resume' : 'join', entry === 'resume' ? trimUnresolved(m.export(imported)) : code);
     const channel = PeerChannel(Code.roomId(code), loadRoom);
-    const session = Session.open({ match: m, channel, names: imported, onChange: redraw });
-    const payload = kind === 'join' ? code : trimUnresolved(session.export());
-    const next = {
-      session, link: replaceLink(kind, payload), resumeTurn: null
-    };
-    liveRef.current = next;
-    setLive(next);
-    setName('');
-    setChosen(null);
-    setPlaying(false);
-    setSetupError('');
+    const session = Session.open({ match: m, channel, names: imported, entry, onChange: redraw });
+    const next = { session, code };
+    liveRef.current = next; setLive(next); setName(null); setSetupError('');
+    if (entry !== 'resume') session.join('Player');
   }, [loadRoom, redraw]);
 
   useEffect(() => {
     if (startup.match && startup.kind) openMatch(startup.match, startup.names, startup.kind);
   }, [startup, openMatch]);
+  useEffect(() => () => { liveRef.current?.session.close(); }, []);
 
-  const seated = live ? live.session.color() !== null : false;
-  const showPlay = playing && seated;
-  const view = live ? live.session.view() : null;
-  useEffect(() => {
-    if (playing && !seated) setPlaying(false);
-  }, [playing, seated]);
-
-  useEffect(() => {
-    if (!showPlay || !live || !view || live.resumeTurn === view.turn) return;
-    live.link = replaceLink('resume', trimUnresolved(live.session.export()));
-    live.resumeTurn = view.turn;
-  }, [showPlay, live, view?.turn]);
-
-  function sit() {
-    if (!live || !chosen) return;
-    const r = live.session.claim(chosen, name.trim());
-    if (!r.ok) { redraw(); return; }
-    setPlaying(true);
-  }
+  const view = live?.session.view() ?? null;
+  useLayoutEffect(() => {
+    if (live && view?.localColor && !view.started && name === null) {
+      const initialName = COLORS[view.localColor].name;
+      setName(initialName); live.session.join(initialName);
+    }
+  }, [live, view?.localColor, view?.started, name]);
+  const showPlay = !!view?.localColor && ['playing', 'paused', 'ended'].includes(view.phase);
+  const linkKind: LinkKind = view?.started || view?.phase === 'mismatch' ? 'resume' : 'join';
+  const payload = live ? linkKind === 'resume' ? live.session.export() : live.code : '';
+  const url = new URL(window.location.href);
+  if (live) url.hash = linkKind + '=' + encodeURIComponent(payload);
+  const link = url.href;
+  useEffect(() => { if (live && window.location.href !== link) replaceLink(linkKind, payload); }, [live, linkKind, payload, link]);
 
   function newMatch(): void {
-    if (showPlay && !window.confirm('Start a new match? The current match will be left.')) return;
-    liveRef.current?.session.close();
-    liveRef.current = null;
-    setLive(null);
-    setName('');
-    setChosen(null);
-    setPlaying(false);
-    setSetupError('');
-    setSetupKey((n) => n + 1);
-    clearLink();
+    if (view?.started && !window.confirm('Start a new match? The current match will be left.')) return;
+    liveRef.current?.session.close(); liveRef.current = null; setLive(null);
+    setName(null); setSetupError(''); setSetupKey((n) => n + 1); clearLink();
   }
-
   function toggleTheme(): void {
-    const next: Theme = theme === 'light' ? 'dark' : 'light';
-    applyTheme(next);
-    setTheme(next);
+    const next: Theme = theme === 'light' ? 'dark' : 'light'; applyTheme(next); setTheme(next);
   }
+  if (showPlay && live && view) return <PlayScreen session={live.session} view={view} link={link}
+    onNew={newMatch} theme={theme} onTheme={toggleTheme} />;
 
-  if (showPlay && live && view) {
-    return (
-      <PlayScreen
-        session={live.session} view={view} onNew={newMatch}
-        theme={theme} onTheme={toggleTheme}
-      />
-    );
-  }
-
-  return (
-    <div class="wrap">
-      <div style="display:flex;justify-content:space-between;align-items:flex-start;gap:16px;">
-        <div>
-          <h1>Time travel tactics</h1>
-          <p class="sub">A multiplayer time-travel tactics prototype.</p>
-        </div>
-        <button id="btnTheme" title="Switch between dark and light" onClick={toggleTheme}>
-          {theme === 'light' ? 'Dark' : 'Light'}
-        </button>
-      </div>
-
-      <div id="setup" class="narrow">
-        {!live && <SetupCard key={setupKey} initialError={setupError} onMatch={(m) => { openMatch(m); }} />}
-        {live && view && (
-          <PickCard
-            link={live.link} view={view}
-            name={name} setName={setName}
-            chosen={chosen} setChosen={setChosen} onSit={sit} onNew={newMatch}
-          />
-        )}
-      </div>
-    </div>
-  );
+  return <div class="wrap intro-wrap">
+    <header class="intro-header"><div><h1>Time travel tactics</h1><p class="sub">Every move leaves a history.</p></div>
+      <button id="btnTheme" title="Switch between dark and light" onClick={toggleTheme}>{theme === 'light' ? 'Dark' : 'Light'}</button></header>
+    <main id="setup">
+      {!live && <SetupCard key={setupKey} initialError={setupError} onMatch={(m) => openMatch(m)} />}
+      {live && view && <Lobby session={live.session} view={view} link={link} onNew={newMatch} name={name} setName={setName} />}
+    </main>
+  </div>;
 }

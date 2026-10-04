@@ -10,9 +10,8 @@ declare global {
 const LIVE = 60_000;
 const RESOLVE = 30_000;
 
-const CLAIM = /^!/;
-const COMMIT = /^#\d{1,4}[CPTA]:[0-9a-f]{32}$/;
-const REVEAL = /\|[0-9a-f]{32}$/;
+type Packet = { v: number; type: string; value: { turn?: number; color?: string; action?: string; nonce?: string } };
+function packets(wire: string[]): Packet[] { return wire.map((text) => JSON.parse(text) as Packet); }
 
 // Wrap the room in place because its callbacks are accessors.
 function wireTap(file: string): string {
@@ -92,25 +91,30 @@ function wireOf(page: Page): Promise<string[]> {
   return page.evaluate(() => window.__wire);
 }
 
-async function sitDown(page: Page, label: string, color: string, name: string) {
-  const row = page.locator(`#pickRows .pickrow[data-color="${color}"]`);
-  await row.click();
-  await page.locator('#pickName').fill(name);
-  await expect(
-    page.locator('#btnPlay'),
-    `page ${label}: the channel never reported live, so the relays or the peer connection never came up`
-  ).toBeEnabled({ timeout: LIVE });
-  await page.locator('#btnPlay').click();
-  await expect(page.locator('#play'), `page ${label}: never reached the play screen`).toBeVisible();
+async function sitDown(page: Page, label: string, color: string, name: string, resumed = false) {
+  if (resumed) await page.getByRole('button', { name: `Claim ${color === 'C' ? 'Coral' : 'Purple'}`, exact: true }).click();
+  if (resumed) await expect(page.locator(`#pickRows li[data-color="${color}"]`)).toContainText('you', { timeout: LIVE });
+  else {
+    await expect(page.locator('#pickName'), `page ${label}: the relay connection did not assign a seat`)
+      .toBeVisible({ timeout: LIVE });
+    await page.locator('#pickName').fill(name);
+  }
+  await expect(page.locator('#btnReady'), `page ${label}: ownership was never confirmed`)
+    .toBeEnabled({ timeout: LIVE });
+  await page.locator('#btnReady').click();
+  await expect(page.locator('#play'), `page ${label}: owners never agreed on the starting snapshot`)
+    .toBeVisible({ timeout: LIVE });
+  await expect(page.locator('#btnCommit')).toBeEnabled({ timeout: LIVE });
 }
 
 async function createMatch(page: Page, cfg: { mode: string; seed: string; cap: string }) {
-  await page.locator('#fMode').selectOption(cfg.mode);
+  await page.locator(`[data-mode="${cfg.mode}"]`).click();
+  await page.getByText('Advanced', { exact: true }).click();
   await page.locator('#fW').fill('5');
   await page.locator('#fH').fill('5');
   await page.locator('#fWall').fill('0');
   await page.locator('#fSeed').fill(cfg.seed);
-  await page.locator('#fRoster').selectOption('CP');
+  await page.locator('[data-roster="CP"]').click();
   await page.locator('#fCap').fill(cfg.cap);
   await page.locator('#btnMake').click();
   return `M1:${cfg.mode}:5x5:0:${cfg.seed}:${cfg.cap}:CP`;
@@ -159,9 +163,9 @@ async function playTurn(a: Page, b: Page, turn: number) {
     .toHaveAttribute('title', /Still choosing: Vale\./);
 
   const held = await wireOf(a);
-  expect(held.filter((t) => COMMIT.test(t)).some((t) => t.startsWith(`#${turn}C:`)),
+  expect(packets(held).some((packet) => packet.type === 'commit' && packet.value.turn === turn && packet.value.color === 'C'),
     `turn ${turn}: page A's commitment never went out`).toBe(true);
-  expect(held.filter((t) => REVEAL.test(t)).length,
+  expect(packets(held).filter((packet) => packet.type === 'reveal').length,
     `turn ${turn}: page A revealed before page B had committed anything`).toBe(turn);
 
   expect(await turnInfo(b), `turn ${turn}: page B advanced on page A's commitment alone`)
@@ -190,7 +194,7 @@ test('two players resolve two turns over real relays', async ({ browser }) => {
 
   const code = await createMatch(a, { mode: 'bootstrap', seed, cap: '8' });
   const b = await open(browser, 'B', 'join=' + encodeURIComponent(code));
-  await expect(b.locator('#pickRows .pickrow')).toHaveCount(2);
+  await expect(b.locator('#pickRows li')).toHaveCount(2);
 
   await Promise.all([sitDown(a, 'A', 'C', 'Rook'), sitDown(b, 'B', 'P', 'Vale')]);
 
@@ -200,20 +204,18 @@ test('two players resolve two turns over real relays', async ({ browser }) => {
   const wireA = await wireOf(a);
   const wireB = await wireOf(b);
 
-  const bad = [...wireA, ...wireB].filter(
-    (t) => !(CLAIM.test(t) || COMMIT.test(t) || REVEAL.test(t))
-  );
-  expect(bad, 'a page sent something that is neither a claim, a commitment nor a reveal')
-    .toEqual([]);
-
+  const allowed = new Set(['hello', 'lobby', 'request', 'consent', 'proposal', 'activate', 'ack', 'commit', 'reveal', 'checkpoint']);
   for (const [label, wire] of [['A', wireA], ['B', wireB]] as const) {
-    expect(wire.filter((t) => CLAIM.test(t)).length, `page ${label} sent no claim`)
-      .toBeGreaterThanOrEqual(1);
-    expect(wire.filter((t) => COMMIT.test(t)).length, `page ${label} sent under two commitments`)
-      .toBeGreaterThanOrEqual(2);
-    expect(wire.filter((t) => REVEAL.test(t)).length, `page ${label} sent under two reveals`)
-      .toBeGreaterThanOrEqual(2);
+    const messages = packets(wire);
+    expect(messages.every((packet) => packet.v === 2 && allowed.has(packet.type)), `page ${label} sent foreign protocol traffic`).toBe(true);
+    expect(messages.filter((packet) => packet.type === 'commit').length, `page ${label} sent under two commitments`).toBeGreaterThanOrEqual(2);
+    expect(messages.filter((packet) => packet.type === 'reveal').length, `page ${label} sent under two reveals`).toBeGreaterThanOrEqual(2);
+    for (const packet of messages.filter((packet) => packet.type === 'commit')) {
+      expect(packet.value.action).toBeUndefined();
+      expect(packet.value.nonce).toBeUndefined();
+    }
   }
+
 });
 
 test('a bootstrap win is reported on both sides over real relays', async ({ browser }) => {
@@ -221,7 +223,7 @@ test('a bootstrap win is reported on both sides over real relays', async ({ brow
   const a = await open(browser, 'A');
   const code = await createMatch(a, { mode: 'bootstrap', seed, cap: '12' });
   const b = await open(browser, 'B', 'join=' + encodeURIComponent(code));
-  await expect(b.locator('#pickRows .pickrow')).toHaveCount(2);
+  await expect(b.locator('#pickRows li')).toHaveCount(2);
 
   await Promise.all([sitDown(a, 'A', 'C', 'Rook'), sitDown(b, 'B', 'P', 'Vale')]);
 
@@ -235,4 +237,27 @@ test('a bootstrap win is reported on both sides over real relays', async ({ brow
   await expect(a.locator('#phaseOver h3')).toHaveText('You won');
   await expect(b.locator('#phaseOver'), 'page B never saw the match end').toBeVisible({ timeout: RESOLVE });
   await expect(b.locator('#phaseOver h3')).toHaveText('Rook won');
+});
+
+
+test('host loss transfers coordination and a resumed visitor reclaims Coral', async ({ browser }) => {
+  test.setTimeout(180_000);
+  const seed = randomBytes(6).toString('hex');
+  const a = await open(browser, 'A');
+  const code = await createMatch(a, { mode: 'sandbox', seed, cap: '8' });
+  const b = await open(browser, 'B', 'join=' + encodeURIComponent(code));
+  await Promise.all([sitDown(a, 'A', 'C', 'Rook'), sitDown(b, 'B', 'P', 'Vale')]);
+  await playActions(a, b, 0, 'H', 'H');
+  const fragment = await b.evaluate(() => location.hash.slice(1));
+  const boundaryHash = await stateHash(b);
+  await a.context().close();
+  await expect(b.locator('#play')).toBeHidden({ timeout: LIVE });
+  await expect(b.locator('#pickCard'), 'the survivor did not return to the vacant-seat lobby').toBeVisible({ timeout: LIVE });
+  const c = await open(browser, 'C', fragment);
+  await expect(c.getByRole('button', { name: 'Claim Coral', exact: true })).toBeEnabled({ timeout: LIVE });
+  await sitDown(c, 'C', 'C', 'Rook', true);
+  await expect(b.locator('#btnCommit')).toBeEnabled({ timeout: LIVE });
+  expect(await stateHash(b)).toBe(boundaryHash);
+  expect(await stateHash(c)).toBe(boundaryHash);
+  await playActions(c, b, 1, 'H', 'H');
 });

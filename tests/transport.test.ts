@@ -1,1111 +1,450 @@
 import { describe, it } from 'node:test';
 import assert from 'node:assert/strict';
-
-import { Session, Code, trimUnresolved, LoopbackChannel } from '../play/src/transport.js';
+import { Session, Code, trimUnresolved } from '../play/src/transport.js';
 import { Match, Wire, metaTurn } from '../play/src/engine/index.js';
-import type { Action, Color, Config } from '../play/src/engine/index.js';
-import type { Channel, LoopbackEnd } from '../play/src/transport.js';
-
-function makeEnd(id?: string): LoopbackEnd {
-  return LoopbackChannel.make(id);
-}
-function makePair(): [LoopbackEnd, LoopbackEnd] {
-  return LoopbackChannel.pair();
-}
+import type { Color, Config } from '../play/src/engine/index.js';
+import { QueuedNetwork, messageType } from './helpers/queued-channel.js';
 
 type Sess = ReturnType<typeof Session.open>;
+const CONFIG: Config = {
+  mode: 'sandbox', w: 16, h: 9, wallPct: 0, seed: 'test', cap: 40, roster: ['C', 'P']
+};
+const NAMES = { C: 'Rook', P: 'Vale', T: 'Nim', A: 'Ash' };
 
-function seatOf(s: Sess, color: Color) {
-  const seat = s.view().seats.find((candidate) => candidate.color === color);
-  assert.ok(seat, 'missing seat ' + color);
-  return seat;
+function decoded(raw: string) {
+  const result = Wire.decodeExport(raw);
+  assert.ok(result.ok, 'export should decode');
+  return result.value;
 }
-
-function matches(actual: string | null, re: RegExp, message?: string): void {
-  assert.ok(actual !== null, message ?? 'expected text matching ' + re + ', got null');
-  assert.match(actual, re, message);
+function imported(raw: string) {
+  const result = Match.fromExport(raw);
+  assert.ok(result.ok, 'export should import');
+  return result.value;
 }
-
-const CLAIM_RE = /^!([CPTA])~([A-Za-z0-9_-]{1,12})@([A-Za-z0-9_-]{1,80})$/;
-const COMMITMENT_RE = /^#(\d{1,4})([CPTA]):([0-9a-f]{32})$/;
-const REVEAL_RE = /^(\d{1,4}[CPTA]:[WASDHI]#[0-9a-f]{4}(?:~[A-Za-z0-9_-]{1,12})?)\|([0-9a-f]{32})$/;
-
-const NONCE_A = '0123456789abcdef0123456789abcdef';
-const NONCE_B = 'fedcba9876543210fedcba9876543210';
-const JUNK_DIGEST = 'ffffffffffffffffffffffffffffffff';
-
-type Kind = 'claim' | 'commitment' | 'reveal' | 'unknown';
-
-function kindOf(s: string): Kind {
-  if (CLAIM_RE.test(s)) return 'claim';
-  if (COMMITMENT_RE.test(s)) return 'commitment';
-  if (REVEAL_RE.test(s)) return 'reveal';
-  return 'unknown';
+function seat(s: Sess, color: Color) {
+  const row = s.view().seats.find((candidate) => candidate.color === color);
+  assert.ok(row, 'missing seat ' + color);
+  return row;
 }
-
-async function digestFor(turn: number, color: string, action: string, nonce: string): Promise<string> {
-  const pre = new TextEncoder().encode(turn + ':' + color + ':' + action + ':' + nonce);
-  const buf = await crypto.subtle.digest('SHA-256', pre);
-  return Array.from(new Uint8Array(buf, 0, 16))
-    .map((b) => b.toString(16).padStart(2, '0'))
-    .join('');
-}
-
-interface Sealed {
-  nonce: string;
-  digest: string;
-  commitment: string;
-  reveal: string;
-}
-
-async function twoPhase(o: {
-  turn: number;
-  color: Color;
-  action: Action;
-  hash: string;
-  nonce?: string;
-  name?: string;
-}): Promise<Sealed> {
-  const nonce = o.nonce || NONCE_A;
-  const digest = await digestFor(o.turn, o.color, o.action, nonce);
-  return {
-    nonce,
-    digest,
-    commitment: '#' + o.turn + o.color + ':' + digest,
-    reveal: Wire.encodeAction({
-      turn: metaTurn(o.turn), color: o.color, action: o.action, hash: o.hash, name: o.name
-    }) + '|' + nonce
+function fixture(roster: Color[] = ['C', 'P']) {
+  const network = new QueuedNetwork();
+  const sessions: Sess[] = [];
+  const config = { ...CONFIG, roster };
+  const open = (id: string, entry: 'create' | 'join' | 'resume', raw?: string): Sess => {
+    const saved = raw ? imported(raw) : null;
+    const session = Session.open({
+      match: saved?.match ?? Match.fromConfig(config), names: saved?.names,
+      channel: network.connect(id), entry
+    });
+    sessions.push(session);
+    return session;
   };
-}
-
-const CONFIG: Config = { mode: 'sandbox', w: 16, h: 9, wallPct: 0, seed: 'test', cap: 40, roster: ['C', 'P'] };
-
-function cfg(over?: Partial<typeof CONFIG>) {
-  return { ...CONFIG, ...over };
-}
-
-// Delivery starts async work that tests cannot await directly.
-async function settle(rounds = 8): Promise<void> {
-  for (let i = 0; i < rounds; i++) await new Promise((r) => setTimeout(r, 0));
-}
-
-function record(ch: LoopbackEnd): string[] {
-  const sent: string[] = [];
-  const raw = ch.send.bind(ch);
-  ch.send = (text) => { sent.push(text); raw(text); };
-  return sent;
-}
-
-function mkLone(id?: string, over?: Partial<typeof CONFIG>, names?: Partial<Record<Color, string>>) {
-  const ch = makeEnd(id);
-  const sent = record(ch);
-  const s = Session.open({
-    match: Match.fromConfig(cfg(over)), channel: ch, names: names, onChange: () => {}
-  });
-  return { ch, s, sent };
-}
-
-function mkPair(over?: Partial<typeof CONFIG>) {
-  const [a, b] = makePair();
-  const sentA = record(a), sentB = record(b);
-  const changes = { a: 0, b: 0 };
-  const c = cfg(over);
-  const sa = Session.open({ match: Match.fromConfig(c), channel: a, onChange: () => { changes.a++; } });
-  const sb = Session.open({ match: Match.fromConfig(c), channel: b, onChange: () => { changes.b++; } });
-  return { a, b, sa, sb, changes, sentA, sentB };
-}
-
-function mkSolo(over?: Partial<typeof CONFIG>, names?: Partial<Record<Color, string>>) {
-  const { ch: a, s: sa, sent } = mkLone(undefined, over, names);
-  const peer = makeEnd();
-  const heard: string[] = [];
-  peer.onMessage = (text) => { heard.push(text); };
-  LoopbackChannel.link(a, peer);
-  return { a, peer, sa, heard, sent };
-}
-
-function seat(s: Sess, color: string, name: string): void {
-  const r = s.claim(color, name);
-  assert.ok(r.ok, 'claim ' + color + ': ' + r.error);
-}
-
-function peerClaim(peer: Channel, color: string, name: string): void {
-  peer.send('!' + color + '~' + name + '@' + peer.id);
-}
-
-async function commitLegal(s: Sess): Promise<void> {
-  const v = s.view();
-  const opt = v.actions.filter((a) => a.reason === null)[0];
-  assert.ok(opt, 'no legal action for ' + v.me.color);
-  const r = await s.commit(opt.action);
-  assert.ok(r.ok, 'commit ' + opt.action + ': ' + r.error);
-}
-
-function decoded(str: string) {
-  const d = Wire.decodeExport(str);
-  assert.ok(d.ok, 'export should decode: ' + str);
-  assert.ok(d.value);
-  return d.value;
-}
-
-function imported(str: string) {
-  const r = Match.fromExport(str);
-  assert.ok(r.ok, 'export should load: ' + str);
-  assert.ok(r.value);
-  return r.value;
-}
-
-describe('a turn over a loopback pair', () => {
-  it('plays without anyone pasting a string', async () => {
-    const { sa, sb, changes, sentA, sentB } = mkPair();
-    seat(sa, 'C', 'Rook');
-    seat(sb, 'P', 'Vale');
-    assert.equal(sa.view().me.color, 'C', 'the claim picks the seat the view renders');
-    assert.equal(sb.view().me.color, 'P');
-
-    await sa.commit('D');
-    await sb.commit('A');
-    await settle();
-
-    assert.equal(sa.view().turn, 1, 'coral advanced');
-    assert.equal(sb.view().turn, 1, 'purple advanced');
-    assert.equal(sa.view().hash, sb.view().hash, 'and they agree on the state');
-    assert.equal(sa.view().me.x, 2, 'coral stepped right');
-    assert.equal(sb.view().me.x, 13, 'purple stepped left');
-    assert.ok(sa.view().bodies.some((b) => b.color === 'P' && b.t === 1),
-      "coral can see purple's t1 body");
-    assert.equal(sa.view().status, 'live', 'a wired pair reports live');
-    assert.equal(sa.view().error, null);
-    assert.ok(changes.a > 0 && changes.b > 0, 'onChange fired on both sides');
-
-    assert.deepEqual(sentA.map(kindOf), ['claim', 'commitment', 'reveal'], sentA.join(' '));
-    assert.deepEqual(sentB.map(kindOf), ['claim', 'commitment', 'reveal'], sentB.join(' '));
-  });
-
-  it('returns a promise from commit, because the digest is one', async () => {
-    const { sa } = mkPair();
-    seat(sa, 'C', 'Rook');
-
-    const pending = sa.commit('D');
-    assert.ok(pending instanceof Promise,
-      'crypto.subtle.digest is a promise and it is in the way');
-    const r = await pending;
-    assert.deepEqual(r, { ok: true, error: null }, 'and it still resolves to the usual result');
-  });
-
-  it('submits your own action locally while the opponent is still deciding', async () => {
-    const { sa } = mkPair();
-    seat(sa, 'C', 'Rook');
-    await sa.commit('D');
-
-    assert.ok(!sa.view().pending.includes('C'),
-      'the action is in the log locally, so the screen has something to draw');
-    const again = await sa.commit('D');
-    assert.equal(again.ok, false, 'a second commit for the same turn is refused');
-  });
-
-  it('refuses commit and withdraw before a colour is claimed', async () => {
-    const { sa } = mkPair();
-    assert.deepEqual(await sa.commit('D'), { ok: false, error: 'pick a colour first' });
-    assert.deepEqual(sa.withdraw(), { ok: false, error: 'pick a colour first' });
-    assert.equal(sa.color(), null);
-  });
-
-  it('lets the first to commit change their mind, and the change reaches the far side', async () => {
-    const { sa, sb } = mkPair();
-    seat(sa, 'C', 'Rook');
-    seat(sb, 'P', 'Vale');
-
-    await sa.commit('D');
-    const w = sa.withdraw();
-    assert.ok(!(w instanceof Promise), 'withdraw hashes nothing, so it stays synchronous');
-    assert.ok(w.ok, 'purple has not committed, so the action is still yours to take back: ' + w.error);
-    assert.ok(sa.view().pending.includes('C'), 'and it is gone locally');
-    await sa.commit('H');
-
-    await sb.commit('A');
-    await settle();
-
-    assert.equal(sa.view().turn, 1, 'the turn resolved');
-    assert.equal(sb.view().turn, 1);
-    assert.equal(sa.view().hash, sb.view().hash, 'on one state, not two');
-    assert.equal(sa.view().me.x, 1, 'coral held, which was the second action');
-    assert.equal(sa.view().me.t, 1);
-    assert.ok(sb.view().bodies.some((b) => b.color === 'C' && b.t === 1 && b.x === 1),
-      'and purple saw the second action, not the first');
-    assert.equal(sa.view().error, null);
-    assert.equal(sb.view().error, null);
-    assert.equal(sb.view().notice, null, 'nothing for purple to act on');
-  });
-
-  it('gives the second to commit no window to change their mind', async () => {
-    const { sa, sb, sentB } = mkPair();
-    seat(sa, 'C', 'Rook');
-    seat(sb, 'P', 'Vale');
-
-    await sa.commit('D');
-    await settle();
-    const before = sentB.length;
-    await sb.commit('A');
-    await settle();
-
-    const fresh = sentB.slice(before);
-    assert.deepEqual(fresh.map(kindOf), ['commitment', 'reveal'], fresh.join(' '));
-    assert.equal(sb.view().turn, 1, 'the turn is already resolved');
-    assert.equal(sb.withdraw().ok, false, 'so there is nothing left to take back');
-    assert.equal(sa.view().hash, sb.view().hash);
-  });
-
-  it('reports canChange for as long as the reveal has not gone out', async () => {
-    const { sa, sb } = mkPair();
-    seat(sa, 'C', 'Rook');
-    seat(sb, 'P', 'Vale');
-    assert.equal(sa.view().canChange, false, 'nothing to change before you commit');
-
-    await sa.commit('D');
-    await settle();
-    assert.equal(sa.view().canChange, true, 'purple is not in yet, so the action is still yours');
-
-    await sb.commit('A');
-    await settle();
-    assert.equal(sa.view().canChange, false, 'the turn resolved, so there is nothing to change');
-  });
-
-  it('reports every uncommitted player through commit, withdrawal, and turn resolution', async () => {
-    const { sa, peer } = mkSolo();
-    seat(sa, 'C', 'Rook');
-    peerClaim(peer, 'P', 'Vale');
-    assert.deepEqual(sa.view().uncommitted, ['C', 'P'], 'the local player is included before committing');
-
-    await sa.commit('D');
-    await settle();
-    assert.deepEqual(sa.view().uncommitted, ['P'], 'the local commitment lands immediately');
-
-    assert.deepEqual(sa.withdraw(), { ok: true, error: null });
-    assert.deepEqual(sa.view().uncommitted, ['C', 'P'], 'withdrawal restores the local player');
-
-    const purple = await twoPhase({ turn: 0, color: 'P', action: 'A', hash: sa.view().hash });
-    peer.send(purple.commitment);
-    await settle();
-    assert.deepEqual(sa.view().uncommitted, ['C'], 'a remote commitment removes its player');
-
-    await sa.commit('D');
-    await settle();
-    assert.deepEqual(sa.view().uncommitted, [], 'all commitments are visible before actions open');
-    assert.equal(sa.view().turn, 0, 'commitments alone do not resolve the turn');
-
-    peer.send(purple.reveal);
-    await settle();
-
-    assert.equal(sa.view().turn, 1, 'the opened actions resolve the turn');
-    assert.deepEqual(sa.view().uncommitted, ['C', 'P'], 'the next turn starts with everyone uncommitted');
-  });
-});
-
-describe('commitments', () => {
-  it('move nothing on their own', async () => {
-    const { peer, sa, heard } = mkSolo();
-    seat(sa, 'C', 'Rook');
-    peerClaim(peer, 'P', 'Vale');
-
-    const p = await twoPhase({ turn: 0, color: 'P', action: 'A', hash: sa.view().hash });
-    peer.send(p.commitment);
-    await settle();
-
-    assert.equal(sa.view().turn, 0, 'a commitment discloses nothing, so it decides nothing');
-    assert.ok(sa.view().pending.includes('P'), 'and nothing was submitted for purple');
-    assert.equal(sa.view().me.t, 0, 'coral has not travelled');
-    assert.equal(sa.view().error, null, 'an unopened commitment is not an error');
-    assert.equal(sa.view().notice, null);
-    assert.ok(heard.every((s) => kindOf(s) !== 'reveal'),
-      'coral has not committed, so it cannot have revealed');
-  });
-
-  it('trigger the reveal the instant the last one is in', async () => {
-    const { peer, sa, heard } = mkSolo();
-    seat(sa, 'C', 'Rook');
-    peerClaim(peer, 'P', 'Vale');
-
-    const p = await twoPhase({ turn: 0, color: 'P', action: 'A', hash: sa.view().hash });
-    peer.send(p.commitment);
-    await settle();
-    await sa.commit('D');
-    await settle();
-
-    assert.equal(heard.filter((s) => kindOf(s) === 'reveal').length, 1,
-      'nobody asked for it: ' + heard.join(' '));
-    assert.equal(sa.view().turn, 0, 'purple still has to open its own');
-  });
-
-  it('are ignored for the colour we hold, so nobody else can make us reveal', async () => {
-    const { peer, sa, heard } = mkSolo();
-    seat(sa, 'C', 'Rook');
-    peerClaim(peer, 'P', 'Vale');
-    await sa.commit('D');
-    await settle();
-
-    peer.send('#0C:' + JUNK_DIGEST);
-    await settle();
-    assert.ok(heard.every((s) => kindOf(s) !== 'reveal'),
-      'a forged commitment for coral must not complete the set: ' + heard.join(' '));
-
-    const p = await twoPhase({ turn: 0, color: 'P', action: 'A', hash: sa.view().hash });
-    peer.send(p.commitment);
-    await settle();
-    assert.equal(heard.filter((s) => kindOf(s) === 'reveal').length, 1,
-      "purple's own commitment is what opens it");
-  });
-
-  it('cannot be replayed into another turn', async () => {
-    const { peer, sa } = mkSolo();
-    seat(sa, 'C', 'Rook');
-    peerClaim(peer, 'P', 'Vale');
-
-    const t0 = await twoPhase({ turn: 0, color: 'P', action: 'A', hash: sa.view().hash });
-    peer.send(t0.commitment);
-    await sa.commit('D');
-    peer.send(t0.reveal);
-    await settle();
-    assert.equal(sa.view().turn, 1, 'turn 0 played normally');
-
-    peer.send('#1P:' + t0.digest);
-    const replay = await twoPhase({ turn: 1, color: 'P', action: 'A', hash: sa.view().hash, nonce: t0.nonce });
-    peer.send(replay.reveal);
-    await sa.commit('D');
-    await settle();
-
-    assert.equal(sa.view().turn, 1, 'a commitment lifted from another turn opens nothing');
-    assert.ok(sa.view().pending.includes('P'), 'purple is still owed turn 1');
-    assert.equal(sa.view().error, null, 'a replay is noise, not divergence');
-
-    const t1 = await twoPhase({ turn: 1, color: 'P', action: 'A', hash: sa.view().hash });
-    peer.send(t1.commitment);
-    peer.send(t1.reveal);
-    await settle();
-    assert.equal(sa.view().turn, 2, "and purple's real commitment for turn 1 still works");
-  });
-
-  it('may be published several times for one turn, and the opened one counts', async () => {
-    const { peer, sa } = mkSolo();
-    seat(sa, 'C', 'Rook');
-    peerClaim(peer, 'P', 'Vale');
-
-    const hash = sa.view().hash;
-    const first = await twoPhase({ turn: 0, color: 'P', action: 'A', hash, nonce: NONCE_A });
-    const second = await twoPhase({ turn: 0, color: 'P', action: 'H', hash, nonce: NONCE_B });
-
-    peer.send(first.commitment);
-    peer.send(second.commitment);
-    peer.send(first.commitment);
-    await settle();
-    assert.equal(sa.view().turn, 0, 'still nothing to act on');
-
-    await sa.commit('D');
-    peer.send(second.reveal);
-    await settle();
-
-    assert.equal(sa.view().turn, 1, 'the turn resolves on whichever one purple opened');
-    assert.ok(sa.view().bodies.some((b) => b.color === 'P' && b.t === 1 && b.x === 14),
-      'purple held, which is the commitment it opened, not the first one it sent');
-    assert.equal(sa.view().error, null);
-  });
-});
-
-describe('reveals', () => {
-  it('are dropped when they open no commitment', async () => {
-    const { peer, sa } = mkSolo();
-    seat(sa, 'C', 'Rook');
-    peerClaim(peer, 'P', 'Vale');
-    await sa.commit('D');
-    await settle();
-
-    const hash = sa.view().hash;
-    const sealed = await twoPhase({ turn: 0, color: 'P', action: 'A', hash, nonce: NONCE_A });
-    const forged = await twoPhase({ turn: 0, color: 'P', action: 'H', hash, nonce: NONCE_A });
-
-    peer.send(sealed.commitment);
-    peer.send(forged.reveal);
-    await settle();
-
-    assert.equal(sa.view().turn, 0, 'a reveal its commitment does not open must not resolve the turn');
-    assert.ok(sa.view().pending.includes('P'), 'and must not be submitted');
-    assert.equal(sa.view().error, null, 'this is malformed input, not divergence');
-    assert.equal(sa.view().notice, null);
-
-    peer.send(sealed.reveal);
-    await settle();
-    assert.equal(sa.view().turn, 1, 'the reveal that does open it is still accepted');
-    assert.ok(sa.view().bodies.some((b) => b.color === 'P' && b.t === 1 && b.x === 13),
-      'and the action that ran is the sealed one, not the forged one');
-  });
-
-  it('are held one per colour per turn, and the latest wins', async () => {
-    const { peer, sa } = mkSolo();
-    seat(sa, 'C', 'Rook');
-    peerClaim(peer, 'P', 'Vale');
-
-    const hash = sa.view().hash;
-    const first = await twoPhase({ turn: 0, color: 'P', action: 'A', hash, nonce: NONCE_A });
-    const second = await twoPhase({ turn: 0, color: 'P', action: 'H', hash, nonce: NONCE_B });
-
-    peer.send(first.reveal);
-    await settle();
-
-    peer.send(second.reveal);
-    await settle();
-
-    await sa.commit('D');
-    peer.send(first.commitment);
-    await settle();
-    assert.equal(sa.view().turn, 0,
-      'one record per colour per turn, so the superseded reveal is gone and its own '
-      + 'commitment opens nothing');
-
-    peer.send(second.commitment);
-    await settle();
-
-    assert.equal(sa.view().turn, 1, 'the commitment arriving last still opens what was held');
-    assert.ok(sa.view().bodies.some((b) => b.color === 'P' && b.t === 1 && b.x === 14),
-      'purple held, which is the reveal that was kept');
-    assert.equal(sa.view().error, null);
-  });
-});
-
-describe('arrival order', () => {
-  it('accepts a reveal that arrives before the commitment it opens', async () => {
-    const { peer, sa } = mkSolo();
-    seat(sa, 'C', 'Rook');
-    peerClaim(peer, 'P', 'Vale');
-
-    const p = await twoPhase({ turn: 0, color: 'P', action: 'A', hash: sa.view().hash });
-    peer.send(p.reveal);
-    await settle();
-    assert.equal(sa.view().turn, 0, 'an unopened reveal decides nothing on its own');
-    assert.equal(sa.view().error, null, 'waiting for its commitment is not an error');
-
-    peer.send(p.commitment);
-    await sa.commit('D');
-    await settle();
-
-    assert.equal(sa.view().turn, 1, 'the commitment arriving late completes the pair');
-    assert.ok(sa.view().bodies.some((b) => b.color === 'P' && b.t === 1 && b.x === 13),
-      'and the move that ran is the one that was sealed');
-  });
-
-  it('ignores duplicate commitments and duplicate reveals', async () => {
-    const { peer, sa } = mkSolo();
-    seat(sa, 'C', 'Rook');
-    peerClaim(peer, 'P', 'Vale');
-
-    const p = await twoPhase({ turn: 0, color: 'P', action: 'A', hash: sa.view().hash });
-    peer.send(p.commitment);
-    peer.send(p.commitment);
-    await settle();
-    peer.send(p.reveal);
-    peer.send(p.reveal);
-    await settle();
-    assert.equal(sa.view().turn, 0, 'coral has not committed, so nothing has resolved');
-    assert.equal(sa.view().error, null);
-
-    await sa.commit('D');
-    await settle();
-    assert.equal(sa.view().turn, 1, 'the turn resolved exactly once');
-    const hash = sa.view().hash;
-
-    peer.send(p.commitment);
-    peer.send(p.reveal);
-    await settle();
-    assert.equal(sa.view().turn, 1, 'a late repeat changes nothing');
-    assert.equal(sa.view().hash, hash);
-    assert.equal(sa.view().error, null);
-  });
-
-  it('keeps a commitment that arrives a whole turn early', async () => {
-    const { peer, sa } = mkSolo();
-    seat(sa, 'C', 'Rook');
-    peerClaim(peer, 'P', 'Vale');
-
-    const t0 = await twoPhase({ turn: 0, color: 'P', action: 'A', hash: sa.view().hash, nonce: NONCE_A });
-    const early = '#1P:' + await digestFor(1, 'P', 'A', NONCE_B);
-
-    peer.send(early);
-    peer.send(t0.commitment);
-    await sa.commit('D');
-    await settle();
-    assert.equal(sa.view().turn, 0, 'turn 0 still needs purple to open');
-
-    peer.send(t0.reveal);
-    await settle();
-    assert.equal(sa.view().turn, 1, 'and now it resolves');
-
-    const t1 = await twoPhase({ turn: 1, color: 'P', action: 'A', hash: sa.view().hash, nonce: NONCE_B });
-    peer.send(t1.reveal);
-    await sa.commit('D');
-    await settle();
-    assert.equal(sa.view().turn, 2, 'the early commitment was kept and still opened');
-    assert.equal(sa.view().error, null);
-  });
-
-  it('drops strings that are neither a claim, a commitment nor a reveal', async () => {
-    const { peer, sa } = mkSolo();
-    seat(sa, 'C', 'Rook');
-    peerClaim(peer, 'P', 'Vale');
-    const before = sa.view().hash;
-
-    for (const junk of [
-      '', 'hello', '#0P:zz', '!X~Vale@' + peer.id, sa.export(),
-      '#0T:' + JUNK_DIGEST,
-      '#40P:' + JUNK_DIGEST,
-      '0P:D#zzzz|' + NONCE_A
-    ]) peer.send(junk);
-    await settle();
-
-    assert.equal(sa.view().turn, 0);
-    assert.equal(sa.view().hash, before);
-    assert.deepEqual(sa.view().uncommitted, ['C', 'P'], 'both players are still owed a commitment');
-    assert.equal(sa.view().error, null, 'noise on a public room is not the match\'s problem');
-    assert.equal(sa.view().notice, null);
-    assert.deepEqual(sa.view().seats.filter((seat) => seat.state !== 'free').map((seat) => seat.color).sort(),
-      ['C', 'P'], 'and no seat moved');
-  });
-});
-
-describe('closing a session', () => {
-  it('stops hearing the room, and the room stops resolving turns for it', async () => {
-    const { a, peer, sa } = mkSolo();
-    seat(sa, 'C', 'Rook');
-    peerClaim(peer, 'P', 'Vale');
-    await sa.commit('D');
-    await settle();
-    sa.close();
-
-    const p = await twoPhase({ turn: 0, color: 'P', action: 'A', hash: sa.view().hash });
-    peer.send(p.commitment);
-    peer.send(p.reveal);
-    await settle();
-
-    assert.equal(a.onMessage, null, 'the handler is off the channel');
-    assert.equal(sa.view().turn, 0, 'so the turn cannot resolve');
-    assert.equal(sa.view().error, null);
-  });
-});
-
-describe('colour claims', () => {
-  it('give a contested colour to the lower client id', () => {
-    const { a, b, sa, sb } = mkPair();
-    const low = a.id < b.id ? sa : sb;
-    const high = a.id < b.id ? sb : sa;
-
-    const first = low.claim('C', 'Rook');
-    assert.deepEqual(first, { ok: true, error: null }, 'the lower id claimed first and keeps it');
-    const second = high.claim('C', 'Vale');
-    assert.equal(second.ok, false, 'the higher id must lose the contest');
-    matches(second.error, /taken by Rook/, 'and be told why');
-
-    assert.equal(seatOf(low, 'C').state, 'mine', 'the winner owns the seat');
-    assert.equal(seatOf(high, 'C').state, 'taken', 'the loser sees it taken');
-    assert.equal(seatOf(sa, 'C').name, 'Rook', 'one side names the winner');
-    assert.equal(seatOf(sb, 'C').name, 'Rook', 'and so does the other');
-  });
-
-  it('reach the same seat whichever claim arrives first', () => {
-    const { a, b, sa, sb } = mkPair();
-    const low = a.id < b.id ? sa : sb;
-    const high = a.id < b.id ? sb : sa;
-
-    high.claim('C', 'Vale');
-    low.claim('C', 'Rook');
-
-    assert.equal(seatOf(low, 'C').state, 'mine', 'arrival order does not decide it');
-    assert.equal(seatOf(high, 'C').state, 'taken');
-  });
-
-  it('name the other side on the view as soon as the claim lands', () => {
-    const { sa, peer } = mkSolo();
-    peerClaim(peer, 'P', 'Vale');
-    assert.equal(sa.view().names.P, 'Vale', 'no turn has resolved yet, and none should have to');
-  });
-
-  it('name the winner of a contested colour, whichever claim arrived first', () => {
-    const { sa, peer } = mkSolo();
-    peer.send('!P~Vale@zzzz');
-    peer.send('!P~Rook@aaaa');
-
-    assert.equal(seatOf(sa, 'P').name, 'Rook', 'the lower client id holds the seat');
-    assert.equal(sa.view().names.P, 'Rook', 'and the screen says so');
-  });
-
-  it('list only the taken colours, for the picker to grey out', () => {
-    const { a, b, sa, sb } = mkPair({ roster: ['C', 'P', 'T', 'A'] });
-    seat(sa, 'C', 'Rook');
-    seat(sb, 'P', 'Vale');
-
-    assert.deepEqual(sa.view().seats.map((seat) => [seat.color, seat.state]), [
-      ['C', 'mine'], ['P', 'taken'], ['T', 'free'], ['A', 'free']
-    ]);
-    assert.deepEqual(sb.view().seats.map((seat) => [seat.color, seat.state]), [
-      ['C', 'taken'], ['P', 'mine'], ['T', 'free'], ['A', 'free']
-    ]);
-  });
-
-  it('refuse a colour that is not in the roster', () => {
-    const { sa } = mkPair();
-    const r = sa.claim('T', 'Rook');
-    assert.deepEqual(r, { ok: false, error: 'colour T is not in this match' });
-    assert.equal(sa.color(), null);
-    assert.equal(sa.view().notice, r.error, 'the picker has something to print');
-  });
-
-  it('take back what you played with a colour you lose', async () => {
-    const { ch: mine, s: sa } = mkLone('zzMine');
-    const peer = makeEnd('aaThem');
-    LoopbackChannel.link(mine, peer);
-
-    seat(sa, 'C', 'Rook');
-    await sa.commit('D');
-    await settle();
-
-    peerClaim(peer, 'C', 'Vale');
-    await settle();
-    assert.equal(sa.color(), null, 'the lower id keeps coral');
-    matches(sa.view().notice, /Pick another colour/, 'and we are told to pick another');
-
-    const r = sa.claim('P', 'Rook');
-    assert.ok(r.ok, 'purple is free: ' + r.error);
-    assert.equal(sa.view().notice, null, 'which clears the notice');
-    await sa.commit('A');
-    await settle();
-
-    assert.equal(sa.view().turn, 0, 'purple is the only colour we act for, so the turn is not complete');
-    const log = decoded(sa.export()).log;
-    assert.deepEqual(log, [{ turn: 0, color: 'P', action: 'A' }],
-      'one action in the log, under the colour we still hold');
-    assert.ok(sa.view().pending.includes('C'), 'coral is owed by whoever holds it now');
-  });
-
-  it('count every seat before the room reports live', () => {
-    const four = mkPair({ roster: ['C', 'P', 'T', 'A'] });
-    assert.equal(four.sa.view().status, 'connecting', 'one peer of the three needed is not live');
-    assert.equal(four.sa.view().peersNeeded, 2, 'and it says how many are still missing');
-
-    const two = mkPair();
-    assert.equal(two.sa.view().status, 'live', 'the one peer a two-colour roster needs is live');
-    assert.equal(two.sa.view().peersNeeded, 0);
-  });
-
-  it('release a claim as soon as its sending peer leaves', () => {
-    const { ch, s } = mkLone('watcher');
-    const peer = makeEnd('departing');
-    LoopbackChannel.link(ch, peer);
-    peerClaim(peer, 'P', 'Vale');
-    assert.equal(seatOf(s, 'P').state, 'taken');
-
-    ch.emit({ state: 'connecting', peers: [], detail: null });
-    assert.deepEqual(seatOf(s, 'P'), { color: 'P', name: null, locked: false, state: 'free' });
-    peerClaim(peer, 'P', 'Vale');
-    assert.equal(seatOf(s, 'P').state, 'free', 'a delayed message cannot restore a departed claim');
-    assert.ok(s.claim('P', 'Rook').ok, 'the disconnected seat can be reclaimed');
-  });
-});
-
-describe('names', () => {
-  it('carries the name on the turn-0 reveal and nowhere later', async () => {
-    const { sa, sb, sentA } = mkPair();
-    seat(sa, 'C', 'Rook');
-    seat(sb, 'P', 'Vale');
-    const h0 = sa.view().hash;
-
-    await sa.commit('D');
-    await sb.commit('A');
-    await settle();
-    const opening = sentA.filter((t) => t.startsWith('0C:'));
-    assert.deepEqual(opening.map((t) => t.split('|')[0]), ['0C:D#' + h0 + '~Rook'],
-      'the opening reveal names the player');
-
-    const h1 = sa.view().hash;
-    await sa.commit('D');
-    await sb.commit('A');
-    await settle();
-    const late = sentA.filter((t) => t.startsWith('1C:'));
-    assert.deepEqual(late.map((t) => t.split('|')[0]), ['1C:D#' + h1],
-      'later reveals drop it, because the name is already everywhere');
-  });
-
-  it('puts a played name in the export and a bare claim nowhere near it', () => {
-    const { sa, peer } = mkSolo();
-    peerClaim(peer, 'P', 'Vale');
-
-    assert.equal(sa.view().names.P, 'Vale', 'the screen says who is sitting there');
-    assert.equal(decoded(sa.export()).names.P, undefined,
-      'but nobody has played as purple, so the export has nothing to record');
-  });
-
-  it('exports the name of whoever actually played the turn', async () => {
-    const { sa, sb } = mkPair();
-    seat(sa, 'C', 'Rook');
-    seat(sb, 'P', 'Vale');
-    await sa.commit('D');
-    await sb.commit('A');
-    await settle();
-
-    assert.deepEqual(decoded(sb.export()).names, { C: 'Rook', P: 'Vale' },
-      'both sides of a resolved turn are named from the far end too');
-  });
-
-  it('seats an imported name straight into the view and the next export', () => {
-    const { s } = mkLone('imp', undefined, { C: 'Rook', P: 'Vale' });
-    assert.deepEqual(s.view().names, { C: 'Rook', P: 'Vale' });
-    assert.deepEqual(s.view().seats.map((seat) => [seat.color, seat.name, seat.locked]), [
-      ['C', 'Rook', true], ['P', 'Vale', true]
-    ]);
-    assert.deepEqual(decoded(s.export()).names, { C: 'Rook', P: 'Vale' });
-  });
-
-  it('locks imported names but leaves missing names open', () => {
-    const { s } = mkLone('partial', undefined, { C: 'Rook' });
-    assert.deepEqual(seatOf(s, 'C'), { color: 'C', name: 'Rook', locked: true, state: 'free' });
-    assert.deepEqual(seatOf(s, 'P'), { color: 'P', name: null, locked: false, state: 'free' });
-
-    assert.ok(s.claim('C', 'Rename').ok);
-    assert.equal(seatOf(s, 'C').name, 'Rook', 'a historical name cannot be replaced');
-    assert.ok(s.claim('P', 'Vale').ok);
-    assert.equal(seatOf(s, 'P').name, 'Vale');
-  });
-
-  it('keeps the first name a colour was played under', async () => {
-    const { sa, peer } = mkSolo(undefined, { P: 'Vale' });
-    seat(sa, 'C', 'Rook');
-    const t = await twoPhase({
-      turn: 0, color: 'P', action: 'A', hash: sa.view().hash, name: 'Rook'
+  const close = () => sessions.forEach((session) => session.close());
+  const start = async () => {
+    const players = roster.map((color, i) => open('peer' + i, i === 0 ? 'create' : 'join'));
+    players.forEach((player, i) => assert.ok(player.join(NAMES[roster[i]!]).ok));
+    await network.pump();
+    players.forEach((player) => assert.ok(player.ready().ok));
+    await network.pump();
+    players.forEach((player, i) => {
+      assert.equal(player.color(), roster[i]);
+      assert.equal(player.view().phase, 'playing');
+      assert.equal(player.view().canCommit, true);
     });
-    peer.send(t.commitment);
-    peer.send(t.reveal);
-    await sa.commit('D');
-    await settle();
+    return players;
+  };
+  return { network, sessions, config, open, close, start };
+}
 
-    assert.equal(sa.view().turn, 1, 'the turn resolved, so the reveal was applied');
-    assert.equal(decoded(sa.export()).names.P, 'Vale', 'the imported name stands');
+for (const roster of [['C', 'P'], ['C', 'P', 'T'], ['C', 'P', 'T', 'A']] as Color[][]) {
+  it(roster.length + ' players start only after every configured owner is Ready', async () => {
+    const f = fixture(roster);
+    try {
+      const players = roster.map((color, i) => f.open('peer' + i, i === 0 ? 'create' : 'join'));
+      players.forEach((player, i) => assert.ok(player.join(NAMES[roster[i]!]).ok));
+      await f.network.pump();
+      assert.deepEqual(players.map((player) => player.color()), roster);
+      for (const player of players.slice(0, -1)) assert.ok(player.ready().ok);
+      await f.network.pump();
+      assert.ok(players.every((player) => !player.view().canCommit));
+      assert.equal((await players[0]!.commit('H')).ok, false);
+      assert.ok(players.at(-1)!.ready().ok);
+      await f.network.pump();
+      assert.ok(players.every((player) => player.view().canCommit));
+      assert.deepEqual(decoded(players[0]!.export()).names,
+        Object.fromEntries(roster.map((color) => [color, NAMES[color]])));
+      assert.ok(decoded(players[0]!.export()).log.length === 0);
+    } finally { f.close(); }
+  });
+}
+
+describe('lobby consent and reservations', () => {
+  it('changing your name clears only your readiness and leaves saved names untouched before activation', async () => {
+    const f = fixture(['C', 'P', 'T']);
+    try {
+      const a = f.open('host', 'create'), b = f.open('other', 'join');
+      assert.ok(a.join('Old').ok); assert.ok(b.join('Vale').ok);
+      await f.network.pump();
+      assert.ok(a.ready().ok); assert.ok(b.ready().ok);
+      await f.network.pump();
+      const before = a.export();
+      assert.ok(a.join('New').ok);
+      await f.network.pump();
+      assert.equal(seat(a, 'C').name, 'New');
+      assert.equal(seat(a, 'C').ready, false);
+      assert.equal(seat(a, 'P').ready, true);
+      assert.equal(a.export(), before);
+      assert.deepEqual(decoded(a.export()).names, {});
+    } finally { f.close(); }
   });
 
-  it('ignores a name it has no seat for and a name the wire could not carry', () => {
-    const { s } = mkLone('junk', { roster: ['C', 'P'] }, { T: 'Nim', C: 'Bo Vale' });
-    assert.deepEqual(s.view().names, {}, 'teal is not in this match and a space is not a name');
-    assert.deepEqual(decoded(s.export()).names, {});
+  it('a delayed Ready cannot restore consent after a newer unready', async () => {
+    const f = fixture(['C', 'P', 'T']);
+    try {
+      const a = f.open('host', 'create'), b = f.open('other', 'join');
+      a.join('Rook'); b.join('Vale'); await f.network.pump();
+      b.ready();
+      const old = f.network.messages.filter((message) => message.from === 'other');
+      f.network.messages.splice(0);
+      b.ready(false); await f.network.pump();
+      old.forEach((message) => f.network.inject(message));
+      await f.network.pump();
+      assert.equal(seat(a, 'P').ready, false);
+    } finally { f.close(); }
+  });
+
+  it('duplicate concurrent fresh requests reserve distinct colours', async () => {
+    const f = fixture(['C', 'P', 'T']);
+    try {
+      const a = f.open('host', 'create'), b = f.open('b', 'join'), c = f.open('c', 'join');
+      a.join('Rook'); b.join('Vale'); c.join('Nim');
+      const requests = f.network.messages.filter((message) => messageType(message) === 'request');
+      f.network.messages.push(...requests.map((message) => ({ ...message })));
+      await f.network.pump();
+      assert.equal(a.color(), 'C');
+      assert.deepEqual(new Set([b.color(), c.color()]), new Set(['P', 'T']));
+      assert.equal(a.view().canCommit, false);
+    } finally { f.close(); }
+  });
+
+  it('matching and stale full-room visitors leave the active group able to play', async () => {
+    const f = fixture();
+    try {
+      const [a, b] = await f.start();
+      const stale = a!.export();
+      await Promise.all([a!.commit('D'), b!.commit('A')]); await f.network.pump();
+      const matching = f.open('aaVisitor', 'resume', a!.export());
+      await f.network.pump();
+      const old = f.open('abStale', 'resume', stale);
+      await f.network.pump();
+      assert.equal(matching.color(), null); assert.equal(old.color(), null);
+      assert.equal(matching.view().canCommit, false); assert.equal(old.view().canCommit, false);
+      assert.equal(old.view().phase, 'mismatch');
+      assert.equal(a!.view().hostId, 'peer0');
+      assert.ok(a!.view().canCommit && b!.view().canCommit);
+      await Promise.all([a!.commit('H'), b!.commit('H')]); await f.network.pump();
+      assert.equal(a!.view().turn, 2); assert.equal(a!.export(), b!.export());
+    } finally { f.close(); }
   });
 });
 
-describe('a peer arriving late', () => {
-  it('is sent the claim and the commitment for the turn in progress', async () => {
-    const { ch: a, s: sa, sent: sentA } = mkLone('lateA');
-    seat(sa, 'C', 'Rook');
-    await sa.commit('D');
-    await settle();
-    const before = sentA.length;
-
-    const b = makeEnd('lateB');
-    const sb = Session.open({ match: Match.fromConfig(cfg()), channel: b, onChange: () => {} });
-    LoopbackChannel.link(a, b);
-    await settle();
-
-    const announced = sentA.slice(before);
-    assert.deepEqual(announced.map(kindOf), ['claim', 'commitment'],
-      'no reveal: purple has not committed, so coral has nothing to open yet');
-    assert.deepEqual(seatOf(sb, 'C'), { color: 'C', name: 'Rook', locked: false, state: 'taken' });
-
-    seat(sb, 'P', 'Vale');
-    await sb.commit('A');
-    await settle();
-    assert.equal(sb.view().turn, 1, 'the joiner caught up and the turn resolved');
-    assert.equal(sa.view().turn, 1);
-    assert.equal(sa.view().hash, sb.view().hash);
-    assert.equal(sa.view().names.C, 'Rook', 'claiming seats the name in the Match, not only in the claim');
-    assert.equal(sb.view().names.C, 'Rook', 'and the joiner ends up with it too');
+describe('completed-turn staging', () => {
+  it('does not freeze names or accept actions before its activation arrives', async () => {
+    const f = fixture();
+    try {
+      const a = f.open('peer0', 'create'), b = f.open('peer1', 'join');
+      a.join('Rook'); b.join('Vale'); await f.network.pump();
+      const before = b.export();
+      a.ready(); b.ready();
+      await f.network.pump((message) => !(message.to === 'peer1' && messageType(message) === 'activate'));
+      assert.equal(b.export(), before);
+      assert.equal(b.view().canCommit, false);
+      assert.equal((await b.commit('A')).ok, false);
+      assert.equal(a.view().canCommit, true);
+      assert.ok((await a.commit('D')).ok);
+      await f.network.pump((message) => !(message.to === 'peer1' && messageType(message) === 'activate'));
+      assert.equal(b.export(), before);
+      await f.network.pump();
+      assert.deepEqual(decoded(b.export()).names, { C: 'Rook', P: 'Vale' });
+      assert.ok((await b.commit('A')).ok); await f.network.pump();
+      assert.equal(a.view().turn, 1); assert.equal(a.export(), b.export());
+    } finally { f.close(); }
   });
 
-  it('is sent the reveal as well, once we have opened ours', async () => {
-    const { ch: a, s: sa, sent: sentA } = mkLone('midA');
-    const peer = makeEnd('midP');
-    LoopbackChannel.link(a, peer);
-    seat(sa, 'C', 'Rook');
-
-    const p = await twoPhase({ turn: 0, color: 'P', action: 'A', hash: sa.view().hash });
-    await sa.commit('D');
-    peer.send(p.commitment);
-    await settle();
-    assert.equal(sa.view().turn, 0, 'purple has committed but not opened');
-
-    const before = sentA.length;
-    LoopbackChannel.link(a, makeEnd('midL'));
-    await settle();
-
-    const announced = sentA.slice(before);
-    assert.deepEqual(announced.map(kindOf), ['claim', 'commitment', 'reveal'],
-      'and nothing else: ' + announced.join(' '));
+  it('rejects foreign, wrong-room, wrong-version and stale-epoch action messages', async () => {
+    const f = fixture();
+    try {
+      const [a, b] = await f.start();
+      const outsider = f.open('outsider', 'resume', a!.export());
+      await f.network.pump();
+      assert.ok((await b!.commit('A')).ok);
+      const delivery = f.network.messages.find((message) => message.to === 'peer0' && messageType(message) === 'commit');
+      assert.ok(delivery);
+      const original = JSON.parse(delivery.text) as { v: number; room: string; value: Record<string, unknown> };
+      f.network.messages.splice(0);
+      f.network.inject({ ...delivery, from: 'outsider' });
+      const invalid = [
+        { ...original, v: 1 }, { ...original, room: 'another-room' },
+        { ...original, value: { ...original.value, id: 'superseded-epoch-attempt' } },
+        { ...original, value: { ...original.value, turn: 90 } }
+      ];
+      for (const message of invalid) {
+        f.network.inject({ ...delivery, text: JSON.stringify(message) });
+      }
+      await f.network.pump();
+      assert.deepEqual(a!.view().uncommitted, ['C', 'P']);
+      assert.equal(a!.view().turn, 0);
+      assert.equal(outsider.view().canCommit, false);
+      f.network.inject(delivery); await f.network.pump();
+      assert.deepEqual(a!.view().uncommitted, ['C']);
+      assert.ok((await a!.commit('D')).ok); await f.network.pump();
+      assert.equal(a!.view().turn, 1); assert.equal(a!.export(), b!.export());
+    } finally { f.close(); }
   });
 
-  it('can rejoin from a trimmed export and finish the turn the room waits on', async () => {
-    const { ch: a, s: sa } = mkLone('liveA');
-    seat(sa, 'C', 'Rook');
-    await sa.commit('D');
-    await settle();
+  it('holds an authenticated reveal until its commitment arrives', async () => {
+    const f = fixture();
+    try {
+      const [a, b] = await f.start();
+      await Promise.all([a!.commit('D'), b!.commit('A')]);
+      await f.network.pump((message) => !(message.to === 'peer0' && messageType(message) === 'commit'));
+      assert.equal(a!.view().turn, 0);
+      assert.notEqual(a!.view().phase, 'mismatch');
+      await f.network.pump();
+      assert.equal(a!.view().turn, 1); assert.equal(a!.export(), b!.export());
+    } finally { f.close(); }
+  });
 
-    const b = makeEnd('joinB');
-    const from = imported(trimUnresolved(sa.export()));
-    const sb = Session.open({
-      match: from.match, channel: b, names: from.names, onChange: () => {}
+  it('keeps commitments and verified partial reveals out of completed exports', async () => {
+    const f = fixture();
+    try {
+      const [a, b] = await f.start();
+      const before = a!.export();
+      assert.ok((await a!.commit('D')).ok); await f.network.pump();
+      assert.equal(a!.export(), before); assert.equal(b!.export(), before);
+      assert.equal(a!.view().canChange, true);
+      assert.ok((await b!.commit('A')).ok);
+      await f.network.pump((message) => messageType(message) !== 'reveal');
+      assert.equal(a!.export(), before); assert.equal(b!.export(), before);
+      assert.equal(a!.view().turn, 0);
+      await f.network.pump();
+      assert.equal(a!.view().turn, 1); assert.equal(a!.export(), b!.export());
+      assert.equal(decoded(a!.export()).log.length, 2);
+    } finally { f.close(); }
+  });
+
+  it('ignores a superseded commitment after withdrawal and recommit, even delivered last', async () => {
+    const f = fixture();
+    try {
+      const [a, b] = await f.start();
+      assert.ok((await a!.commit('D')).ok);
+      const old = f.network.messages.filter((message) => messageType(message) === 'commit');
+      assert.ok(old.length > 0);
+      f.network.messages.splice(0);
+      assert.ok(a!.withdraw().ok);
+      assert.ok((await a!.commit('H')).ok);
+      await f.network.pump();
+      old.forEach((message) => f.network.inject(message));
+      await f.network.pump();
+      assert.ok((await b!.commit('A')).ok); await f.network.pump();
+      assert.equal(a!.view().turn, 1); assert.equal(a!.export(), b!.export());
+      assert.equal(decoded(a!.export()).log.find((action) => action.color === 'C')?.action, 'H');
+    } finally { f.close(); }
+  });
+
+  it('buffers a checkpoint that arrives before local reveals finish', async () => {
+    const f = fixture();
+    try {
+      const [a, b] = await f.start();
+      await Promise.all([a!.commit('D'), b!.commit('A')]);
+      await f.network.pump((message) => !(message.to === 'peer0' && messageType(message) === 'reveal'));
+      assert.equal(b!.view().turn, 1);
+      assert.equal(a!.view().turn, 0);
+      assert.notEqual(a!.view().phase, 'mismatch');
+      assert.equal(b!.view().canCommit, false);
+      await f.network.pump();
+      assert.equal(a!.view().turn, 1); assert.equal(a!.export(), b!.export());
+      assert.ok(a!.view().canCommit && b!.view().canCommit);
+    } finally { f.close(); }
+  });
+
+  it('duplicate and reverse-delivered turn traffic applies exactly one complete batch', async () => {
+    const f = fixture();
+    try {
+      const [a, b] = await f.start();
+      await Promise.all([a!.commit('D'), b!.commit('A')]);
+      f.network.messages.push(...f.network.messages.map((message) => ({ ...message })));
+      f.network.messages.reverse();
+      await f.network.pump();
+      assert.equal(a!.view().turn, 1); assert.equal(b!.view().turn, 1);
+      assert.equal(a!.export(), b!.export());
+      assert.equal(decoded(a!.export()).log.length, 2);
+    } finally { f.close(); }
+  });
+
+  it('closed sessions ignore queued traffic and unfinished hash callbacks', async () => {
+    const f = fixture();
+    try {
+      const [a, b] = await f.start();
+      const saved = a!.export();
+      const pending = a!.commit('D');
+      a!.close();
+      await pending; await f.network.pump();
+      assert.equal(a!.export(), saved);
+      assert.equal(a!.view().canCommit, false);
+      assert.equal(b!.view().canCommit, false);
+    } finally { f.close(); }
+  });
+});
+
+describe('resume and transferred hosting', () => {
+  it('a departure after only some peers complete pauses unequal histories without rollback', async () => {
+    const f = fixture(['C', 'P', 'T']);
+    try {
+      const [a, b, c] = await f.start();
+      await Promise.all([a!.commit('H'), b!.commit('H'), c!.commit('H')]);
+      await f.network.pump((message) => !(message.to === 'peer0' && messageType(message) === 'reveal'));
+      assert.equal(a!.view().turn, 0); assert.equal(b!.view().turn, 1);
+      const before = [a!.export(), b!.export()];
+      c!.close();
+      await f.network.pump();
+      assert.equal(a!.view().canCommit, false); assert.equal(b!.view().canCommit, false);
+      assert.ok([a!, b!].some((player) => player.view().phase === 'mismatch'));
+      assert.deepEqual([a!.export(), b!.export()], before);
+    } finally { f.close(); }
+  });
+
+  it('concurrent historical requests have one confirmed winner without replacing it by ID', async () => {
+    const f = fixture();
+    try {
+      const raw = Match.fromConfig(f.config).export({ C: 'Rook', P: 'Vale' });
+      const host = f.open('host', 'resume', raw);
+      await f.network.pump();
+      host.requestSeat('P'); await f.network.pump();
+      const first = f.open('zzFirst', 'resume', raw), later = f.open('aaLater', 'resume', raw);
+      await f.network.pump();
+      assert.ok(first.requestSeat('C').ok);
+      assert.ok(later.requestSeat('C').ok);
+      await f.network.pump((message) => message.from !== 'aaLater');
+      assert.equal(first.color(), 'C');
+      await f.network.pump();
+      assert.equal(first.color(), 'C'); assert.equal(later.color(), null);
+      assert.equal(host.view().hostId, 'host');
+      assert.equal(seat(host, 'C').ownerId, 'zzFirst');
+    } finally { f.close(); }
+  });
+
+  it('a lone resume opener can host without Coral and retains historical names', async () => {
+    const f = fixture();
+    try {
+      const raw = Match.fromConfig(f.config).export({ C: 'Rook', P: 'Vale' });
+      const a = f.open('resumeHost', 'resume', raw);
+      await f.network.pump();
+      assert.equal(a.color(), null);
+      assert.equal(a.view().hostId, 'resumeHost');
+      assert.ok(seat(a, 'P').canClaim);
+      assert.ok(a.requestSeat('P').ok); await f.network.pump();
+      assert.equal(a.color(), 'P'); assert.equal(seat(a, 'P').name, 'Vale');
+      assert.equal(a.view().canCommit, false);
+      const b = f.open('resumeOther', 'resume', raw);
+      await f.network.pump();
+      assert.equal(b.requestSeat('P').ok, false); await f.network.pump();
+      assert.equal(b.color(), null);
+      assert.equal(a.color(), 'P');
+      assert.ok(b.requestSeat('C').ok); await f.network.pump();
+      a.ready(); b.ready(); await f.network.pump();
+      assert.ok(a.view().canCommit && b.view().canCommit);
+      assert.deepEqual(decoded(a.export()).names, { C: 'Rook', P: 'Vale' });
+    } finally { f.close(); }
+  });
+
+  it('surviving ownership and readiness persist when the host leaves and its seat is replaced', async () => {
+    const f = fixture(['C', 'P', 'T']);
+    try {
+      const [a, b, c] = await f.start();
+      const raw = a!.export();
+      a!.close(); await f.network.pump();
+      assert.equal(b!.view().hostId, 'peer1'); assert.equal(c!.view().hostId, 'peer1');
+      assert.equal(b!.color(), 'P'); assert.equal(c!.color(), 'T');
+      assert.ok(seat(b!, 'P').ready && seat(b!, 'T').ready);
+      assert.equal(b!.view().canCommit, false);
+      const replacement = f.open('aaReplacement', 'resume', raw);
+      await f.network.pump();
+      assert.ok(replacement.requestSeat('C').ok); await f.network.pump();
+      assert.equal(replacement.color(), 'C');
+      assert.equal(replacement.view().hostId, 'peer1');
+      replacement.ready(); await f.network.pump();
+      assert.ok([b!, c!, replacement].every((player) => player.view().canCommit));
+      await Promise.all([b!.commit('H'), c!.commit('H'), replacement.commit('H')]);
+      await f.network.pump();
+      assert.equal(b!.view().turn, 1); assert.equal(b!.export(), replacement.export());
+    } finally { f.close(); }
+  });
+
+  for (const lag of [false, true]) {
+    it('resume openers pause on ' + (lag ? 'one-turn lag' : 'same-turn divergence') + ' without replacing history', async () => {
+      const f = fixture();
+      try {
+        const left = Wire.encodeExport(f.config,
+          [{ turn: metaTurn(0), color: 'C', action: 'D' }, { turn: metaTurn(0), color: 'P', action: 'H' }],
+          { C: 'Rook', P: 'Vale' });
+        const right = lag ? Match.fromConfig(f.config).export({ C: 'Rook', P: 'Vale' }) :
+          Wire.encodeExport(f.config,
+            [{ turn: metaTurn(0), color: 'C', action: 'H' }, { turn: metaTurn(0), color: 'P', action: 'H' }],
+            { C: 'Rook', P: 'Vale' });
+        const a = f.open('left', 'resume', left), b = f.open('right', 'resume', right);
+        const before = [a.export(), b.export()];
+        await f.network.pump();
+        assert.equal(a.view().canCommit, false); assert.equal(b.view().canCommit, false);
+        assert.ok([a, b].some((player) => player.view().phase === 'mismatch'));
+        assert.deepEqual([a.export(), b.export()], before);
+      } finally { f.close(); }
     });
-    LoopbackChannel.link(a, b);
-    await settle();
-    assert.equal(seatOf(sb, 'C').state, 'taken', 'linking announces the seat coral already holds');
-    assert.equal(sb.view().turn, 0, 'and the importer is on the turn coral is waiting to finish');
-
-    seat(sb, 'P', 'Vale');
-    await sb.commit('A');
-    await settle();
-
-    assert.equal(sb.view().turn, 1, 'the joiner resolved the turn');
-    assert.equal(sa.view().turn, 1, 'and so did the peer that had been waiting on it');
-    assert.equal(sa.view().hash, sb.view().hash, 'on one state, not two');
-    assert.ok(sa.view().bodies.some((b) => b.color === 'P' && b.t === 1 && b.x === 13),
-      "coral saw the joiner's move");
-    assert.equal(sa.view().error, null);
-    assert.equal(sb.view().error, null);
-  });
+  }
 });
 
-describe('export trimming', () => {
-  it('cuts a mid-turn draft back to the last finished turn', async () => {
-    const { sa, sb } = mkPair();
-    seat(sa, 'C', 'Rook');
-    seat(sb, 'P', 'Vale');
-    await sa.commit('D');
-    await sb.commit('A');
-    await settle();
-    assert.equal(sa.view().turn, 1, 'turn 0 finished');
-    await commitLegal(sa);
-
-    const raw = sa.export();
-    assert.ok(!imported(raw).match.pendingColors().includes('C'),
-      'the untrimmed export carries the draft, which is the whole problem');
-
-    const trimmed = imported(trimUnresolved(raw));
-    assert.equal(trimmed.match.currentTurn(), sa.view().turn, 'the finished turns are all still there');
-    assert.deepEqual(trimmed.match.pendingColors(), ['C', 'P'],
-      'the unfinished one is owed by everybody again, so commit() has something to do');
-    assert.equal(trimmed.match.stateHash(), sa.view().hash, 'on the state the live session is already on');
-    assert.equal(trimmed.names.C, 'Rook', 'and the names survive the cut');
+describe('canonical exports and discovery', () => {
+  it('equivalent action insertion orders encode the same completed snapshot', () => {
+    const log = [
+      { turn: metaTurn(0), color: 'C' as const, action: 'D' as const },
+      { turn: metaTurn(0), color: 'P' as const, action: 'A' as const }
+    ];
+    assert.equal(Wire.encodeExport(CONFIG, log, { P: 'Vale', C: 'Rook' }),
+      Wire.encodeExport(CONFIG, [...log].reverse(), { C: 'Rook', P: 'Vale' }));
   });
 
-  it('changes nothing at a turn boundary', async () => {
-    const { sa, sb } = mkPair();
-    seat(sa, 'C', 'Rook');
-    seat(sb, 'P', 'Vale');
-    await sa.commit('D');
-    await sb.commit('A');
-    await settle();
-    assert.equal(sa.view().turn, 1, 'nobody is mid-turn');
-
-    const raw = sa.export();
-    const back = imported(raw);
-    assert.equal(trimUnresolved(raw), back.match.export(back.names), 'there was nothing to cut');
-  });
-
-  it('leaves a string it cannot decode to Match.fromExport', () => {
+  it('trims partial engine exports while retaining names and completed turns', () => {
+    const raw = Wire.encodeExport(CONFIG, [
+      { turn: metaTurn(0), color: 'C', action: 'D' }, { turn: metaTurn(0), color: 'P', action: 'A' },
+      { turn: metaTurn(1), color: 'C', action: 'H' }
+    ], { C: 'Rook', P: 'Vale' });
+    const completed = imported(trimUnresolved(raw));
+    assert.equal(completed.match.currentTurn(), 1);
+    assert.deepEqual(completed.match.pendingColors(), ['C', 'P']);
+    assert.deepEqual(completed.names, { C: 'Rook', P: 'Vale' });
     assert.equal(trimUnresolved('not an export'), 'not an export');
   });
-});
 
-describe('room ids', () => {
-  it('put one code in one room, whitespace and all', () => {
-    const s1 = Wire.encodeMatchCode(cfg({ seed: 'aaa' }));
-    const s2 = Wire.encodeMatchCode(cfg({ seed: 'aaa' }));
-    const s3 = Wire.encodeMatchCode(cfg({ seed: 'bbb' }));
-    assert.equal(s1, 'M1:sandbox:16x9:0:aaa:40:CP',
-      "a match code is the engine's own seven segments, nothing appended");
-
-    const id = Code.roomId(s1);
-    assert.equal(Code.roomId(s2), id, 'the same code has to find the same room');
-    assert.notEqual(Code.roomId(s3), id, 'a different seed is a different room');
-    assert.equal(Code.roomId(' ' + s1 + '\n'), id, 'stray whitespace must not split the room');
+  it('retains configuration-based discovery across completed turns', () => {
+    const code = Wire.encodeMatchCode(CONFIG);
+    assert.equal(Code.roomId(' ' + code + '\n'), Code.roomId(code));
+    assert.match(Code.roomId(code), /^tbtt-[0-9a-f]{16}$/);
+    assert.notEqual(Code.roomId(Wire.encodeMatchCode({ ...CONFIG, seed: 'different' })), Code.roomId(code));
   });
 
-  it('are a fixed shape, so a relay never sees a match code', () => {
-    assert.match(Code.roomId('M1:sandbox:16x9:0:aaa:40:CP'), /^tbtt-[0-9a-f]{16}$/);
-  });
-});
-
-describe('the divergence check', () => {
-  async function diverge(sa: Sess, peer: Channel) {
-    const p = await twoPhase({ turn: 0, color: 'P', action: 'A', hash: 'dead' });
-    peer.send(p.commitment);
-    peer.send(p.reveal);
-    await settle();
-  }
-
-  it('latches the mismatch in view().error', async () => {
-    const { peer, sa } = mkSolo();
-    seat(sa, 'C', 'Rook');
-    peerClaim(peer, 'P', 'Vale');
-    await sa.commit('D');
-    await settle();
-    await diverge(sa, peer);
-
-    const first = sa.view().error;
-    assert.ok(first, 'a diverged timeline has to surface');
-    assert.equal(sa.view().turn, 0, 'and the turn does not resolve on it');
-
-    peer.send('!P~Vale@' + peer.id);
-    await settle();
-    assert.equal(sa.view().error, first, 'the error is held, not flashed and lost');
-  });
-
-  it('reports the turn, the state that arrived, and the state we are on', async () => {
-    const { peer, sa } = mkSolo();
-    seat(sa, 'C', 'Rook');
-    peerClaim(peer, 'P', 'Vale');
-    const hash = sa.view().hash;
-    await sa.commit('D');
-    await settle();
-    await diverge(sa, peer);
-
-    matches(sa.view().error, /^Turn 0 is for state dead\b/);
-    matches(sa.view().error, new RegExp('this match is on ' + hash));
-    matches(sa.view().error, /shared resume link/, 'and says what the player can do');
-  });
-
-  it('does not apply the action that failed the check', async () => {
-    const { peer, sa } = mkSolo();
-    seat(sa, 'C', 'Rook');
-    peerClaim(peer, 'P', 'Vale');
-    await sa.commit('D');
-    await settle();
-    await diverge(sa, peer);
-
-    assert.deepEqual(decoded(sa.export()).log, [{ turn: 0, color: 'C', action: 'D' }],
-      'only our own draft is in the log');
-    assert.ok(sa.view().pending.includes('P'), 'purple is still owed the turn');
-    assert.equal(sa.view().me.t, 0, 'and nothing moved');
-  });
-
-  it('holds the report through a later reveal that would otherwise be accepted', async () => {
-    const { peer, sa } = mkSolo();
-    seat(sa, 'C', 'Rook');
-    peerClaim(peer, 'P', 'Vale');
-    await sa.commit('D');
-    await settle();
-    await diverge(sa, peer);
-    const first = sa.view().error;
-    assert.ok(first, 'the fork was reported');
-
-    const good = await twoPhase({ turn: 0, color: 'P', action: 'H', hash: sa.view().hash, nonce: NONCE_B });
-    peer.send(good.commitment);
-    peer.send(good.reveal);
-    await settle();
-    assert.equal(sa.view().error, first, 'the report from the fork stands');
-  });
-
-  it('catches a mismatch that was buffered before we committed', async () => {
-    const { peer, sa } = mkSolo();
-    seat(sa, 'C', 'Rook');
-    peerClaim(peer, 'P', 'Vale');
-
-    await diverge(sa, peer);
-    assert.equal(sa.view().error, null, 'nothing is judged while it is still buffered');
-
-    await sa.commit('D');
-    await settle();
-    matches(sa.view().error, /shared resume link/, 'committing flushes it, and it fails there');
-    assert.equal(sa.view().turn, 0);
-  });
-
-  it('does not judge a reveal for a turn the match has not reached', async () => {
-    const { peer, sa } = mkSolo();
-    seat(sa, 'C', 'Rook');
-    peerClaim(peer, 'P', 'Vale');
-    await sa.commit('D');
-    await settle();
-
-    const ahead = await twoPhase({ turn: 1, color: 'P', action: 'A', hash: 'dead' });
-    peer.send(ahead.commitment);
-    peer.send(ahead.reveal);
-    await settle();
-
-    assert.equal(sa.view().error, null,
-      'turn 1 is still ahead of us, and its hash is nobody\'s business yet');
-    assert.equal(sa.view().turn, 0);
-  });
-});
-
-describe('bootstrap over a session', () => {
-  it('a win ends the match on both sides and stops taking turns', async () => {
-    const { sa, sb } = mkPair({ mode: 'bootstrap', w: 5, h: 5, cap: 12, seed: 'tst' });
-    seat(sa, 'C', 'Rook');
-    seat(sb, 'P', 'Vale');
-    for (const [a, b] of [['D', 'H'], ['I', 'H'], ['H', 'H']] as const) {
-      assert.ok((await sa.commit(a)).ok);
-      assert.ok((await sb.commit(b)).ok);
-      await settle();
-    }
-    assert.deepEqual(sa.view().outcome, { status: 'won', color: 'C' });
-    assert.deepEqual(sb.view().outcome, { status: 'won', color: 'C' });
-    assert.equal(sa.view().hash, sb.view().hash);
-    assert.equal(sa.view().turn, 3);
-    assert.deepEqual(sa.view().uncommitted, []);
-    assert.ok(!(await sb.commit('H')).ok, 'no more turns after a win');
-  });
-
-  it('ignores commitments and reveals that arrive after a win', async () => {
-    const { peer, sa } = mkSolo({ mode: 'bootstrap', w: 5, h: 5, cap: 12, seed: 'tst' });
-    seat(sa, 'C', 'Rook');
-    peerClaim(peer, 'P', 'Vale');
-    for (const [turn, mine] of [[0, 'D'], [1, 'I'], [2, 'H']] as const) {
-      const hash = sa.view().hash;
-      await sa.commit(mine);
-      const theirs = await twoPhase({ turn, color: 'P', action: 'H', hash, name: turn === 0 ? 'Vale' : undefined });
-      peer.send(theirs.commitment);
-      peer.send(theirs.reveal);
-      await settle();
-    }
-    assert.deepEqual(sa.view().outcome, { status: 'won', color: 'C' });
-    const late = await twoPhase({ turn: 3, color: 'P', action: 'H', hash: sa.view().hash });
-    peer.send(late.commitment);
-    peer.send(late.reveal);
-    await settle();
-    assert.equal(sa.view().turn, 3);
-    assert.equal(sa.view().error, null);
-  });
-});
-
-describe('wire discipline', () => {
-  it('puts nothing but claims, commitments and reveals on the wire', async () => {
-    const { sa, sb, sentA, sentB } = mkPair({ w: 8, h: 5, cap: 8, seed: 'wire' });
-    seat(sa, 'C', 'Rook');
-    seat(sb, 'P', 'Vale');
-
-    let guard = 0;
-    while (sa.view().outcome.status === 'running' && guard++ < 100) {
-      await commitLegal(sa);
-      await commitLegal(sb);
-      await settle();
-    }
-    assert.notEqual(sa.view().outcome.status, 'running', 'the match should have reached the cap');
-    assert.equal(sa.view().hash, sb.view().hash, 'and the two sides still agree');
-
-    const all = sentA.concat(sentB);
-    for (const s of all) {
-      assert.ok(s.length, 'sent an empty string');
-      assert.notEqual(s.slice(0, 3), 'X1:', 'an export went on the wire: ' + s);
-      const kind = kindOf(s);
-      assert.notEqual(kind, 'unknown', 'neither a claim, a commitment nor a reveal: ' + s);
-      if (kind === 'reveal') {
-        const m = REVEAL_RE.exec(s);
-        assert.ok(m, s);
-        assert.ok(Wire.decodeAction(m[1]).ok, 'unreadable action inside a reveal: ' + s);
+  it('control messages contain no completed log or replacement export', async () => {
+    const f = fixture();
+    try {
+      const [a, b] = await f.start();
+      await Promise.all([a!.commit('D'), b!.commit('A')]); await f.network.pump();
+      for (const delivery of f.network.sent) {
+        const message = JSON.parse(delivery.text) as Record<string, unknown>;
+        assert.equal(message.v, 2); assert.equal(typeof message.room, 'string');
+        assert.ok(['hello', 'lobby', 'request', 'consent', 'proposal', 'ack', 'activate', 'commit', 'reveal', 'checkpoint'].includes(String(message.type)));
+        assert.equal(delivery.text.includes('X1:'), false);
+        assert.equal(Object.hasOwn(message, 'log'), false);
+        assert.equal(Object.hasOwn(message, 'match'), false);
       }
-    }
-    const counts = { claim: 0, commitment: 0, reveal: 0, unknown: 0 };
-    for (const s of all) counts[kindOf(s)]++;
-    assert.deepEqual(counts, { claim: 2, commitment: 16, reveal: 16, unknown: 0 },
-      'two claims, then one commitment and one reveal per colour per turn');
+    } finally { f.close(); }
   });
 });

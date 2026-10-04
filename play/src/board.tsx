@@ -2,7 +2,7 @@ import { useLayoutEffect, useRef } from 'preact/hooks';
 import type { JSX } from 'preact';
 
 import { COLORS } from './engine/index.js';
-import type { Action, ActionOffer, Color, TurnEvent, Vec, ViewBody } from './engine/index.js';
+import type { Action, ActionOffer, BoardPreviewData, Color, TurnEvent, Vec, ViewBody } from './engine/index.js';
 import { describe, motionBetween, relativeDirection } from './scene.js';
 import type { NamedView, Scene, SceneFront, Stack } from './scene.js';
 
@@ -84,7 +84,8 @@ function useMotions(
     const layer = root.current;
     const before = prev.current;
     // Events belong to the turn that just resolved; a scrub has none to read.
-    const resolved = turn !== prevTurn.current ? events : [];
+    const turnChanged = turn !== prevTurn.current;
+    const resolved = turnChanged ? events : [];
     prev.current = scene;
     prevTurn.current = turn;
     if (!layer) return;
@@ -139,6 +140,8 @@ function useMotions(
     // Committing an action rebuilds the scene without moving bodies; preserve any running animation.
     const left = until.current - performance.now();
     if (!motions.length && left > 0) return arm(left);
+    // Checkpoint updates can change targets without changing the resolved scene.
+    if (!motions.length && !turnChanged && scene.focusT === before.focusT) return;
 
     stage(resolved.length > 0);
     if (!motions.length) return;
@@ -219,7 +222,7 @@ export function Board({ view, scene, turn, events, picked, onPick }: BoardProps)
   }
 
   return (
-    <div id="board" style={`--bw:${view.w};--bh:${view.h};`} class={reducedMotion() ? 'noanim' : ''}>
+    <div id="board" style={`--bw:${view.w};--bh:${view.h};`} class={'board-grid' + (reducedMotion() ? ' noanim' : '')}>
       {cells}
       <div class="bodies" ref={layer}>
         {scene.stacks.map((s) => (
@@ -229,6 +232,29 @@ export function Board({ view, scene, turn, events, picked, onPick }: BoardProps)
       </div>
     </div>
   );
+}
+
+function staticTileStyle(wall: boolean, spawn?: Color): JSX.CSSProperties {
+  return {
+    background: wall ? 'var(--wall)' : 'var(--surface-1)',
+    ...(wall ? { opacity: 0.38 } : {}),
+    ...(spawn ? { border: '2px dashed ' + COLORS[spawn].hex } : {})
+  };
+}
+
+export function BoardPreview({ board, label = 'Board preview' }: { board: BoardPreviewData; label?: string }) {
+  const walls = new Set(board.walls.map(([x, y]) => tile(x, y)));
+  const spawns = new Map(board.roster.map((c) => [board.spawns[c]!.join(','), c]));
+  const cells = [];
+  for (let y = 0; y < board.h; y++) for (let x = 0; x < board.w; x++) {
+    const key = tile(x, y), spawn = spawns.get(key);
+    cells.push(<div key={key} class="cell" style={staticTileStyle(walls.has(key), spawn)} data-spawn={spawn}>
+      {spawn && <span class="preview-spawn" style={{ color: COLORS[spawn].hex }}>{spawn}</span>}
+      {board.keyAtCenter && x === board.center[0] && y === board.center[1] && <i class="key-mark center" />}
+    </div>);
+  }
+  return <div class="board-grid board-preview" role="img" aria-label={label}
+    style={{ '--bw': board.w, '--bh': board.h }}>{cells}</div>;
 }
 
 type CellProps = {
@@ -248,13 +274,13 @@ type CellProps = {
 function Cell(
   { view, wall, target, nextIndex, picked, onClick, past, occupied, op, spawn, keyHere }: CellProps
 ) {
-  let style: JSX.CSSProperties = { background: 'var(--surface-1)' };
+  let style: JSX.CSSProperties = staticTileStyle(wall, spawn);
   let title: string | undefined;
   const open = Boolean(target && target.reason === null);
   const on = Boolean(target && picked === target.action);
 
   if (wall) {
-    style = { background: 'var(--wall)', opacity: 0.38 };
+    style = staticTileStyle(true, spawn);
   } else if (target && target.reason === null) {
     style = {
       background: 'var(--accent-bg)',

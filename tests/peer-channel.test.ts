@@ -69,7 +69,7 @@ function deferredLoader(): Deferred {
   let resolve: (room: Room) => void = () => {};
   let reject: (reason: unknown) => void = () => {};
   const room = new Promise<Room>((res, rej) => { resolve = res; reject = rej; });
-  return { load: (id) => { ids.push(id); return room; }, ids, resolve, reject };
+  return { load: (id) => { ids.push(id); return room.then((room) => ({ room, selfId: "self" })); }, ids, resolve, reject };
 }
 
 async function settle(rounds = 4): Promise<void> {
@@ -85,7 +85,7 @@ function open(load: RoomLoader, roomId = 'tbtt-0000000000000000'): { ch: Channel
 
 async function joined(o?: { peers?: string[]; leaveThrows?: Error }) {
   const fake = fakeRoom(o);
-  const { ch, seen } = open(() => Promise.resolve(fake.room));
+  const { ch, seen } = open(() => Promise.resolve({ room: fake.room, selfId: "self" }));
   await settle();
   return { fake, ch, seen };
 }
@@ -160,7 +160,7 @@ describe('messages', () => {
     const { fake, ch } = await joined({ peers: ['a'] });
     ch.send('#0C:' + 'a'.repeat(32));
     assert.deepEqual(fake.sent, ['#0C:' + 'a'.repeat(32)]);
-    assert.deepEqual(fake.namespaces, ['m'],
+    assert.deepEqual(fake.namespaces, ['tbtt2'],
       'the namespace is on the wire, so a client that renames it hears nobody');
   });
 
@@ -201,7 +201,7 @@ describe('a loader that rejects', () => {
 describe('the status port', () => {
   it('reports where the channel already is the moment onStatus is assigned', async () => {
     const fake = fakeRoom({ peers: ['a'] });
-    const ch = PeerChannel('tbtt-0000000000000000', () => Promise.resolve(fake.room));
+    const ch = PeerChannel('tbtt-0000000000000000', () => Promise.resolve({ room: fake.room, selfId: "self" }));
     await settle();
 
     const seen: ChannelStatus[] = [];
@@ -236,7 +236,7 @@ describe('closing', () => {
     assert.equal(fake.action.onMessage, null, 'so nothing is listening');
     assert.equal(fake.room.onPeerJoin, null, 'and no peer event can revive it');
     assert.equal(fake.room.onPeerLeave, null);
-    assert.equal(fake.leaves(), 0, 'there was no room to leave at the time');
+    assert.equal(fake.leaves(), 1, 'release a room that finishes loading after close');
     assert.deepEqual(last(seen), { state: 'offline', peers: [], detail: null },
       'the late room does not report live over the top of offline');
 
@@ -274,12 +274,12 @@ describe('closing', () => {
 });
 
 describe('client ids', () => {
-  it('are distinct, and shaped for the claim grammar', () => {
-    const load: RoomLoader = () => new Promise<Room>(() => {});
-    const a = PeerChannel('tbtt-0000000000000000', load).id;
-    const b = PeerChannel('tbtt-0000000000000000', load).id;
-
-    assert.match(a, /^p-[0-9a-f]{16}$/);
-    assert.notEqual(a, b, 'two clients sharing an id deadlock every colour contest');
+  it('waits for the loader and exposes the actual transport identity', async () => {
+    const d = deferredLoader();
+    const { ch } = open(d.load);
+    assert.equal(ch.id, null);
+    d.resolve(fakeRoom().room);
+    await settle();
+    assert.equal(ch.id, 'self');
   });
 });

@@ -10,6 +10,14 @@ Players choose a weapon and a time mechanic. Inversion is the first time mechani
 
 Bootstrap is the first mode with a winner, see [Bootstrap](#bootstrap). The first complete game should support a networked two-player match, a gun, erasure and restoration fronts, clear front visualisation, and solo puzzles. Mines, grenades, three or more players, matchmaking, and other time mechanics come later.
 
+## Prototype sessions
+
+Setup defaults to two players and supports three or four. New games assign colours automatically in Coral, Purple, Teal, Amber order, with the fixed corner spawns described below. Every configured player must be seated and ready before play.
+
+A transferable host coordinates seats; each browser computes the game locally from the same completed snapshot and verified current-turn actions. Resume links contain the saved match and frozen player names. A returning player may take any disconnected historical seat. No browser identity is persisted.
+
+Snapshot disagreement pauses play until the group opens the same chosen resume link. Browsers do not transfer completed histories, reconcile forks, or roll back completed turns. This is a trusted-player peer-to-peer prototype, not consensus across disconnected groups.
+
 ## Clocks and playheads
 
 - World time (`t`) records positions on the shared timeline.

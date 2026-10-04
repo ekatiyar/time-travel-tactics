@@ -56,15 +56,14 @@ export const Wire = {
     config: Config, log: readonly LogEntry[], names: Readonly<Partial<Record<Color, string>>> | null
   ): string {
     const byTurn: string[][] = [];
-    for (const e of log) {
+    for (const e of [...log].sort((a, b) => a.turn - b.turn || ORDER.indexOf(a.color) - ORDER.indexOf(b.color))) {
       let g = byTurn[e.turn];
       if (!g) { g = []; byTurn[e.turn] = g; }
       g.push(e.color + e.action);
     }
     const groups: string[] = [];
     for (let i = 0; i < byTurn.length; i++) groups.push((byTurn[i] ?? []).join(''));
-    const nm = ORDER.filter((c) => validName((names ?? {})[c]))
-      .sort().map((c) => c + '~' + (names ?? {})[c]);
+    const nm = ORDER.filter((c) => config.roster.includes(c) && validName((names ?? {})[c])).map((c) => c + '~' + (names ?? {})[c]);
     return 'X1:' + Wire.encodeMatchCode(config) + '|' + groups.join(',') + '|' + nm.join(',');
   },
   decodeExport: function (raw: unknown): Result<DecodedExport> {
