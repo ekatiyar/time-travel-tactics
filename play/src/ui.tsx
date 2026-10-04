@@ -1,7 +1,7 @@
 import { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } from 'preact/hooks';
 import { Fragment } from 'preact';
 
-import { COLORS, Match, Wire, previewBoard } from './engine/index.js';
+import { COLORS, Match, Wire, previewBoard, validName } from './engine/index.js';
 import type { Action, BoardPreviewData, Color, ConfigInput, TurnEvent, ViewBody } from './engine/index.js';
 import { Board, BoardPreview } from './board.js';
 import { instrumentAt, maxLookBack } from './instrument.js';
@@ -232,24 +232,25 @@ function messageOf(e: unknown): string {
   return e instanceof Error && e.message ? e.message : String(e);
 }
 
-type Form = { mode: string; w: string; h: string; wallPct: string; seed: string; cap: string; roster: string };
+type Form = { mode: string; w: string; h: string; wallPct: string; cap: string; roster: string };
 const SIZES = [{ name: 'Small', w: 9, h: 7 }, { name: 'Standard', w: 16, h: 9 }, { name: 'Large', w: 24, h: 13 }];
 
 function SetupCard({ onMatch, initialError }: { onMatch: (m: Match) => void; initialError: string }) {
   const [seeds, setSeeds] = useState(() => [randomSeed(), randomSeed(), randomSeed()]);
   const [selected, setSelected] = useState(0);
   const [form, setForm] = useState<Form>(() => ({
-    mode: 'bootstrap', w: '16', h: '9', wallPct: '11', seed: seeds[0]!, cap: String(suggestCap(16, 9)), roster: 'CP'
+    mode: 'bootstrap', w: '16', h: '9', wallPct: '11', cap: String(suggestCap(16, 9)), roster: 'CP'
   }));
   const [customCap, setCustomCap] = useState(false);
   const [error, setError] = useState(initialError);
+  const seed = seeds[selected]!;
   const layout = useMemo(() => {
     try {
       for (const key of ['w', 'h', 'wallPct', 'cap'] as const) {
         if (!/^\d+$/.test(form[key])) throw new Error('Use whole numbers for dimensions, walls, and turn cap.');
       }
       const config: ConfigInput = { mode: form.mode, w: +form.w, h: +form.h, wallPct: +form.wallPct,
-        seed: form.seed.trim(), cap: +form.cap, roster: form.roster.split('') };
+        seed: seed.trim(), cap: +form.cap, roster: form.roster.split('') };
       const board = previewBoard(config);
       const candidates = seeds.map((seed, i) => {
         if (i === selected) return board;
@@ -259,10 +260,13 @@ function SetupCard({ onMatch, initialError }: { onMatch: (m: Match) => void; ini
     } catch (e) { return { config: null, board: null, candidates: [], error: messageOf(e) }; }
   }, [form, seeds, selected]);
 
-  function update(key: keyof Form, value: string) {
+  function update(key: keyof Form | 'seed', value: string) {
     setError('');
+    if (key === 'seed') {
+      setSeeds((old) => old.map((seed, i) => i === selected ? value : seed));
+      return;
+    }
     if (key === 'cap') setCustomCap(true);
-    if (key === 'seed') setSeeds((old) => old.map((seed, i) => i === selected ? value : seed));
     setForm((f) => {
       const next = { ...f, [key]: value };
       if ((key === 'w' || key === 'h') && !customCap) next.cap = String(suggestCap(+next.w || 16, +next.h || 9));
@@ -272,13 +276,11 @@ function SetupCard({ onMatch, initialError }: { onMatch: (m: Match) => void; ini
   function chooseSize(w: number, h: number) {
     setError(''); setForm((f) => ({ ...f, w: String(w), h: String(h), cap: customCap ? f.cap : String(suggestCap(w, h)) }));
   }
-  function chooseSeed(i: number) { setSelected(i); setError(''); setForm((f) => ({ ...f, seed: seeds[i]! })); }
   function reroll() {
-    const next = [randomSeed(), randomSeed(), randomSeed()];
-    setSeeds(next); setSelected(0); setError(''); setForm((f) => ({ ...f, seed: next[0]! }));
+    setSeeds([randomSeed(), randomSeed(), randomSeed()]); setSelected(0); setError('');
   }
   const preset = SIZES.find((s) => s.w === +form.w && s.h === +form.h);
-  const input = (key: keyof Form) => (e: { currentTarget: HTMLInputElement }) => update(key, e.currentTarget.value);
+  const input = (key: keyof Form | 'seed') => (e: { currentTarget: HTMLInputElement }) => update(key, e.currentTarget.value);
   return (
     <div id="paneNew" class="intro-grid">
       <div class="setup-controls">
@@ -314,7 +316,7 @@ function SetupCard({ onMatch, initialError }: { onMatch: (m: Match) => void; ini
               </div>
               <div>
                 <label class="f">Turn cap <input id="fCap" type="number" min="2" max="400" step="1" value={form.cap} onInput={input('cap')} /></label>
-                <label class="f">Seed <input id="fSeed" type="text" maxLength={24} value={form.seed} onInput={input('seed')} /></label>
+                <label class="f">Seed <input id="fSeed" type="text" maxLength={24} value={seed} onInput={input('seed')} /></label>
               </div>
             </div>
           </details>
@@ -325,14 +327,14 @@ function SetupCard({ onMatch, initialError }: { onMatch: (m: Match) => void; ini
         {layout.board ? <BoardPreview board={layout.board} /> : <div class="preview-invalid">Enter valid settings to preview the board.</div>}
         <div class="seed-options" role="group" aria-label="Seed candidates">
           {seeds.map((seed, i) => <button key={i} class="seed-option" aria-label={'Select seed ' + (i + 1)}
-            aria-pressed={selected === i} onClick={() => chooseSeed(i)}>
+            aria-pressed={selected === i} onClick={() => { setSelected(i); setError(''); }}>
             {layout.candidates[i] && <BoardPreview board={layout.candidates[i]!} label={'Seed ' + (i + 1) + ' preview'} />}
             <span>{seed || 'Empty seed'}</span>
           </button>)}
           <button id="btnReroll" onClick={reroll}>Reroll</button>
         </div>
         {layout.board && <p class="preview-summary">{form.w} × {form.h} · {form.roster.length} players · {layout.board.walls.length} walls<br />
-          <span class="mono">seed {form.seed}</span> · {form.cap} turns</p>}
+          <span class="mono">seed {seed}</span> · {form.cap} turns</p>}
         <p id="setupErr" class="err" role="alert">{layout.error || error}</p>
         <button id="btnMake" class="primary create-match" disabled={!layout.config} onClick={() => {
           if (layout.config) onMatch(Match.fromConfig(layout.config));
@@ -372,8 +374,6 @@ function CopyButton(
   );
 }
 
-const NAME_RE = /^[A-Za-z0-9_-]{1,12}$/;
-
 function lobbyStatus(v: SessionView): string {
   if (v.status === 'failed' || v.status === 'offline') return 'Could not connect. Reopen the match link to try again.';
   if (v.phase === 'connecting') return 'Connecting…';
@@ -394,7 +394,7 @@ function Lobby({ session, view, link, onNew, name, setName }: {
   const v = view, local = v.seats.find((s) => s.isLocal);
   const historical = v.started;
   const typed = name ?? local?.name ?? '';
-  const badName = !historical && !NAME_RE.test(typed.trim());
+  const badName = !historical && !validName(typed.trim());
   const preview: BoardPreviewData = { w: v.w, h: v.h, roster: v.roster, walls: v.walls, spawns: v.spawns,
     center: v.center, keyAtCenter: v.mode === 'bootstrap' };
   return <section id="pickCard" class="card lobby-card">
@@ -422,7 +422,7 @@ function Lobby({ session, view, link, onNew, name, setName }: {
               <input id="pickName" maxLength={12} disabled={!v.canEditName} value={typed} aria-invalid={badName} aria-describedby="nameErr"
                 onInput={(e) => {
                   const text = e.currentTarget.value; setName(text); setNotice('');
-                  if (NAME_RE.test(text.trim())) {
+                  if (validName(text.trim())) {
                     const result = session.join(text.trim()); if (!result.ok) setNotice(result.error ?? 'Could not update name.');
                   } else session.ready(false);
                 }} />
@@ -435,7 +435,7 @@ function Lobby({ session, view, link, onNew, name, setName }: {
         </ul>
         {local && !historical && <p id="nameErr" class="err" role="alert">{badName ? 'Use 1–12 letters, digits, hyphens, or underscores.' : ''}</p>}
         <p id="pickWait" class="lobby-status" role="status">{lobbyStatus(v)}</p>
-        <p id="pickErr" class="err" role="alert">{notice || v.error || v.notice || v.detail || ''}</p>
+        <p id="pickErr" class="err" role="alert">{notice || v.error || v.detail || ''}</p>
         {local && v.phase !== 'mismatch' && <button id="btnReady" class="primary ready-button" disabled={!v.canReady || badName}
           aria-pressed={local.ready} onClick={() => { const r = session.ready(!local.ready); setNotice(r.error ?? ''); }}>
           {local.ready ? 'Not ready' : 'Ready'}
@@ -890,7 +890,7 @@ function PlayScreen({ session, view, link, onNew, theme, onTheme }: PlayProps) {
   const movePanel = (
     <Fragment>
       <div id="phasePick" class={over || done ? 'hide' : ''}>
-        <h3>{v.pauseReason === 'checkpoint' ? 'Confirming the completed turn…' : 'Your move'}</h3>
+        <h3>{v.phase === 'paused' ? 'Confirming the completed turn…' : 'Your move'}</h3>
         <div class="dpad" id="dpad">
           <div class="blank" />
           {padButton('W', '↑', 'W', 'move up')}
@@ -923,7 +923,7 @@ function PlayScreen({ session, view, link, onNew, theme, onTheme }: PlayProps) {
 
       {!over && <Dots view={v} />}
       <CopyButton id="btnCopyPlay" value={link} label="Copy resume link" />
-      <div class="err" id="netErr">{v.error || v.notice || ''}</div>
+      <div class="err" id="netErr">{v.error || ''}</div>
     </Fragment>
   );
 
@@ -1068,11 +1068,10 @@ type Startup = {
   error: string;
 };
 
-function replaceLink(kind: LinkKind, payload: string): string {
+function replaceLink(kind: LinkKind, payload: string): void {
   const url = new URL(window.location.href);
   url.hash = kind + '=' + encodeURIComponent(payload);
   history.replaceState(null, '', url.href);
-  return url.href;
 }
 
 function clearLink(): void {
@@ -1113,7 +1112,6 @@ export function App({ loadRoom }: { loadRoom: RoomLoader }) {
   const [theme, setTheme] = useState<Theme>(readTheme);
   const [startup] = useState<Startup>(startupFromLink);
   const [setupError, setSetupError] = useState(startup.error);
-  const [setupKey, setSetupKey] = useState(0);
   const [live, setLive] = useState<Live | null>(null);
   const liveRef = useRef<Live | null>(null);
   const [name, setName] = useState<string | null>(null);
@@ -1154,7 +1152,7 @@ export function App({ loadRoom }: { loadRoom: RoomLoader }) {
   function newMatch(): void {
     if (view?.started && !window.confirm('Start a new match? The current match will be left.')) return;
     liveRef.current?.session.close(); liveRef.current = null; setLive(null);
-    setName(null); setSetupError(''); setSetupKey((n) => n + 1); clearLink();
+    setName(null); setSetupError(''); clearLink();
   }
   function toggleTheme(): void {
     const next: Theme = theme === 'light' ? 'dark' : 'light'; applyTheme(next); setTheme(next);
@@ -1166,7 +1164,7 @@ export function App({ loadRoom }: { loadRoom: RoomLoader }) {
     <header class="intro-header"><div><h1>Time travel tactics</h1><p class="sub">Every move leaves a history.</p></div>
       <button id="btnTheme" title="Switch between dark and light" onClick={toggleTheme}>{theme === 'light' ? 'Dark' : 'Light'}</button></header>
     <main id="setup">
-      {!live && <SetupCard key={setupKey} initialError={setupError} onMatch={(m) => openMatch(m)} />}
+      {!live && <SetupCard initialError={setupError} onMatch={(m) => openMatch(m)} />}
       {live && view && <Lobby session={live.session} view={view} link={link} onNew={newMatch} name={name} setName={setName} />}
     </main>
   </div>;

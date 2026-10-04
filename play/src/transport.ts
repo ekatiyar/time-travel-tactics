@@ -116,52 +116,6 @@ function PeerChannel(roomId: string, loadRoom: RoomLoader = joinTrystero): Chann
   return ch;
 }
 
-export type LoopbackEnd = Channel & {
-  id: string;
-  wires: LoopbackEnd[];
-  emit: (s: ChannelStatus) => void;
-};
-
-let lbSeq = 0;
-function makeLoopback(id: string): LoopbackEnd {
-  const ch: LoopbackEnd = {
-    id: id,
-    onMessage: null,
-    onStatus: null,
-    wires: [],
-    emit: () => {},
-    send: function (text) {
-      for (const o of ch.wires.slice()) if (o.onMessage) o.onMessage(String(text), ch.id);
-    },
-    close: function () {
-      for (const peer of ch.wires) {
-        peer.wires = peer.wires.filter((end) => end !== ch);
-        peer.emit({ state: 'live', peers: peer.wires.map((end) => end.id), detail: null });
-      }
-      ch.wires = []; ch.onMessage = null;
-      ch.emit({ state: 'offline', peers: [], detail: null });
-    }
-  };
-  ch.emit = statusPort(ch, { state: 'live', peers: [], detail: null });
-  return ch;
-}
-
-const LoopbackChannel = Object.assign(makeLoopback, {
-  make: function (id?: string): LoopbackEnd { return makeLoopback(id || 'lb' + (++lbSeq)); },
-  link: function (a: LoopbackEnd, b: LoopbackEnd): void {
-    if (a.wires.indexOf(b) < 0) a.wires.push(b);
-    if (b.wires.indexOf(a) < 0) b.wires.push(a);
-    a.emit({ state: 'live', peers: a.wires.map((o) => o.id), detail: null });
-    b.emit({ state: 'live', peers: b.wires.map((o) => o.id), detail: null });
-  },
-  pair: function (): [LoopbackEnd, LoopbackEnd] {
-    const n = ++lbSeq;
-    const a = makeLoopback('lb' + n + 'a'), b = makeLoopback('lb' + n + 'b');
-    LoopbackChannel.link(a, b);
-    return [a, b];
-  }
-});
-
 export { Session } from './session.js';
 export type { SessionOptions, SessionView, SeatView } from './session.js';
-export { Code, trimUnresolved, PeerChannel, LoopbackChannel, joinTrystero };
+export { Code, trimUnresolved, PeerChannel, joinTrystero };

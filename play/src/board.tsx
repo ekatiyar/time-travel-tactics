@@ -274,14 +274,12 @@ type CellProps = {
 function Cell(
   { view, wall, target, nextIndex, picked, onClick, past, occupied, op, spawn, keyHere }: CellProps
 ) {
-  let style: JSX.CSSProperties = staticTileStyle(wall, spawn);
+  let style: JSX.CSSProperties = staticTileStyle(wall);
   let title: string | undefined;
   const open = Boolean(target && target.reason === null);
   const on = Boolean(target && picked === target.action);
 
-  if (wall) {
-    style = staticTileStyle(true, spawn);
-  } else if (target && target.reason === null) {
+  if (!wall && target && target.reason === null) {
     style = {
       background: 'var(--accent-bg)',
       cursor: 'pointer',
@@ -290,7 +288,7 @@ function Cell(
       ...(on ? {} : { opacity: 0.75 })
     };
     title = 'move ' + target.action;
-  } else if (target) {
+  } else if (!wall && target) {
     style = { background: 'var(--wall)', opacity: 0.55 };
     title = 'Blocked by ' + target.reason;
   }

@@ -45,16 +45,15 @@ function copySeats(seats: Seats): Seats {
   return out;
 }
 function owners(seats: Seats): string[] { return ORDER.flatMap((c) => seats[c] ? [seats[c]!.owner] : []).sort(); }
-function imported(text: string): Match {
+function imported(text: string) {
   const r = Match.fromExport(text);
   if (!r.ok) throw new Error(r.error);
-  return r.value.match;
+  return r.value;
 }
 function preimage(value: Reveal): string {
   return JSON.stringify([value.id, value.turn, value.baseline, value.color, value.revision, value.action, value.nonce]);
 }
 
-// Validate transport data before letting it reach the state machine.
 function decode(text: string, room: string): Envelope | null {
   if (text.length > 24000) return null;
   let raw: unknown;
@@ -102,10 +101,9 @@ export type SeatView = {
 export type SessionView = View & {
   started: boolean; names: Names; seats: SeatView[]; peers: string[]; detail: string | null; peersNeeded: number;
   status: ChannelStatus['state']; uncommitted: Color[]; canChange: boolean;
-  error: string | null; notice: string | null;
+  error: string | null;
   phase: 'connecting' | 'lobby' | 'electing' | 'agreeing' | 'playing' | 'paused' | 'full' | 'mismatch' | 'ended';
   hostId: string | null; localId: string | null; localColor: Color | null; canReady: boolean; canEditName: boolean; canCommit: boolean;
-  pauseReason: 'connection' | 'election' | 'seats' | 'agreement' | 'checkpoint' | 'snapshot' | null;
 };
 
 export class Session {
@@ -136,7 +134,6 @@ export class Session {
   private acknowledgments = new Set<string>();
   private active: Proposal | null = null;
   private error: string | null = null;
-  private notice: string | null = null;
   private localSeq = 0;
   private resumeChoice: { color: Color; name: string | undefined; digest: string; ready: boolean } | null = null;
   private processed = new Map<string, number>();
@@ -157,14 +154,14 @@ export class Session {
     this.entry = o.entry;
     this.started = this.entry === 'resume';
     const text = trimUnresolved(o.match.export(o.names));
-    this.match = imported(text);
-    const decoded = Wire.decodeExport(text);
-    this.names = decoded.ok ? decoded.value.names : {};
+    const saved = imported(text);
+    this.match = saved.match;
+    this.names = saved.names;
     this.room = Code.roomId(Wire.encodeMatchCode(this.match.config()));
     this.onChange = o.onChange ?? (() => {});
     this.ch.onMessage = (text, sender) => {
       const message = decode(text, this.room);
-      if (message) this.enqueue(async () => { await this.receive(message, sender); });
+      if (message) this.enqueue(() => this.receive(message, sender));
     };
     this.ch.onStatus = (status) => this.statusChanged(status);
     this.enqueue(async () => {
@@ -233,19 +230,12 @@ export class Session {
       const survivors = owners(this.seats).filter((id) => this.connected(id));
       if (survivors.length) next = survivors[0]!;
     }
-    if (!next) {
+    // Provisional founders converge; a fresh visitor never preempts established hosting.
+    if (!next || (!this.established && establishedHosts.size === 0 && reservedHosts.size === 0)) {
       const candidates = [[this.ch.id, this.entry], ...[...this.adverts].map(([id, a]) => [id, a.entry])] as Array<[string, string]>;
       const creators = candidates.filter(([, entry]) => entry === 'create').map(([id]) => id).sort();
       const resumes = candidates.filter(([, entry]) => entry === 'resume').map(([id]) => id).sort();
-      next = creators[0] ?? resumes[0] ?? null;
-    }
-    // Provisional founders converge; a fresh visitor never preempts established hosting.
-    if (!this.established && establishedHosts.size === 0 && reservedHosts.size === 0) {
-      const creators = [...this.adverts].filter(([, a]) => a.entry === 'create').map(([id]) => id);
-      if (this.entry === 'create') creators.push(this.ch.id);
-      const founders = [...this.adverts].filter(([, a]) => a.entry === 'resume').map(([id]) => id);
-      if (this.entry === 'resume') founders.push(this.ch.id);
-      next = creators.sort()[0] ?? founders.sort()[0] ?? next;
+      next = creators[0] ?? resumes[0] ?? next;
     }
     if (next === this.host) return;
     this.invalidate(); this.host = next; this.epoch = next === this.ch.id ? ++this.seenEpoch : 0;
@@ -269,12 +259,12 @@ export class Session {
   }
   private bumpLobby(): void {
     this.invalidate(); this.epoch = ++this.seenEpoch;
-    this.announce(); this.enqueue(async () => { await this.maybePropose(); }); this.changed();
+    this.announce(); this.enqueue(() => this.maybePropose()); this.changed();
   }
   private sendIntent(): void {
     if (!this.host || !this.intent || !this.baseline || this.closed || this.error) return;
     const message = { ...this.intent, value: { ...this.intent.value, host: this.host } } as Message;
-    if (this.host === this.ch.id) this.enqueue(async () => { await this.receive(message, this.ch.id!); });
+    if (this.host === this.ch.id) this.enqueue(() => this.receive(message, this.ch.id!));
     else this.send(message);
   }
   join(name: string): Result {
@@ -433,10 +423,12 @@ export class Session {
   }
   private membershipAgrees(seats: Seats): boolean {
     const required = [...new Set([...owners(seats), this.host!])].sort();
-    return required.every((id) => this.connected(id) && (id === this.ch.id || (() => {
+    return required.every((id) => {
+      if (!this.connected(id)) return false;
+      if (id === this.ch.id) return true;
       const h = this.adverts.get(id);
       return !!h && h.host === this.host && h.epoch === this.epoch && required.every((peer) => h.connected.includes(peer));
-    })()));
+    });
   }
   private async maybePropose(): Promise<void> {
     if (this.host !== this.ch.id || this.active || this.proposal || this.proposing || this.error || !this.baseline) return;
@@ -462,10 +454,7 @@ export class Session {
       !this.match.config().roster.every((c) => p.seats[c]?.ready) || !this.membershipAgrees(p.seats)) return;
     if (p.turn !== this.match.currentTurn() || p.digest !== this.baseline) { this.mismatch(); return; }
     const color = ORDER.find((c) => p.seats[c]?.owner === this.ch.id);
-    if (color) {
-      const local = this.seats[color], offered = p.seats[color]!;
-      if (!local || local.owner !== this.ch.id || local.token !== offered.token || !local.ready || offered.seq < this.localSeq) return;
-    }
+    if (!this.localConsentMatches(p)) return;
     if (this.started && !same(p.names, this.names)) return;
     if (!this.started && !this.match.config().roster.every((c) => p.names[c] === p.seats[c]?.name)) return;
     const generation = this.generation, digest = await hash(this.match.export(p.names));
@@ -589,7 +578,7 @@ export class Session {
   private async finishTurn(): Promise<void> {
     if (!this.active || !this.match.config().roster.every((c) => this.reveals.has(c))) return;
     const active = this.active, generation = this.generation, turn = this.match.currentTurn();
-    const next = imported(this.export());
+    const next = imported(this.export()).match;
     for (const c of ORDER) if (next.config().roster.includes(c)) {
       const value = this.reveals.get(c)!;
       const r = next.submit({ turn, color: c, action: value.action, hash: this.match.stateHash() });
@@ -603,7 +592,7 @@ export class Session {
     for (const [id, s] of reports) if (owners(active.seats).includes(id) && s.turn === next.currentTurn() && s.digest !== digest) { this.mismatch(); return; }
     this.send({ type: 'checkpoint', value: { id: active.id, ...this.snapshot() } }); this.announce(); await this.drainEarly(); this.changed();
   }
-  export(): string { return trimUnresolved(this.match.export(this.names)); }
+  export(): string { return this.match.export(this.names); }
   view(): SessionView {
     const color = this.color(), roster = this.match.config().roster;
     const v = this.match.view(color ?? roster[0]!);
@@ -625,11 +614,10 @@ export class Session {
       peersNeeded: seats.filter((s) => !s.present).length, status: this.status.state,
       uncommitted: v.outcome.status === 'running' ? pending : [],
       canChange: !this.closed && !!this.active && (!!this.mine || this.committing) && !this.revealed,
-      error: this.error, notice: this.notice, phase, hostId: this.host, localId: this.ch.id, localColor: color,
+      error: this.error, phase, hostId: this.host, localId: this.ch.id, localColor: color,
       canEditName: !this.closed && !this.started && this.entry !== 'resume' && !this.error && !this.proposal,
       canReady: !this.closed && !!color && !this.active && !this.proposal && !this.error && this.seats[color]!.seq >= this.localSeq,
-      canCommit: this.canCommit(), pauseReason: this.error ? 'snapshot' : !this.ch.id ? 'connection' : !this.host ? 'election' :
-        this.active ? this.checkpointAgrees() ? null : 'checkpoint' : seats.some((s) => !s.present) ? 'seats' : 'agreement' };
+      canCommit: this.canCommit() };
   }
   close(): void {
     if (this.closed) return;
