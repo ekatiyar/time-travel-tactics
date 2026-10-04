@@ -35,9 +35,3 @@
 
 - When should an authoritative server replace horizon trust?
 - What match format supports branching mechanics without losing deterministic replay?
-
-## Settled prototype choices
-
-- Setup defaults to two players and offers three or four. Fresh colours are assigned automatically with fixed spawns.
-- Every player readies individually; all configured seats are required. Hosting transfers on departure.
-- Resume links hold the completed match. Snapshot differences require the group to open the same chosen link, with no automatic catch-up or reconciliation.

@@ -6,15 +6,15 @@ Run `npm run dev` and open the printed address, or use the [published game](http
 
 ## Start a match
 
-Choose **Bootstrap** (bring the key home) or **Sandbox** (movement and inversion with no winner), a board size, and 2, 3, or 4 players. Two players is the default. The preview shows the exact walls and fixed spawns. Choose one of three seed previews or **Reroll** for three new candidates.
+Choose **Bootstrap** (bring the key home) or **Sandbox** (movement and inversion with no winner), a board size, and 2, 3, or 4 players. Two players is the default. The preview shows the walls and fixed spawns. Choose one of three seeds or **Reroll** for three new candidates.
 
 **Advanced** contains exact dimensions (5–64 on each side), wall density (0–45%), turn cap (2–400), and seed. Changing size updates the suggested cap until you edit the cap yourself. Invalid settings disable creation and hide the preview.
 
-Create a match, then use **Copy join link** to invite the other players. The creator receives Coral; joining players receive the next available colour. Colours have fixed spawns; there is no spawn picker. Edit your name in your own roster row, then press **Ready**. Names use 1–12 letters, digits, hyphens, or underscores.
+Create a match, then use **Copy join link** to invite the other players. The creator receives Coral; joining players receive the next available colour in Purple, Teal, Amber order. Edit your name in your roster row, then press **Ready**. Names use 1–12 letters, digits, hyphens, or underscores.
 
-The match starts when all configured seats are occupied, everyone is ready, and the browsers agree on the roster and saved game. Changing your name clears your readiness; another player's name change does not. There is no separate Start button or countdown.
+The match starts when all configured seats are occupied, everyone is ready, and the browsers agree on the roster and saved game. Changing your name clears only your readiness.
 
-At the start, including turn 0, the address becomes a resume link containing the frozen names and saved match. It updates after every completed turn. **Copy resume link** shares this saved game. No account or stored browser identity is needed.
+When play starts at turn 0, the address becomes a resume link containing the fixed player names and saved match. It updates after every completed turn. Use **Copy resume link** to share it. No account or stored browser identity is needed.
 
 **New match** starts over with fresh seeds and the default settings. It asks for confirmation when leaving a started or resumed match.
 
@@ -22,9 +22,9 @@ At the start, including turn 0, the address becomes a resume link containing the
 
 When someone disconnects, their seat becomes available and actions pause. Open the current resume link, choose an available historical colour, and press **Ready**. Its name and history stay fixed. Anyone with the link can take an available seat; connected players cannot be displaced.
 
-The host coordinates seats and readiness. Hosting transfers when the host leaves; it is independent of colour. Opening a resume link alone makes you the provisional host, and you can choose any available colour. Play still waits for every configured player.
+Hosting transfers when the host leaves. Opening a resume link alone makes you the provisional host; you can choose any available colour. Play still waits for every configured player.
 
-Every browser calculates completed turns locally. The resume link is the saved game; browsers do not send each other saved histories or automatically catch up. If snapshots differ—even by one completed turn—play pauses. Use **Copy my resume link**, agree which link the group wants to use, and have everyone open that same link. The game does not choose or overwrite a history for you. A stale visitor does not interrupt an already playing group.
+Browsers do not automatically catch up. If saved games differ by even one completed turn, play pauses. Use **Copy my resume link**, agree which saved game to keep, and have everyone open that link. A visitor with an older saved game does not interrupt an already playing group.
 
 An interrupted, incomplete turn may need new choices. Choices already revealed before the interruption cannot become secret again. If disconnected groups continue separately and later meet with different histories, use the same shared-link recovery.
 

@@ -9,9 +9,8 @@ This is the current capability ledger. Rules and intended features live in the [
 - Two modes chosen on the create form. Sandbox has no winner and ends at the cap. Bootstrap adds one key, pickups and steals, fronts along the key's timeline, a win at `t0` beside your spawn, and a draw at the cap. See [Bootstrap](time-travel-tactics-design-doc.md#bootstrap).
 - Key markers on every holder side with counts for duplicate incarnations, a key on the center tile while unheld, dashed spawn outlines, and front markers on the board and strip with turns-until-reached readouts.
 - A combined board and timeline strip with focus and look-back controls, body identity, personal indices, and move legality.
-- Setup with mode cards, three size presets, exact board previews, three seed candidates, and a prominent 2/3/4-player choice (default 2). Advanced settings retain custom dimensions, walls, seed, and cap.
-- Automatic fresh seating, per-player Ready, historical seat reclaim, join/resume links, and transferable hosting over account-free Trystero/Nostr.
-- Agreed ownership, SHA-256 completed-snapshot checks, commit/reveal staging, and atomic completed turns. Snapshot mismatches require opening one shared resume link; there is no automatic history transfer or browser identity storage.
+- Board and seed previews, size presets, and a ready-up lobby for 2–4 players. See [Start a match](playing.md#start-a-match).
+- WebRTC play over Trystero/Nostr with agreed seat ownership, transferable hosting, SHA-256 snapshot checks, and commit/reveal turns. See [Disconnecting and resuming](playing.md#disconnecting-and-resuming).
 - Always-visible commitment status, Enter/Space commit shortcuts, relative-direction markers, and compact index stacks.
 - A full-screen play view with collapsible rails, on-board move targets, priority status, a timeline chart, and staged turn animations.
 
