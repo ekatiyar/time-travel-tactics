@@ -215,6 +215,30 @@ describe('completed-turn staging', () => {
     } finally { f.close(); }
   });
 
+  it('rejects an altered reveal and completes only with the committed actions', async () => {
+    const f = fixture();
+    try {
+      const [a, b] = await f.start();
+      const before = a!.export();
+      await Promise.all([a!.commit('D'), b!.commit('A')]);
+      await f.network.pump((message) => messageType(message) !== 'reveal');
+      const delivery = f.network.messages.find((message) => message.from === 'peer1' && message.to === 'peer0' && messageType(message) === 'reveal');
+      assert.ok(delivery);
+      const forged = JSON.parse(delivery.text);
+      forged.value.action = 'H';
+      f.network.inject({ ...delivery, text: JSON.stringify(forged) });
+      await f.network.pump((message) => messageType(message) !== 'reveal');
+      assert.equal(a!.view().turn, 0);
+      assert.equal(a!.export(), before);
+      await f.network.pump();
+      assert.equal(a!.view().turn, 1);
+      assert.equal(a!.export(), b!.export());
+      assert.deepEqual(decoded(a!.export()).log, [
+        { turn: 0, color: 'C', action: 'D' }, { turn: 0, color: 'P', action: 'A' }
+      ]);
+    } finally { f.close(); }
+  });
+
   it('keeps commitments and verified partial reveals out of completed exports', async () => {
     const f = fixture();
     try {
@@ -425,11 +449,32 @@ describe('canonical exports and discovery', () => {
     assert.equal(trimUnresolved('not an export'), 'not an export');
   });
 
-  it('retains configuration-based discovery across completed turns', () => {
+  it('derives room IDs from the match code, ignoring surrounding whitespace', () => {
     const code = Wire.encodeMatchCode(CONFIG);
     assert.equal(Code.roomId(' ' + code + '\n'), Code.roomId(code));
     assert.match(Code.roomId(code), /^tbtt-[0-9a-f]{16}$/);
     assert.notEqual(Code.roomId(Wire.encodeMatchCode({ ...CONFIG, seed: 'different' })), Code.roomId(code));
+  });
+
+  it('a resumed replacement discovers the existing room after a completed turn', async () => {
+    const f = fixture();
+    try {
+      const [a, b] = await f.start();
+      await Promise.all([a!.commit('D'), b!.commit('A')]); await f.network.pump();
+      const saved = a!.export();
+      b!.close(); await f.network.pump();
+      const replacement = f.open('replacement', 'resume', saved);
+      await f.network.pump();
+      const expectedRoom = Code.roomId(Wire.encodeMatchCode(f.config));
+      const sent = f.network.sent.filter((message) => message.from === 'replacement');
+      assert.ok(sent.length > 0);
+      assert.ok(sent.every((message) => JSON.parse(message.text).room === expectedRoom));
+      assert.ok(replacement.requestSeat('P').ok); await f.network.pump();
+      assert.ok(replacement.ready().ok); await f.network.pump();
+      assert.ok(a!.view().canCommit && replacement.view().canCommit);
+      assert.equal(replacement.view().turn, 1);
+      assert.equal(replacement.export(), saved);
+    } finally { f.close(); }
   });
 
   it('control messages contain no completed log or replacement export', async () => {
@@ -438,12 +483,19 @@ describe('canonical exports and discovery', () => {
       const [a, b] = await f.start();
       await Promise.all([a!.commit('D'), b!.commit('A')]); await f.network.pump();
       for (const delivery of f.network.sent) {
-        const message = JSON.parse(delivery.text) as Record<string, unknown>;
+        const message = JSON.parse(delivery.text) as { v: number; room: string; type: string; value: Record<string, unknown> };
         assert.equal(message.v, 2); assert.equal(typeof message.room, 'string');
         assert.ok(['hello', 'lobby', 'request', 'consent', 'proposal', 'ack', 'activate', 'commit', 'reveal', 'checkpoint'].includes(String(message.type)));
         assert.equal(delivery.text.includes('X1:'), false);
-        assert.equal(Object.hasOwn(message, 'log'), false);
-        assert.equal(Object.hasOwn(message, 'match'), false);
+        for (const field of ['log', 'match', 'export']) {
+          assert.equal(Object.hasOwn(message, field), false);
+          assert.equal(Object.hasOwn(message.value, field), false);
+        }
+        if (message.type === 'commit') {
+          assert.equal(Object.hasOwn(message.value, 'action'), false);
+          assert.equal(Object.hasOwn(message.value, 'nonce'), false);
+          assert.match(String(message.value.digest), /^[a-f0-9]{64}$/);
+        }
       }
     } finally { f.close(); }
   });

@@ -71,12 +71,6 @@ export class QueuedNetwork {
     this.ends.get(message.to)?.onMessage?.(message.text, message.from);
   }
 
-  duplicate(index: number): void {
-    const message = this.messages[index];
-    if (!message) throw new Error('missing delivery');
-    this.messages.splice(index + 1, 0, { ...message });
-  }
-
   async pump(predicate: (message: Delivery) => boolean = () => true): Promise<void> {
     let idle = 0;
     for (let cycle = 0; cycle < 200; cycle++) {

@@ -157,7 +157,7 @@ function dotStates(page: Page) {
 }
 
 // Delay real Session reveal packets so tests can inspect the committed frame.
-async function commitTurn(page: Page, turn: number, mine: string, theirs: string, _name?: string) {
+async function commitTurn(page: Page, turn: number, mine: string, theirs: string) {
   await expect(page.locator('#turnInfo')).toContainText(`turn ${turn} / `);
   await peerCommit(page, theirs);
   await page.locator(`#moveRail [data-act="${mine}"]`).click();
@@ -166,8 +166,8 @@ async function commitTurn(page: Page, turn: number, mine: string, theirs: string
   return () => releasePeer(page);
 }
 
-async function resolveTurn(page: Page, turn: number, mine: string, theirs: string, name?: string) {
-  const reveal = await commitTurn(page, turn, mine, theirs, name);
+async function resolveTurn(page: Page, turn: number, mine: string, theirs: string) {
+  const reveal = await commitTurn(page, turn, mine, theirs);
   await reveal();
   await expect(page.locator('#phaseShare')).toBeHidden();
   if (await page.locator('#phaseOver').isHidden()) await expect(page.locator('#btnCommit')).toBeEnabled();
@@ -222,6 +222,31 @@ test.describe('setup screen', () => {
     await page.locator('#fW').fill('23');
     await expect(page.getByRole('heading', { name: 'Board size · Custom' })).toBeVisible();
     await expect(page.locator('#fCap')).toHaveValue('77');
+    await page.locator('#fWall').fill('20');
+    await page.locator('#fSeed').fill('preview-proof');
+    const tiles = (selector: string) => page.locator(selector).evaluateAll((cells) => {
+      const probe = document.createElement('i');
+      probe.style.backgroundColor = 'var(--wall)';
+      cells[0]!.append(probe);
+      const wallColor = getComputedStyle(probe).backgroundColor;
+      probe.remove();
+      return cells.map((cell) => ({
+        wall: getComputedStyle(cell).backgroundColor === wallColor,
+        spawn: cell.getAttribute('data-spawn'),
+        key: !!cell.querySelector('.key-mark.center')
+      }));
+    });
+    const preview = await tiles('.preview-panel > .board-preview .cell');
+    expect(preview).toHaveLength(23 * 13);
+    expect(preview.some((cell) => cell.wall)).toBe(true);
+    expect(preview.flatMap((cell, index) => cell.spawn ? [[index, cell.spawn]] : []))
+      .toEqual([[24, 'C'], [274, 'P']]);
+    expect(preview.flatMap((cell, index) => cell.key ? [index] : [])).toEqual([149]);
+    await page.locator('#btnMake').click();
+    await expect(page.locator('.lobby-preview .board-preview')).toBeVisible();
+    expect(await tiles('.lobby-preview .board-preview .cell')).toEqual(preview);
+    await sitDown(page);
+    expect(await tiles('#board .cell')).toEqual(preview);
   });
 
   test('candidate selection preserves alternatives and Reroll replaces all three', async ({ page }) => {
@@ -338,7 +363,7 @@ test.describe('setup screen', () => {
     await expect.poll(() => page.evaluate(() => window.__historyCalls?.length ?? 0)).toBe(2);
     expect(await page.evaluate(() => history.length)).toBe(historyLength);
 
-    await resolveTurn(page, 0, 'H', 'H', 'Vale');
+    await resolveTurn(page, 0, 'H', 'H');
     await expect.poll(() => page.evaluate(() => window.__historyCalls?.length ?? 0)).toBe(3);
     await expect.poll(() => page.evaluate(() => decodeURIComponent(location.hash.slice('#resume='.length))))
       .toBe('X1:M1:sandbox:5x5:0:tst:8:CP|CHPH|C~Rook,P~Vale');
@@ -448,7 +473,7 @@ test.describe('lobby', () => {
     await expect(page.locator('#btnReady')).toHaveCount(0);
   });
 
-  test('assigns a joining player Purple without a colour picker', async ({ page }) => {
+  test('shows the automatically assigned Purple peer without a colour picker', async ({ page }) => {
     await open(page, { remoteName: 'Rival' });
     await createMatch(page);
     await preparePeers(page);
@@ -527,7 +552,7 @@ test('a resumed player can take Purple while the other player takes Coral', asyn
   await expect(page.locator('#youAt')).toContainText('(3,3)');
 });
 
-test('host departure returns surviving players to the recovery lobby', async ({ page }) => {
+test('peer departure returns surviving players to the recovery lobby', async ({ page }) => {
   const saved = 'X1:M1:sandbox:5x5:0:tst:8:CP||C~Rook,P~Vale';
   await open(page, { fragment: 'resume=' + encodeURIComponent(saved) });
   await expect(page.getByRole('button', { name: 'Claim Coral', exact: true })).toBeEnabled();
@@ -618,7 +643,7 @@ test.describe('play screen', () => {
   test('disables a move off the board', async ({ page }) => {
     await startMatch(page, { remoteName: 'Rival' });
     // Spawn is inset from the corner now, so walk to (0,0) first.
-    await resolveTurn(page, 0, 'A', 'H', 'Rival');
+    await resolveTurn(page, 0, 'A', 'H');
     await resolveTurn(page, 1, 'W', 'H');
     await expect(page.locator('#moveRail [data-act="W"]')).toBeDisabled();
     await expect(page.locator('#moveRail [data-act="A"]')).toBeDisabled();
@@ -658,7 +683,6 @@ test.describe('play screen', () => {
 
   test('shows commitment status throughout the turn, including the local player', async ({ page }) => {
     await startMatch(page, { remoteName: 'Vale' });
-    // The peer name was frozen when both owners readied.
     await expect(page.locator('#pending')).toHaveAttribute('title', /Still choosing: You, Vale\./);
     await expect.poll(() => dotStates(page)).toEqual(['choosing', 'choosing']);
 
@@ -776,7 +800,7 @@ test.describe('play screen', () => {
 
   test('the log rules off between turns', async ({ page }) => {
     await startMatch(page, { remoteName: 'Rival' });
-    await resolveTurn(page, 0, 'H', 'H', 'Rival');
+    await resolveTurn(page, 0, 'H', 'H');
     await expect(page.locator('#log li.turnsep')).toHaveCount(0);
     await resolveTurn(page, 1, 'H', 'H');
     await expect(page.locator('#log li.turnsep')).toHaveCount(1);
@@ -785,7 +809,7 @@ test.describe('play screen', () => {
 
   test('switching theme redraws the trail at the new floor', async ({ page }) => {
     await startMatch(page, { remoteName: 'Rival' });
-    await resolveTurn(page, 0, 'H', 'H', 'Rival');
+    await resolveTurn(page, 0, 'H', 'H');
     await resolveTurn(page, 1, 'H', 'H');
     await resolveTurn(page, 2, 'H', 'H');
     const faded = page.locator('#board .trail').last();
@@ -888,14 +912,14 @@ test.describe('play screen', () => {
 
   test('marks opposing timeline dots', async ({ page }) => {
     await startMatch(page, { remoteName: 'Vale' });
-    await resolveTurn(page, 0, 'H', 'I', 'Vale');
+    await resolveTurn(page, 0, 'H', 'I');
     await expect(page.locator('#strip .time-head[data-direction="opposing"]')).toHaveCount(1);
   });
 
   test('reclassifies relative directions after viewer inversion', async ({ page }) => {
     await startMatch(page, { remoteName: 'Vale' });
     await expect(page.locator('#board .tok[data-direction="matching"]')).toHaveCount(2);
-    await resolveTurn(page, 0, 'I', 'H', 'Vale');
+    await resolveTurn(page, 0, 'I', 'H');
     await expect(page.locator('#board .tok[data-direction="mixed"]')).toHaveCount(1);
     await expect(page.locator('#board .tok[data-direction="opposing"]')).toHaveCount(1);
   });
@@ -974,7 +998,7 @@ test.describe('play screen', () => {
     await open(page, { remoteName: 'Rival' });
     await createMatch(page, { cap: '2' });
     await sitDown(page);
-    await resolveTurn(page, 0, 'H', 'H', 'Rival');
+    await resolveTurn(page, 0, 'H', 'H');
     await resolveTurn(page, 1, 'H', 'H');
 
     await expect(page.locator('#phaseOver')).toBeVisible();
@@ -1004,7 +1028,7 @@ test.describe('play screen', () => {
     await startMatch(page, { remoteName: 'Vale' });
     const before = await stateHash(page);
     await expect(page.locator('#hashInfo')).toHaveText('state ' + before);
-    await resolveTurn(page, 0, 'D', 'H', 'Vale');
+    await resolveTurn(page, 0, 'D', 'H');
     const after = await stateHash(page);
     expect(after).not.toBe(before);
     await expect(page.locator('#hashInfo')).toHaveText('state ' + after);
@@ -1065,7 +1089,7 @@ test.describe('board targets', () => {
     await open(page, { remoteName: 'Vale' });
     await createMatch(page, { seed: 'w0', wall: '20' });
     await sitDown(page);
-    await resolveTurn(page, 0, 'S', 'H', 'Vale');
+    await resolveTurn(page, 0, 'S', 'H');
 
     const wall = at(page, 1, 3);
     await expect(wall).not.toHaveAttribute('data-target', /./);
@@ -1121,7 +1145,7 @@ test.describe('rails', () => {
 
   test('toasts stand in for the folded log, newest first', async ({ page }) => {
     await startMatch(page, { remoteName: 'Vale' });
-    await resolveTurn(page, 0, 'H', 'H', 'Vale');
+    await resolveTurn(page, 0, 'H', 'H');
     await resolveTurn(page, 1, 'D', 'H');
     await expect(page.locator('#toasts')).toHaveCount(0);
 
@@ -1202,7 +1226,7 @@ test.describe('dock', () => {
     // Two inversions put Rook on three lanes.
     const mine = ['D', 'H', 'I', 'S', 'I', 'H'];
     for (let turn = 0; turn < mine.length; turn++) {
-      await resolveTurn(page, turn, mine[turn]!, 'H', turn === 0 ? 'Bishop' : undefined);
+      await resolveTurn(page, turn, mine[turn]!, 'H');
     }
     await expect(page.locator('#board .tokslot')).toHaveCount(3);
 
@@ -1232,7 +1256,7 @@ test.describe('dock', () => {
     await createMatch(page, { cap: '4' });
     await sitDown(page);
     for (let turn = 0; turn < 4; turn++) {
-      await resolveTurn(page, turn, 'H', 'H', turn === 0 ? 'Vale' : undefined);
+      await resolveTurn(page, turn, 'H', 'H');
     }
     await page.locator('#sl').hover();
     await page.mouse.down();
@@ -1269,7 +1293,7 @@ test.describe('dock', () => {
 test.describe('layout', () => {
   test('every strip row shares one column grid', async ({ page }) => {
     await startMatch(page, { remoteName: 'Vale' });
-    await resolveTurn(page, 0, 'D', 'H', 'Vale');
+    await resolveTurn(page, 0, 'D', 'H');
     await resolveTurn(page, 1, 'D', 'H');
 
     // The unexplored block used to hang off the bar row alone, compressing its columns while the
@@ -1305,7 +1329,7 @@ test.describe('turn animation', () => {
     await page.emulateMedia({ reducedMotion: 'reduce' });
     await startMatch(page, { remoteName: 'Vale' });
     await expect(page.locator('#board')).toHaveClass(/noanim/);
-    await resolveTurn(page, 0, 'D', 'H', 'Vale');
+    await resolveTurn(page, 0, 'D', 'H');
     await expect(page.locator('#youAt')).toHaveText('index 1 · t1 · forward · (2,1)');
     await expect(page.locator('#board .tokslot[data-motion]')).toHaveCount(0);
   });
@@ -1392,7 +1416,7 @@ test.describe('turn animation', () => {
 
   test('a one-notch scrub slides', async ({ page }) => {
     await startMatch(page, { remoteName: 'Vale' });
-    await resolveTurn(page, 0, 'D', 'H', 'Vale');
+    await resolveTurn(page, 0, 'D', 'H');
     await resolveTurn(page, 1, 'D', 'H');
     await page.keyboard.press('Escape');
     await expect(page.locator('#board .tokslot[data-motion]')).toHaveCount(0);
@@ -1404,7 +1428,7 @@ test.describe('turn animation', () => {
 
   test('a second scrub inside the motion window still slides', async ({ page }) => {
     await startMatch(page, { remoteName: 'Vale' });
-    await resolveTurn(page, 0, 'D', 'H', 'Vale');
+    await resolveTurn(page, 0, 'D', 'H');
     await resolveTurn(page, 1, 'D', 'H');
     await resolveTurn(page, 2, 'D', 'H');
     await page.keyboard.press('Escape');
@@ -1419,7 +1443,7 @@ test.describe('turn animation', () => {
 
   test('a resolved turn slides its token instead of teleporting', async ({ page }) => {
     await startMatch(page, { remoteName: 'Vale' });
-    await resolveTurn(page, 0, 'D', 'H', 'Vale');
+    await resolveTurn(page, 0, 'D', 'H');
     await page.keyboard.press('Escape');
     await expect(page.locator('#board .tokslot[data-motion]')).toHaveCount(0);
 
@@ -1438,7 +1462,7 @@ test.describe('turn animation', () => {
     // Coral inverts on (3,1) and walks back down; the second S is the first turn both legs step.
     const mine = ['D', 'D', 'I', 'S', 'S'];
     for (let turn = 0; turn < mine.length; turn++) {
-      await resolveTurn(page, turn, mine[turn]!, 'H', turn === 0 ? 'Vale' : undefined);
+      await resolveTurn(page, turn, mine[turn]!, 'H');
     }
 
     await expect(page.locator('#slo')).toHaveText('t0');
@@ -1453,7 +1477,7 @@ test.describe('turn animation', () => {
     await sitDown(page);
     const mine = ['D', 'D', 'I', 'S'];
     for (let turn = 0; turn < mine.length; turn++) {
-      await resolveTurn(page, turn, mine[turn]!, 'H', turn === 0 ? 'Vale' : undefined);
+      await resolveTurn(page, turn, mine[turn]!, 'H');
     }
   }
 
@@ -1503,7 +1527,7 @@ test.describe('turn animation', () => {
 
   test('a resolved turn stages its motions and a scrub does not', async ({ page }) => {
     await startMatch(page, { remoteName: 'Vale' });
-    await resolveTurn(page, 0, 'D', 'H', 'Vale');
+    await resolveTurn(page, 0, 'D', 'H');
     const bodies = page.locator('#board .bodies');
     await expect(bodies).toHaveClass(/staged/);
     await expect.poll(() => slidKeys(page)).toEqual(['C/0']);
@@ -1524,7 +1548,7 @@ test.describe('turn animation', () => {
 
   test('an inversion settles the pill open and draws nothing over it', async ({ page }) => {
     await startMatch(page, { remoteName: 'Vale' });
-    await resolveTurn(page, 0, 'D', 'H', 'Vale');
+    await resolveTurn(page, 0, 'D', 'H');
     await resolveTurn(page, 1, 'I', 'H');
 
     await expect(page.locator('#board .tokslot[data-motion="invert"]')).toHaveCount(1);
@@ -1555,7 +1579,7 @@ test.describe('turn animation', () => {
     const mine = ['D', 'A', 'D', 'I', 'H', 'S'];
     const theirs = ['H', 'H', 'H', 'I', 'A', 'W'];
     for (let turn = 0; turn < mine.length; turn++) {
-      await resolveTurn(page, turn, mine[turn]!, theirs[turn]!, turn === 0 ? 'Bishop' : undefined);
+      await resolveTurn(page, turn, mine[turn]!, theirs[turn]!);
     }
 
     const blocked = page.locator('#board .tokslot[data-key="C/0"]');
@@ -1571,7 +1595,7 @@ test.describe('turn animation', () => {
     const mine = ['D', 'H', 'H', 'H', 'H', 'H'];
     const theirs = ['H', 'H', 'H', 'I', 'A', 'W'];
     for (let turn = 0; turn < mine.length; turn++) {
-      await resolveTurn(page, turn, mine[turn]!, theirs[turn]!, turn === 0 ? 'Bishop' : undefined);
+      await resolveTurn(page, turn, mine[turn]!, theirs[turn]!);
     }
 
     const front = page.locator('#board .frontslot');
@@ -1590,7 +1614,7 @@ test.describe('turn animation', () => {
     const mine = ['D', 'H', 'H', 'H', 'H', 'H'];
     const theirs = ['H', 'H', 'H', 'I', 'A', 'W'];
     for (let turn = 0; turn < mine.length; turn++) {
-      await resolveTurn(page, turn, mine[turn]!, theirs[turn]!, turn === 0 ? 'Bishop' : undefined);
+      await resolveTurn(page, turn, mine[turn]!, theirs[turn]!);
     }
     await expect(page.locator('#board .frontslot')).toHaveCount(1);
     // clear() cancels everything at MOTION_MS, so anything landing later loses its tail.
@@ -1600,7 +1624,7 @@ test.describe('turn animation', () => {
 
   test('a scene rebuild mid-animation leaves the running sequence alone', async ({ page }) => {
     await startMatch(page, { remoteName: 'Vale' });
-    await resolveTurn(page, 0, 'D', 'H', 'Vale');
+    await resolveTurn(page, 0, 'D', 'H');
     const slot = page.locator('#board .tokslot[data-key="C/0"]');
     await expect(slot).toHaveAttribute('data-motion', 'slide');
 
@@ -1618,7 +1642,7 @@ test.describe('turn animation', () => {
 
   test('the key mark holds its start frame until its turn in the sequence', async ({ page }) => {
     await startBootstrap(page);
-    await resolveTurn(page, 0, 'D', 'H', 'Bishop');
+    await resolveTurn(page, 0, 'D', 'H');
     const slot = page.locator('#board .tokslot[data-key-motion="grab"]');
     await expect(slot).toHaveCount(1);
     // Without a fill mode the mark sits at the destination for the .65s of stagger, then
@@ -1633,7 +1657,7 @@ test.describe('turn animation', () => {
 test.describe('bootstrap', () => {
   test('a key carried home at t0 wins the match', async ({ page }) => {
     await startBootstrap(page);
-    await resolveTurn(page, 0, 'D', 'H', 'Bishop');
+    await resolveTurn(page, 0, 'D', 'H');
     await expect(page.locator('#log')).toContainText('Rook picked up the key at (2,1) t1');
     const keyMark = page.locator('#board .key-mark');
     await expect(keyMark).toHaveCount(1);
@@ -1667,7 +1691,7 @@ test.describe('bootstrap', () => {
     const mine = ['D', 'H', 'H', 'H', 'H', 'H'];
     const theirs = ['H', 'H', 'H', 'I', 'A', 'W'];
     for (let turn = 0; turn < mine.length; turn++) {
-      await resolveTurn(page, turn, mine[turn]!, theirs[turn]!, turn === 0 ? 'Bishop' : undefined);
+      await resolveTurn(page, turn, mine[turn]!, theirs[turn]!);
     }
 
     await expect(page.locator('#log')).toContainText('Bishop took the key from Rook at (2,2) t1');
