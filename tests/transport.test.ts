@@ -43,9 +43,9 @@ function fixture(roster: Color[] = ['C', 'P']) {
   const start = async () => {
     const players = roster.map((color, i) => open('peer' + i, i === 0 ? 'create' : 'join'));
     players.forEach((player, i) => assert.ok(player.join(NAMES[roster[i]!]).ok));
-    await network.pump();
+    await network.pumpUntil(() => players.every((player, i) => player.color() === roster[i]));
     players.forEach((player) => assert.ok(player.ready().ok));
-    await network.pump();
+    await network.pumpUntil(() => players.every((player) => player.view().canCommit));
     players.forEach((player, i) => {
       assert.equal(player.color(), roster[i]);
       assert.equal(player.view().phase, 'playing');
@@ -77,6 +77,18 @@ for (const roster of [['C', 'P'], ['C', 'P', 'T'], ['C', 'P', 'T', 'A']] as Colo
     } finally { f.close(); }
   });
 }
+
+it('starting peers waits for asynchronous snapshot hashes', async (t) => {
+  const digest = crypto.subtle.digest.bind(crypto.subtle);
+  let calls = 0;
+  t.mock.method(crypto.subtle, 'digest', async (...args: Parameters<typeof digest>) => {
+    if (++calls > 3) await new Promise((resolve) => setTimeout(resolve, 25));
+    return digest(...args);
+  });
+  const f = fixture(['C', 'P', 'T']);
+  try { await f.start(); }
+  finally { f.close(); }
+});
 
 describe('lobby consent and reservations', () => {
   it('changing your name clears only your readiness and leaves saved names untouched before activation', async () => {

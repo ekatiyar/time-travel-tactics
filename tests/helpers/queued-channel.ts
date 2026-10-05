@@ -71,6 +71,15 @@ export class QueuedNetwork {
     this.ends.get(message.to)?.onMessage?.(message.text, message.from);
   }
 
+  async pumpUntil(settled: () => boolean): Promise<void> {
+    const deadline = performance.now() + 5_000;
+    do {
+      await this.pump();
+      if (settled()) return;
+    } while (performance.now() < deadline);
+    throw new Error('queued network did not reach the expected state within 5 seconds');
+  }
+
   async pump(predicate: (message: Delivery) => boolean = () => true): Promise<void> {
     let idle = 0;
     for (let cycle = 0; cycle < 200; cycle++) {

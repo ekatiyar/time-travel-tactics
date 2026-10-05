@@ -19,7 +19,9 @@ function fixture(roster: Color[] = ['C', 'P']) {
   };
   const start = async () => {
     const list = roster.map((c, i) => { const { s } = open('p' + i, i ? 'join' : 'create'); s.join(names[c]); return s; });
-    await network.pump(); list.forEach((s) => assert.ok(s.ready().ok)); await network.pump();
+    await network.pumpUntil(() => list.every((s, i) => s.color() === roster[i]));
+    list.forEach((s) => assert.ok(s.ready().ok));
+    await network.pumpUntil(() => list.every((s) => s.view().canCommit));
     list.forEach((s) => assert.ok(s.view().canCommit)); return list;
   };
   return { network, open, start, close: () => players.forEach((s) => s.close()) };
