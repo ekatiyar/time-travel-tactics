@@ -168,7 +168,7 @@ export class Match {
     let ctx = context(metaTurn(0), priorityFor(cfg.seed, metaTurn(0), roster), []);
     let n = 0;
 
-    for (; n < cfg.cap; n++) {
+    for (;; n++) {
       const turn = metaTurn(n);
       const acts = byTurn.get(turn);
       if (!acts) break;
@@ -248,7 +248,6 @@ export class Match {
       ctx = context(turn, prio, actors);
       mode.afterTurn(modeState, ctx);
       outcome = mode.outcome(modeState, ctx);
-      if (outcome.status === 'running' && n + 1 >= cfg.cap) outcome = { status: 'draw' };
       hash = hashState(bodies, players, roster, cfg.mode + '|' + mode.digest(modeState) + '|' + outcomeDigest(outcome));
       if (outcome.status !== 'running') { n++; break; }
     }
@@ -262,7 +261,7 @@ export class Match {
 
   config(): Config {
     const c = this._cfg;
-    return { mode: c.mode, w: c.w, h: c.h, wallPct: c.wallPct, seed: c.seed, cap: c.cap, roster: c.roster.slice() };
+    return { mode: c.mode, w: c.w, h: c.h, wallPct: c.wallPct, seed: c.seed, roster: c.roster.slice() };
   }
 
   currentTurn(): MetaTurn { return this._derive().turn; }
@@ -345,7 +344,7 @@ export class Match {
     return {
       ...modeView,
       mode: cfg.mode,
-      w: cfg.w, h: cfg.h, cap: cfg.cap, seed: cfg.seed,
+      w: cfg.w, h: cfg.h, seed: cfg.seed,
       turn: d.turn, outcome: d.outcome, hash: d.hash,
       roster: cfg.roster.slice(),
       priority: over ? [] : priorityFor(cfg.seed, d.turn, cfg.roster),

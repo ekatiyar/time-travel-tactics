@@ -51,12 +51,11 @@ export function protectedTiles(cfg: Config): Set<string> {
 export function normalizeConfig(c: ConfigInput): Config {
   const asked = c.roster.slice();
   const w = Math.floor(c.w), h = Math.floor(c.h), wallPct = Math.floor(c.wallPct);
-  const seed = String(c.seed), cap = Math.floor(c.cap), mode = c.mode;
+  const seed = String(c.seed), mode = c.mode;
   if (!isModeId(mode)) throw new Error('unknown mode ' + mode);
   // 5x5 keeps the center off every spawn; 64 keeps rendering bounded.
   if (!(w >= 5 && w <= 64 && h >= 5 && h <= 64)) throw new Error('board must be between 5x5 and 64x64');
   if (!(wallPct >= 0 && wallPct <= 45)) throw new Error('wall density must be 0-45');
-  if (!(cap >= 2 && cap <= 400)) throw new Error('turn cap must be 2-400');
   if (!/^[A-Za-z0-9_-]{1,24}$/.test(seed)) throw new Error('seed must be 1-24 letters, digits, - or _');
   if (!asked.length || asked.length > 4) throw new Error('need 1-4 players');
 
@@ -66,7 +65,7 @@ export function normalizeConfig(c: ConfigInput): Config {
     if (roster.includes(col)) throw new Error('duplicate colour ' + col);
     roster.push(col);
   }
-  return { mode, w, h, wallPct, seed, cap, roster };
+  return { mode, w, h, wallPct, seed, roster };
 }
 
 // Carve walls until every spawn and the center are reachable.

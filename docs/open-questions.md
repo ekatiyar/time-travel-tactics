@@ -10,7 +10,6 @@
 - Should a player see their own known future?
 - Should the first boards be corridors, small grids, or both?
 - A grab overtaken by an older front keeps a real key until that front arrives. That is about half the world-turn gap in meta-turns: a grab at `t9` against a front started at `t3` on the same meta-turn holds for 4 meta-turns. Is that intended?
-- Bootstrap ends in a draw at the cap. [Winning](time-travel-tactics-design-doc.md#winning) says the player with more surviving bodies wins at the cap. Which rule should modes with weapons use?
 - A steal with facing victims on several neighbouring tiles takes from the highest personal index. Should the thief choose instead?
 - On even boards the center (floor(w/2), floor(h/2)) is one tile closer to Purple's corner than to Coral's. Should boards be odd only?
 - Should walls be mirrored so every route to the center has the same length?

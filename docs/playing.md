@@ -8,7 +8,7 @@ Run `npm run dev` and open the printed address, or use the [published game](http
 
 Choose **Bootstrap** (bring the key home) or **Sandbox** (movement and inversion with no winner), a board size, and 2, 3, or 4 players. Two players is the default. The preview shows the walls and fixed spawns. Choose one of three seeds or **Reroll** for three new candidates.
 
-**Advanced** contains exact dimensions (5–64 on each side), wall density (0–45%), turn cap (2–400), and seed. Changing size updates the suggested cap until you edit the cap yourself. Invalid settings disable creation and hide the preview.
+**Advanced** contains exact dimensions (5–64 on each side), wall density (0–45%), and seed. Invalid settings disable creation and hide the preview.
 
 Create a match, then use **Copy join link** to invite the other players. The creator receives Coral; joining players receive the next available colour in Purple, Teal, Amber order. Edit your name in your roster row, then press **Ready**. Names use 1–12 letters, digits, hyphens, or underscores.
 
@@ -42,7 +42,7 @@ Body markers are filled when moving in your direction and outlined when moving i
 
 Stacks show up to two personal indices. Larger stacks show the first and last, such as `16 … 18`; hover text lists them all.
 
-The world-turn scrub and history presets change what history you see, not the match. Presets are `0`, `2`, `4`, and the board maximum: a quarter of the turn cap, rounded up.
+The world-turn scrub and history presets change what history you see, not the match. Presets are `0`, `2`, `4`, and your horizon. Only values up to your horizon appear. History initially shows all turns you have reached.
 
 A move into unexplored time may collide with a body you could not see when choosing it. The recorded body wins as a holder, and your move falls back normally.
 
@@ -54,7 +54,7 @@ The log is on the left and actions on the right. Fold either rail with its heade
 
 The bottom dock holds the timeline strip, world-turn scrub and history presets. Hover the strip's dashed block to see which world turns you have not explored. Hover **?** for the legend and keyboard shortcuts.
 
-Hold the world-turn scrub to open the timeline chart. Each player has a row split into legs at inversions, with body markers filled or hollow by direction. A hatched area marks turns beyond your horizon; hover it to see the range. Arcs connect legs at inversions, and a red line marks the turn cap. The chart scales to turns reached.
+Hold the world-turn scrub to open the timeline chart. Each player has a row split into legs at inversions, with body markers filled or hollow by direction. A hatched area marks turns beyond your horizon; hover it to see where unexplored turns begin. Arcs connect legs at inversions. The chart scales to turns reached.
 
 Rows show the latest four legs and label any hidden earlier legs. Each row shows the player's latest visible index and direction. If their present is beyond your horizon, the readout dims to show it is last known.
 
@@ -74,10 +74,10 @@ To steal, end an action on the tile beyond an opponent's key side at the same wo
 
 Each grabbed key index starts a front that walks the key's earlier holders, two indices per turn. A triangle in the grabber's colour marks a front on the board and in its own strip row, and slides to its new tile when a turn resolves. Hover it for the turns until it reaches you, or read the chip in the top bar when it is aimed at you. A front removes the incarnation it reaches; you lose the key only when none remain. Any grab it passes is undone.
 
-Win by ending an action at `t0` on a tile next to your own spawn while holding the key. Your spawn tile has a dashed outline in your colour. A match with no winner at the cap is a draw.
+Win by ending an action at `t0` on a tile next to your own spawn while holding the key. Your spawn tile has a dashed outline in your colour. There is no turn limit; the match continues until someone wins.
 
 ## Limits
 
-This prototype has no weapons. Sandbox matches end at the turn cap.
+This prototype has no weapons. Sandbox matches have no turn limit and no winner.
 
 The client hides events beyond your horizon, but another client can be modified to reveal them. Play with people you trust.

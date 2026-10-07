@@ -7,7 +7,7 @@ import { QueuedNetwork, messageType } from './helpers/queued-channel.js';
 
 function fixture(roster: Color[] = ['C', 'P']) {
   const network = new QueuedNetwork(), players: Session[] = [];
-  const config = { mode: 'sandbox' as const, w: 16, h: 9, cap: 40, wallPct: 0, seed: 'ordering', roster };
+  const config = { mode: 'sandbox' as const, w: 16, h: 9, wallPct: 0, seed: 'ordering', roster };
   const names = { C: 'Coral', P: 'Purple', T: 'Teal', A: 'Amber' };
   const open = (id: string, entry: 'create' | 'join' | 'resume' = 'join', raw?: string) => {
     const saved = raw ? Match.fromExport(raw) : null;
@@ -202,7 +202,7 @@ for (const early of [false, true]) for (const choice of ['ready', 'not-ready', '
       await a!.commit('H'); await b!.commit('H'); await f.network.pump();
       const saved = b!.export();
       if (choice !== 'occupied') { a!.close(); await f.network.pump(); }
-      const raw = choice === 'mismatch' ? Match.fromConfig({ mode: 'sandbox', w: 16, h: 9, cap: 40, wallPct: 0, seed: 'ordering', roster: ['C', 'P'] }).export({ C: 'Coral', P: 'Purple' }) : saved;
+      const raw = choice === 'mismatch' ? Match.fromConfig({ mode: 'sandbox', w: 16, h: 9, wallPct: 0, seed: 'ordering', roster: ['C', 'P'] }).export({ C: 'Coral', P: 'Purple' }) : saved;
       const c = f.open('visitor', 'resume', raw).s;
       const isolated = (m: { to: string }) => m.to !== 'visitor';
       if (!early) await f.network.pump(isolated);

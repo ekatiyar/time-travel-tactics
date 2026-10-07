@@ -11,17 +11,14 @@ const AXIS_H = 26;
 // The unexplored hatch gets a fixed slice. Columns take everything else, however few there are.
 const FOG_W = 80;
 
-// How far back the history scrub reaches.
-export function maxLookBack(cap: number): number {
-  return Math.max(1, Math.ceil(cap / 4));
-}
-
 // Keep the axis near a dozen labels however far the horizon reaches.
 function tickStep(span: number): number {
   if (span <= 12) return 1;
   if (span <= 60) return 5;
   if (span <= 150) return 10;
-  return 25;
+  const target = span / 12;
+  const scale = 10 ** Math.floor(Math.log10(target));
+  return [1, 2, 5, 10].find((n) => n * scale >= target)! * scale;
 }
 
 export type InstrumentRow = PlayerLanes & {
@@ -31,12 +28,12 @@ export type InstrumentRow = PlayerLanes & {
 
 export type Instrument = {
   height: number;
-  cap: number;
+  horizon: number;
   colW: number;
   x: (t: number) => number;
   ticks: number[];
-  // Turns `from` … `to` are past the viewer's horizon. Null once the horizon reaches the cap.
-  fog: { x: number; w: number; from: number; to: number } | null;
+  // Unexplored turns continue beyond the horizon while the match is running.
+  fog: { x: number; w: number; from: number } | null;
   left: number;
   right: number;
   top: number;
@@ -45,13 +42,13 @@ export type Instrument = {
 };
 
 export function instrumentAt(view: View, width: number): Instrument {
-  const cap = Math.max(0, Math.floor(view.cap));
-  const horizon = Math.min(Math.max(0, view.me.horizon), cap);
+  const horizon = Math.max(0, view.me.horizon);
+  const running = view.outcome.status === 'running';
 
-  // Scale to the horizon so a distant cap does not squeeze the played turns.
+  // Scale to the turns reached.
   const left = GUTTER;
   const right = width - RIGHT;
-  const colW = (right - left - (horizon < cap ? FOG_W : 0)) / (horizon + 1);
+  const colW = (right - left - (running ? FOG_W : 0)) / (horizon + 1);
   const x = (t: number): number => left + t * colW + colW / 2;
 
   const lanes = lanesOf(view);
@@ -69,11 +66,11 @@ export function instrumentAt(view: View, width: number): Instrument {
 
   return {
     height,
-    cap,
+    horizon,
     colW,
     x,
     ticks,
-    fog: horizon < cap ? { x: fogX, w: Math.max(0, right - fogX), from: horizon + 1, to: cap } : null,
+    fog: running ? { x: fogX, w: Math.max(0, right - fogX), from: horizon + 1 } : null,
     left,
     right,
     top: 6,

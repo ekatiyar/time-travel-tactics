@@ -7,7 +7,7 @@ import type { TimelineEvent } from '../timeline.js';
 
 type Holder = { color: Color; p: PersonalIndex; side: Vec };
 type Hold = { color: Color; p: number; index: number; side: Vec };
-type State = { cap: number; tape: Timeline<Holder> };
+type State = { tape: Timeline<Holder> };
 
 const showHolder = (h: Holder): string => h.color + h.p + ':' + h.side[0] + ',' + h.side[1];
 const bodyKey = (c: Color, p: number): string => c + ':' + p;
@@ -101,12 +101,12 @@ function liveHolds(s: State, turn: TurnContext): Map<Color, Hold> {
 
 export const bootstrap: Mode<State> = {
   id: 'bootstrap',
-  init: (cfg) => ({ cap: cfg.cap, tape: new Timeline<Holder>(showHolder) }),
+  init: () => ({ tape: new Timeline<Holder>(showHolder) }),
 
   afterTurn(s, turn) {
     const before = liveHolds(s, turn);
     grabs(s, turn);
-    s.tape.advance(2, s.cap);
+    s.tape.advance(2);
     const after = liveHolds(s, turn);
     for (const [c, h] of before) {
       if (after.has(c)) continue;

@@ -50,11 +50,11 @@ export function validName(s: unknown): s is string {
 }
 
 export type Config = {
-  mode: ModeId; w: number; h: number; wallPct: number; seed: string; cap: number; roster: Color[];
+  mode: ModeId; w: number; h: number; wallPct: number; seed: string; roster: Color[];
 };
 // Unvalidated configuration from forms, codes, and exports.
 export type ConfigInput = {
-  mode: string; w: number; h: number; wallPct: number; seed: string; cap: number;
+  mode: string; w: number; h: number; wallPct: number; seed: string;
   roster: readonly string[];
 };
 export type LogEntry = { turn: MetaTurn; color: Color; action: Action };
@@ -79,8 +79,7 @@ export type ActionOffer = {
 };
 export type Outcome =
   | { status: 'running' }
-  | { status: 'won'; color: Color }
-  | { status: 'draw' };
+  | { status: 'won'; color: Color };
 
 export type ModeView = {
   keys: { color: Color; p: PersonalIndex; side: Vec }[];
@@ -90,7 +89,7 @@ export type ModeView = {
 
 export type View = ModeView & {
   mode: ModeId;
-  w: number; h: number; cap: number; seed: string;
+  w: number; h: number; seed: string;
   turn: MetaTurn; outcome: Outcome; hash: string;
   roster: Color[]; priority: Color[]; pending: Color[];
   walls: Vec[];

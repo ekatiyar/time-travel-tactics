@@ -19,12 +19,12 @@ export class Timeline<V> {
     return e;
   }
 
-  advance(step: number, cap: number): TimelineEvent<V>[] {
+  advance(step: number): TimelineEvent<V>[] {
     const broken: TimelineEvent<V>[] = [];
     for (const e of this._events) {
       if (!e.counts) continue;
       const from = e.front;
-      e.front = Math.min(from + step, cap);
+      e.front = from + step;
       for (const other of this._events) {
         if (other === e || !other.counts) continue;
         if (other.origin > from && other.origin <= e.front) { other.counts = false; broken.push(other); }

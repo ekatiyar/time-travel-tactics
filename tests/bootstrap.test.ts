@@ -10,7 +10,7 @@ type Key = { color: Color; p: number; side: [number, number] };
 
 // 7x7: C spawns (1,1), P spawns (5,5), center (3,3), grab tiles (2,3) (4,3) (3,2) (3,4).
 function cfg(over: Partial<ConfigInput> = {}): ConfigInput {
-  return { mode: 'bootstrap', w: 7, h: 7, wallPct: 0, seed: 'test', cap: 40, roster: ['C', 'P'], ...over };
+  return { mode: 'bootstrap', w: 7, h: 7, wallPct: 0, seed: 'test', roster: ['C', 'P'], ...over };
 }
 
 function match(over: Partial<ConfigInput> = {}): MatchInstance {
@@ -137,7 +137,7 @@ describe('bootstrap: pickup', () => {
 
   it('grabs an earlier incarnation while a front removes a later one', () => {
     const m = match({
-      w: 16, h: 9, wallPct: 11, seed: '1dzex3', cap: 50, roster: ['C', 'P', 'T']
+      w: 16, h: 9, wallPct: 11, seed: '1dzex3', roster: ['C', 'P', 'T']
     });
     run(m, {
       C: 'DDDDDDDISSAASD',
@@ -473,7 +473,7 @@ describe('bootstrap: win', () => {
     assert.deepEqual(view(m, 'P').outcome, { status: 'won', color: 'C' });
     assert.equal(m.currentTurn(), 7);
     assert.ok(keysOf(m, 'C', 'C').includes(7), 'the winning body holds');
-    // The wave sits at front 13 of a 40 turn tape: the match ends anyway.
+    // The match ends even while the wave is still travelling.
     assertOver(m, 'C');
     assertOver(m, 'P');
   });
@@ -517,18 +517,6 @@ describe('bootstrap: win', () => {
       assertOver(m, 'C');
     }
     assert.equal(new Set(winners).size, 2, 'the two seeds should give different winners');
-  });
-});
-
-describe('bootstrap: draw', () => {
-  it('draws at the cap with no winner', () => {
-    const m = match({ cap: 4 });
-    run(m, { C: 'HHH', P: 'HHH' });
-    assert.deepEqual(m.outcome(), { status: 'running' });
-    play(m, { C: 'H', P: 'H' });
-    assert.deepEqual(m.outcome(), { status: 'draw' });
-    assert.deepEqual(view(m, 'C').outcome, { status: 'draw' });
-    assertOver(m, 'C');
   });
 });
 

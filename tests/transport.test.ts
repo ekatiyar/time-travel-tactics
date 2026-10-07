@@ -7,7 +7,7 @@ import { QueuedNetwork, messageType } from './helpers/queued-channel.js';
 
 type Sess = ReturnType<typeof Session.open>;
 const CONFIG: Config = {
-  mode: 'sandbox', w: 16, h: 9, wallPct: 0, seed: 'test', cap: 40, roster: ['C', 'P']
+  mode: 'sandbox', w: 16, h: 9, wallPct: 0, seed: 'test', roster: ['C', 'P']
 };
 const NAMES = { C: 'Rook', P: 'Vale', T: 'Nim', A: 'Ash' };
 

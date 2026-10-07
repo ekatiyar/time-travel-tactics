@@ -8,7 +8,7 @@ it('previews the exact generated match layout across sizes, modes, rosters, and 
     for (const mode of ['bootstrap', 'sandbox'] as const) {
       for (const roster of [['C', 'P'], ['C', 'P', 'T', 'A']] as Color[][]) {
         for (const seed of ['preview', 'another']) {
-          const cfg = { mode, w, h, roster, seed, wallPct: 45, cap: 80 };
+          const cfg = { mode, w, h, roster, seed, wallPct: 45, };
           const board = previewBoard(cfg), view = Match.fromConfig(cfg).view('C');
           assert.equal(board.w, view.w); assert.equal(board.h, view.h);
           assert.deepEqual(board.walls, view.walls);
@@ -23,5 +23,5 @@ it('previews the exact generated match layout across sizes, modes, rosters, and 
 });
 
 it('rejects invalid configuration instead of rendering a different board', () => {
-  assert.throws(() => previewBoard({ mode: 'bootstrap', w: 4, h: 9, seed: 'test', wallPct: 11, cap: 43, roster: ['C', 'P'] }), /5x5/);
+  assert.throws(() => previewBoard({ mode: 'bootstrap', w: 4, h: 9, seed: 'test', wallPct: 11, roster: ['C', 'P'] }), /5x5/);
 });

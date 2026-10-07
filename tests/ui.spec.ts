@@ -75,7 +75,7 @@ async function open(page: Page, opts: Options = {}) {
   await page.goto('/index.html' + (opts.fragment ? '#' + opts.fragment : ''));
 }
 
-const MATCH = { mode: 'sandbox', w: '5', h: '5', wall: '0', seed: 'tst', cap: '8', roster: 'CP' };
+const MATCH = { mode: 'sandbox', w: '5', h: '5', wall: '0', seed: 'tst', roster: 'CP' };
 
 async function fillMatch(page: Page, cfg: Partial<typeof MATCH> = {}) {
   const c = { ...MATCH, ...cfg };
@@ -86,7 +86,6 @@ async function fillMatch(page: Page, cfg: Partial<typeof MATCH> = {}) {
   await page.locator('#fWall').fill(c.wall);
   await page.locator('#fSeed').fill(c.seed);
   await page.locator(`[data-roster="${c.roster}"]`).click();
-  await page.locator('#fCap').fill(c.cap);
 }
 
 async function createMatch(page: Page, cfg: Partial<typeof MATCH> = {}) {
@@ -124,7 +123,7 @@ async function startMatch(page: Page, opts: Options = {}) {
 
 async function startBootstrap(page: Page) {
   await open(page, { remoteName: 'Bishop' });
-  await createMatch(page, { mode: 'bootstrap', cap: '12' });
+  await createMatch(page, { mode: 'bootstrap' });
   await sitDown(page);
 }
 
@@ -158,7 +157,7 @@ function dotStates(page: Page) {
 
 // Delay real Session reveal packets so tests can inspect the committed frame.
 async function commitTurn(page: Page, turn: number, mine: string, theirs: string) {
-  await expect(page.locator('#turnInfo')).toContainText(`turn ${turn} / `);
+  await expect(page.locator('#turnInfo')).toContainText(`turn ${turn}`);
   await peerCommit(page, theirs);
   await page.locator(`#moveRail [data-act="${mine}"]`).click();
   await page.locator('#btnCommit').click();
@@ -190,12 +189,14 @@ test.describe('setup screen', () => {
     await expect(page.locator('#paneImport')).toHaveCount(0);
   });
 
-  test('the turn cap follows the board size', async ({ page }) => {
+  test('setup has no turn limit', async ({ page }) => {
     await open(page);
     await page.getByText('Advanced', { exact: true }).click();
+    await expect(page.locator('#fCap')).toHaveCount(0);
     await page.locator('#fW').fill('20');
     await page.locator('#fH').fill('10');
-    await expect(page.locator('#fCap')).toHaveValue('51');
+    await expect(page.locator('.preview-panel > .board-preview .cell')).toHaveCount(200);
+    await expect(page.locator('#btnMake')).toBeEnabled();
   });
 
   test('defaults to Bootstrap, Standard and two prominent players', async ({ page }) => {
@@ -209,19 +210,15 @@ test.describe('setup screen', () => {
     await expect(page.locator('.seed-option')).toHaveCount(3);
   });
 
-  test('presets update exact previews while preserving a manually edited cap', async ({ page }) => {
+  test('presets update exact previews', async ({ page }) => {
     await open(page);
     await page.locator('[data-size="Small"]').click();
     await expect(page.locator('.preview-panel > .board-preview .cell')).toHaveCount(9 * 7);
-    await expect(page.locator('#fCap')).toHaveValue('28');
     await page.getByText('Advanced', { exact: true }).click();
-    await page.locator('#fCap').fill('77');
     await page.locator('[data-size="Large"]').click();
     await expect(page.locator('.preview-panel > .board-preview .cell')).toHaveCount(24 * 13);
-    await expect(page.locator('#fCap')).toHaveValue('77');
     await page.locator('#fW').fill('23');
     await expect(page.getByRole('heading', { name: 'Board size · Custom' })).toBeVisible();
-    await expect(page.locator('#fCap')).toHaveValue('77');
     await page.locator('#fWall').fill('20');
     await page.locator('#fSeed').fill('preview-proof');
     const tiles = (selector: string) => page.locator(selector).evaluateAll((cells) => {
@@ -311,22 +308,15 @@ test.describe('setup screen', () => {
     await expect(page.locator('#setupErr')).toHaveText('seed must be 1-24 letters, digits, - or _');
   });
 
-  test('a turn cap over 400 is refused', async ({ page }) => {
-    await open(page);
-    await fillMatch(page, { cap: '500' });
-    await expect(page.locator('#btnMake')).toBeDisabled();
-    await expect(page.locator('#setupErr')).toHaveText('turn cap must be 2-400');
-  });
-
   test('opens a valid join deep link directly in the picker', async ({ page }) => {
-    await open(page, { fragment: 'join=' + encodeURIComponent('M1:sandbox:5x5:0:tst:8:CP') });
+    await open(page, { fragment: 'join=' + encodeURIComponent('M2:sandbox:5x5:0:tst:CP') });
     await expect(page.locator('#pickRows li')).toHaveCount(2);
     await expect(page.locator('#setupErr')).toHaveCount(0);
     await expect(page.locator('#paneJoin')).toHaveCount(0);
   });
 
   test('opens a valid resume deep link with saved names', async ({ page }) => {
-    const exported = 'X1:M1:sandbox:5x5:0:tst:8:CP||C~Rook,P~Vale';
+    const exported = 'X1:M2:sandbox:5x5:0:tst:CP||C~Rook,P~Vale';
     await open(page, { fragment: 'resume=' + encodeURIComponent(exported) });
     await expect(page.locator('#pickRows li')).toHaveCount(2);
     await page.getByRole('button', { name: 'Claim Coral', exact: true }).click();
@@ -355,7 +345,7 @@ test.describe('setup screen', () => {
     const historyLength = await page.evaluate(() => history.length);
     await createMatch(page);
     await expect.poll(() => page.evaluate(() => location.hash))
-      .toBe('#join=' + encodeURIComponent('M1:sandbox:5x5:0:tst:8:CP'));
+      .toBe('#join=' + encodeURIComponent('M2:sandbox:5x5:0:tst:CP'));
     await expect.poll(() => page.evaluate(() => window.__historyCalls?.length ?? 0)).toBe(1);
 
     await sitDown(page);
@@ -366,7 +356,7 @@ test.describe('setup screen', () => {
     await resolveTurn(page, 0, 'H', 'H');
     await expect.poll(() => page.evaluate(() => window.__historyCalls?.length ?? 0)).toBe(3);
     await expect.poll(() => page.evaluate(() => decodeURIComponent(location.hash.slice('#resume='.length))))
-      .toBe('X1:M1:sandbox:5x5:0:tst:8:CP|CHPH|C~Rook,P~Vale');
+      .toBe('X1:M2:sandbox:5x5:0:tst:CP|CHPH|C~Rook,P~Vale');
     expect(await page.evaluate(() => history.length)).toBe(historyLength);
   });
 
@@ -496,7 +486,7 @@ test.describe('lobby', () => {
 
   test('resume offers historical seat requests and keeps the saved name', async ({ page }) => {
     await open(page, { peers: [], fragment: 'resume=' + encodeURIComponent(
-      'X1:M1:sandbox:5x5:0:tst:8:CP||C~Rook,P~Vale') });
+      'X1:M2:sandbox:5x5:0:tst:CP||C~Rook,P~Vale') });
     await expect(page.getByRole('button', { name: 'Claim Coral', exact: true })).toBeEnabled();
     await expect(page.getByRole('button', { name: 'Claim Purple', exact: true })).toBeEnabled();
     await page.getByRole('button', { name: 'Claim Purple', exact: true }).click();
@@ -544,7 +534,7 @@ test('an invalid seed can be replaced by another valid candidate', async ({ page
 });
 
 test('a resumed player can take Purple while the other player takes Coral', async ({ page }) => {
-  const saved = 'X1:M1:sandbox:5x5:0:tst:8:CP||C~Rook,P~Vale';
+  const saved = 'X1:M2:sandbox:5x5:0:tst:CP||C~Rook,P~Vale';
   await open(page, { fragment: 'resume=' + encodeURIComponent(saved) });
   await expect(page.getByRole('button', { name: 'Claim Purple', exact: true })).toBeEnabled();
   await sitDown(page, 'P');
@@ -553,7 +543,7 @@ test('a resumed player can take Purple while the other player takes Coral', asyn
 });
 
 test('peer departure returns surviving players to the recovery lobby', async ({ page }) => {
-  const saved = 'X1:M1:sandbox:5x5:0:tst:8:CP||C~Rook,P~Vale';
+  const saved = 'X1:M2:sandbox:5x5:0:tst:CP||C~Rook,P~Vale';
   await open(page, { fragment: 'resume=' + encodeURIComponent(saved) });
   await expect(page.getByRole('button', { name: 'Claim Coral', exact: true })).toBeEnabled();
   await sitDown(page);
@@ -568,8 +558,8 @@ test('peer departure returns surviving players to the recovery lobby', async ({ 
 
 test('snapshot mismatch explains shared-link recovery without replacing local history', async ({ page, context }) => {
   await context.grantPermissions(['clipboard-read', 'clipboard-write']);
-  const local = 'X1:M1:sandbox:5x5:0:tst:8:CP||C~Rook,P~Vale';
-  const remote = 'X1:M1:sandbox:5x5:0:tst:8:CP|CHPH|C~Rook,P~Vale';
+  const local = 'X1:M2:sandbox:5x5:0:tst:CP||C~Rook,P~Vale';
+  const remote = 'X1:M2:sandbox:5x5:0:tst:CP|CHPH|C~Rook,P~Vale';
   await open(page, { fragment: 'resume=' + encodeURIComponent(local), remoteExport: remote });
   await expect(page.locator('#pickWait')).toContainText('Snapshots differ');
   await expect(page.locator('#btnReady')).toHaveCount(0);
@@ -585,7 +575,7 @@ for (const [roster, peers] of [['CPT', ['peer-p', 'peer-t']], ['CPTA', ['peer-p'
     await createMatch(page, { roster });
     await sitDown(page);
     await expect(dots(page)).toHaveCount(roster.length);
-    await expect(page.locator('#turnInfo')).toHaveText('turn 0 / 8');
+    await expect(page.locator('#turnInfo')).toHaveText('turn 0');
   });
 }
 
@@ -616,7 +606,7 @@ test.describe('play screen', () => {
     await expect(page.locator('#board .cell')).toHaveCount(25);
     await expect(page.locator('#youAre')).toHaveText('Rook');
     await expect(page.locator('#youAt')).toHaveText('index 0 · t0 · forward · (1,1)');
-    await expect(page.locator('#turnInfo')).toHaveText('turn 0 / 8');
+    await expect(page.locator('#turnInfo')).toHaveText('turn 0');
     await expect(page.locator('#hashInfo')).toHaveText(/^state [0-9a-f]{4}$/);
     await expect(page.locator('#netInfo')).toHaveText('Connected · 1 other player');
     await expect(page.locator('#legend')).toContainText('Rook');
@@ -726,7 +716,7 @@ test.describe('play screen', () => {
 
     await releasePeer(page);
 
-    await expect(page.locator('#turnInfo')).toContainText('turn 1 / 8');
+    await expect(page.locator('#turnInfo')).toContainText('turn 1');
     await expect(page.locator('#youAt')).toHaveText('index 1 · t1 · forward · (2,1)');
     await expect(page.locator('#log li')).toHaveCount(2);
     await expect(page.locator('#log')).toContainText('Rook moved to (2,1) at t1');
@@ -768,7 +758,7 @@ test.describe('play screen', () => {
     await releasePeer(page);
     await expect(page.locator('#board .trail')).toHaveCount(2);
 
-    await expect(page.locator('#rd button.on')).toHaveText('2');
+    await expect(page.locator('#rd button.on')).toHaveText('1');
     await page.locator('#rd button[data-back="0"]').click();
     await expect(page.locator('#rd button.on')).toHaveText('0');
     await expect(page.locator('#rd button[data-back="0"]')).toHaveAttribute('aria-pressed', 'true');
@@ -812,6 +802,7 @@ test.describe('play screen', () => {
     await resolveTurn(page, 0, 'H', 'H');
     await resolveTurn(page, 1, 'H', 'H');
     await resolveTurn(page, 2, 'H', 'H');
+    await page.locator('#rd button[data-back="2"]').click();
     const faded = page.locator('#board .trail').last();
     await expect(faded).toHaveAttribute('style', /opacity: 0\.22/);
 
@@ -822,7 +813,7 @@ test.describe('play screen', () => {
 
   test('keeps a repeated-inversion token inside a fixed oval', async ({ page }) => {
     await open(page, { fragment: 'resume=' + encodeURIComponent(
-      'X1:M1:sandbox:5x5:0:tst:8:CP|CIPH,CIPH,CIPH,CIPH|C~Rook,P~Vale'
+      'X1:M2:sandbox:5x5:0:tst:CP|CIPH,CIPH,CIPH,CIPH|C~Rook,P~Vale'
     ) });
     await sitDown(page);
 
@@ -848,7 +839,7 @@ test.describe('play screen', () => {
 
   test('marks matching, opposing, and mixed relative directions', async ({ page }) => {
     await open(page, { fragment: 'resume=' + encodeURIComponent(
-      'X1:M1:sandbox:5x5:0:tst:8:CP|CDPH,CIPH|C~Rook,P~Vale'
+      'X1:M2:sandbox:5x5:0:tst:CP|CDPH,CIPH|C~Rook,P~Vale'
     ) });
     await sitDown(page);
 
@@ -899,7 +890,7 @@ test.describe('play screen', () => {
 
   test('shows both indices in a two-body label', async ({ page }) => {
     await open(page, { fragment: 'resume=' + encodeURIComponent(
-      'X1:M1:sandbox:5x5:0:tst:8:CP|CIPH|C~Rook,P~Vale'
+      'X1:M2:sandbox:5x5:0:tst:CP|CIPH|C~Rook,P~Vale'
     ) });
     await sitDown(page);
     const token = page.locator('#board .tok-many');
@@ -926,7 +917,7 @@ test.describe('play screen', () => {
 
   test('keeps every index in the full token descriptions', async ({ page }) => {
     await open(page, { fragment: 'resume=' + encodeURIComponent(
-      'X1:M1:sandbox:5x5:0:tst:8:CP|CIPH,CIPH,CIPH,CIPH|C~Rook,P~Vale'
+      'X1:M2:sandbox:5x5:0:tst:CP|CIPH,CIPH,CIPH,CIPH|C~Rook,P~Vale'
     ) });
     await sitDown(page);
     const token = page.locator('#board .tok-many');
@@ -962,7 +953,7 @@ test.describe('play screen', () => {
     // Coral's spawn is inset from the corner now, so walk it to (0,0) first
     // (left, then up) before holding to leave a trail there.
     await open(page, { fragment: 'resume=' + encodeURIComponent(
-      'X1:M1:sandbox:5x5:0:tst:8:CP|CAPH,CWPH,CHPH|C~Rook,P~Vale'
+      'X1:M2:sandbox:5x5:0:tst:CP|CAPH,CWPH,CHPH|C~Rook,P~Vale'
     ) });
     await sitDown(page);
 
@@ -994,34 +985,25 @@ test.describe('play screen', () => {
     expect(geometry.overlap).toBe(false);
   });
 
-  test('the turn cap freezes the match', async ({ page }) => {
-    await open(page, { remoteName: 'Rival' });
-    await createMatch(page, { cap: '2' });
+  test('the history presets grow with the horizon', async ({ page }) => {
+    await open(page, { remoteName: 'Vale' });
+    await createMatch(page);
     await sitDown(page);
-    await resolveTurn(page, 0, 'H', 'H');
-    await resolveTurn(page, 1, 'H', 'H');
-
-    await expect(page.locator('#phaseOver')).toBeVisible();
-    await expect(page.locator('#phasePick')).toBeHidden();
-    await expect(page.locator('#phaseShare')).toBeHidden();
-    await expect(page.locator('#turnInfo')).toHaveText('Draw at turn 2');
-    await expect(page.locator('#pending')).toHaveCount(0);
-    await expect(page.locator('#board .cell')).toHaveCount(25);
-  });
-
-  test('the history presets stop at the cap', async ({ page }) => {
-    await open(page);
-    await createMatch(page, { cap: '40' });
-    await sitDown(page);
-    await expect(page.locator('#rd button')).toHaveText(['0', '2', '4', '10']);
-    await expect(page.locator('#rd button.on')).toHaveText('10');
-    await expect(page.locator('#rd button[data-back="10"]')).toHaveAttribute('aria-pressed', 'true');
-  });
-
-  test('a small cap drops the presets above it', async ({ page }) => {
-    await startMatch(page);
-    await expect(page.locator('#rd button')).toHaveText(['0', '2']);
+    await expect(page.locator('#rd button')).toHaveText(['0']);
+    for (let turn = 0; turn < 6; turn++) await resolveTurn(page, turn, 'H', 'H');
+    await expect(page.locator('#rd button')).toHaveText(['0', '2', '4', '6']);
+    await expect(page.locator('#rd button.on')).toHaveText('6');
+    await expect(page.locator('#rd button[data-back="6"]')).toHaveAttribute('aria-pressed', 'true');
+    await page.locator('#rd button[data-back="2"]').click();
+    await resolveTurn(page, 6, 'H', 'H');
     await expect(page.locator('#rd button.on')).toHaveText('2');
+    await expect(page.locator('#rd button')).toHaveText(['0', '2', '4', '7']);
+  });
+
+  test('history starts at zero before any turns are reached', async ({ page }) => {
+    await startMatch(page);
+    await expect(page.locator('#rd button')).toHaveText(['0']);
+    await expect(page.locator('#rd button.on')).toHaveText('0');
   });
 
   test('the state hash moves with the match', async ({ page }) => {
@@ -1036,7 +1018,7 @@ test.describe('play screen', () => {
 });
 
 // (2,1) after a D from the spawn; (1,1) holds Coral's t0 body.
-const INVERTED = 'X1:M1:sandbox:5x5:0:tst:8:CP|CDPH,CIPH|C~Rook,P~Vale';
+const INVERTED = 'X1:M2:sandbox:5x5:0:tst:CP|CDPH,CIPH|C~Rook,P~Vale';
 
 // Open a 5x5 match straight into play from a resume link.
 async function resume(page: Page, log: string) {
@@ -1193,7 +1175,7 @@ test.describe('dock', () => {
     await page.mouse.down();
     await expect(page.locator('#instrument')).toBeVisible();
     await expect(page.locator('#scrim')).toBeVisible();
-    await expect(page.locator('#instrument svg')).toHaveAttribute('aria-label', /world turns t0 to t8/);
+    await expect(page.locator('#instrument svg')).toHaveAttribute('aria-label', /world turns t0 to t0/);
 
     await page.mouse.up();
     await expect(page.locator('#instrument')).toHaveCount(0);
@@ -1202,7 +1184,7 @@ test.describe('dock', () => {
 
   test('the instrument keeps its scale and its row height as lanes appear', async ({ page }) => {
     await open(page);
-    await createMatch(page, { w: '7', h: '7', cap: '12' });
+    await createMatch(page, { w: '7', h: '7' });
     await sitDown(page);
 
     const raise = async () => {
@@ -1235,8 +1217,7 @@ test.describe('dock', () => {
     expect(after).toEqual(before);
 
     await raise();
-    // One column per world turn this seat has reached, not one per turn of the cap. This script
-    // tops out at t2, so three columns, not thirteen. The focus band is exactly one of them.
+    // This script reaches t2, so the chart has three columns and the focus band fills one.
     const geom = await page.locator('#instrument svg').evaluate((svg) => {
       const ticks = [...svg.querySelectorAll('text')]
         .filter((t) => /^t\d+$/.test(t.textContent ?? ''));
@@ -1251,31 +1232,18 @@ test.describe('dock', () => {
     await page.mouse.up();
   });
 
-  test('a fully explored chart carries no hatching', async ({ page }) => {
+  test('the chart leaves future turns open without a cap marker', async ({ page }) => {
     await open(page, { remoteName: 'Vale' });
-    await createMatch(page, { cap: '4' });
+    await createMatch(page);
     await sitDown(page);
-    for (let turn = 0; turn < 4; turn++) {
-      await resolveTurn(page, turn, 'H', 'H');
-    }
+    for (let turn = 0; turn < 4; turn++) await resolveTurn(page, turn, 'H', 'H');
     await page.locator('#sl').hover();
     await page.mouse.down();
     await expect(page.locator('#instrument')).toBeVisible();
-
-    await expect(page.locator('#instrument rect[fill="url(#tl-fog)"]')).toHaveCount(0);
-    // Nothing is unexplored, so the last turn's column reaches the plot's right edge.
-    const geom = await page.locator('#instrument svg').evaluate((svg) => {
-      const at = [...svg.querySelectorAll('text')]
-        .filter((t) => /^t\d+$/.test(t.textContent ?? ''))
-        .map((t) => Number(t.getAttribute('x')));
-      return {
-        cap: Number(svg.querySelector('line[stroke="var(--bad-br)"]')!.getAttribute('x1')),
-        bandEnd: at[at.length - 1]! + (at[1]! - at[0]!) / 2,
-        width: Number(svg.getAttribute('width'))
-      };
-    });
-    expect(geom.cap).toBeCloseTo(geom.bandEnd, 6);
-    expect(geom.cap).toBeCloseTo(geom.width - 16, 6);
+    await expect(page.locator('#instrument rect[fill="url(#tl-fog)"]')).toHaveCount(1);
+    await expect(page.locator('#instrument rect[fill="url(#tl-fog)"] title')).toHaveText('unexplored · t5 onward');
+    await expect(page.locator('#instrument line[stroke="var(--bad-br)"]')).toHaveCount(0);
+    await expect(page.locator('#instrument svg')).toHaveAttribute('aria-label', /world turns t0 to t4/);
     await page.mouse.up();
   });
 
@@ -1678,7 +1646,7 @@ test.describe('bootstrap', () => {
 
   test('shows the number of key incarnations on each side', async ({ page }) => {
     await resume(page,
-      'X1:M1:bootstrap:7x7:0:test:40:CP|CDPH,CSPH,CSPH,CIPH,CDPH,CAPH|C~Rook,P~Vale');
+      'X1:M2:bootstrap:7x7:0:test:CP|CDPH,CSPH,CSPH,CIPH,CDPH,CAPH|C~Rook,P~Vale');
 
     const mark = page.locator('#board .key-mark[data-side="1,0"]');
     await expect(mark).toHaveCount(1);

@@ -69,7 +69,6 @@ async function createMatch(page, cfg) {
   await page.locator('#fWall').fill(cfg.wall);
   await page.locator('#fSeed').fill(cfg.seed);
   await page.locator('#fRoster').selectOption(cfg.roster);
-  await page.locator('#fCap').fill(cfg.cap);
   await page.locator('#btnMake').click();
 }
 
@@ -156,7 +155,7 @@ async function resolveTurnPick(page, turn, minePreference, theirs, nameOfP) {
   return chosen;
 }
 
-const BOOTSTRAP_CFG = { mode: 'bootstrap', w: '16', h: '9', wall: '11', seed: 'demo', roster: 'CP', cap: '43' };
+const BOOTSTRAP_CFG = { mode: 'bootstrap', w: '16', h: '9', wall: '11', seed: 'demo', roster: 'CP' };
 
 // Plan of Coral actions to try, in priority order per turn, aimed roughly at
 // the center of a 16x9 board (Coral spawns near the top-left corner). One

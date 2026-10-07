@@ -13,7 +13,7 @@ type MatchInstance = ReturnType<typeof Match.fromConfig>;
 type Script = Record<string, string>;
 
 function cfg(over: Partial<ConfigInput> = {}): ConfigInput {
-  return { mode: 'sandbox', w: 7, h: 7, wallPct: 0, seed: 'test', cap: 40, roster: ['C', 'P'], ...over };
+  return { mode: 'sandbox', w: 7, h: 7, wallPct: 0, seed: 'test', roster: ['C', 'P'], ...over };
 }
 
 function match(over: Partial<ConfigInput> = {}): MatchInstance {

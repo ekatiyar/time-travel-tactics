@@ -9,7 +9,7 @@ it('a delayed lower-ID contender cannot displace an agreed owner or split comple
   const open = (id: string, entry: 'create' | 'join') => Session.open({
     channel: network.connect(id), entry,
     match: Match.fromConfig({
-      mode: 'sandbox', w: 16, h: 9, wallPct: 0, seed: 'seat-race', cap: 40, roster: ['C', 'P']
+      mode: 'sandbox', w: 16, h: 9, wallPct: 0, seed: 'seat-race', roster: ['C', 'P']
     })
   });
   const coral = open('zzCoral', 'create'), purple = open('purple', 'join');

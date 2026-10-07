@@ -7,7 +7,7 @@ import type { Config, ConfigInput, TurnEvent, View, ViewBody } from '../play/src
 type MatchInstance = ReturnType<typeof Match.fromConfig>;
 
 function cfg(over: Partial<ConfigInput> = {}): ConfigInput {
-  return { mode: 'sandbox', w: 16, h: 9, wallPct: 0, seed: 'test', cap: 40, roster: ['C', 'P'], ...over };
+  return { mode: 'sandbox', w: 16, h: 9, wallPct: 0, seed: 'test', roster: ['C', 'P'], ...over };
 }
 
 function match(over: Partial<ConfigInput> = {}): MatchInstance {
@@ -285,7 +285,7 @@ describe('movement and blocking', () => {
     assert.ok(!alphabet.includes('X'), 'X is still in the alphabet');
     assert.equal(legalNow(m, 'C').X, undefined, 'X is still offered');
     assert.ok(!Wire.decodeAction('0C:X#a3f2').ok, 'X still decodes');
-    assert.ok(!Match.fromExport('X1:M1:sandbox:8x5:0:nox:9:CP|CXPA').ok, 'X still imports');
+    assert.ok(!Match.fromExport('X1:M2:sandbox:8x5:0:nox:CP|CXPA').ok, 'X still imports');
 
     const r = m.submit({ turn: 0, color: 'C', action: 'X', hash: m.stateHash() });
     assert.equal(r.ok, false);
@@ -381,9 +381,9 @@ describe('priority and contests', () => {
 
     for (let s = 0; s < 600; s++) {
       const seed = `hold${s}`;
-      const m = match({ w: 5, h: 5, wallPct: 10, seed, cap: 14, roster });
+      const m = match({ w: 5, h: 5, wallPct: 10, seed, roster });
       let step = 0;
-      while (view(m, 'C').outcome.status === 'running') {
+      for (let round = 0; round < 14; round++) {
         const turn = m.currentTurn();
         const hash = m.stateHash();
         const prio = view(m, 'C').priority.slice();
@@ -503,8 +503,8 @@ describe('the horizon and view()', () => {
 
     for (let s = 0; s < 60; s++) {
       const roster = ['C', 'P', 'T', 'A'];
-      const m = match({ w: 6, h: 5, wallPct: 14, seed: `reason${s}`, cap: 14, roster });
-      while (view(m, 'C').outcome.status === 'running') {
+      const m = match({ w: 6, h: 5, wallPct: 14, seed: `reason${s}`, roster });
+      for (let round = 0; round < 14; round++) {
         const turn = m.currentTurn();
         const hash = m.stateHash();
         for (const color of roster) {
@@ -663,7 +663,6 @@ describe('config validation', () => {
   it('accepts both edges of every range', () => {
     for (const over of [
       { w: 5, h: 5 }, { w: 64, h: 64 },
-      { cap: 2 }, { cap: 400 },
       { wallPct: 0 }, { wallPct: 45 },
       { seed: 'a' }, { seed: 'x'.repeat(24) }, { seed: 'A-z_0' },
       { roster: ['C'] }, { roster: ['C', 'P', 'T', 'A'] },
@@ -680,8 +679,6 @@ describe('config validation', () => {
       [{ h: 65 }, 'board must be between 5x5 and 64x64'],
       [{ wallPct: -1 }, 'wall density must be 0-45'],
       [{ wallPct: 46 }, 'wall density must be 0-45'],
-      [{ cap: 1 }, 'turn cap must be 2-400'],
-      [{ cap: 401 }, 'turn cap must be 2-400'],
     ];
     for (const [over, message] of bad) {
       assert.throws(() => match(over), { message }, `accepted ${JSON.stringify(over)}`);
@@ -722,20 +719,20 @@ describe('the Wire codec', () => {
   });
 
   it('round-trips a match code', () => {
-    const c: Config = { mode: 'sandbox', w: 16, h: 9, wallPct: 11, seed: '19f4', cap: 43, roster: ['C', 'P', 'T', 'A'] };
+    const c: Config = { mode: 'sandbox', w: 16, h: 9, wallPct: 11, seed: '19f4', roster: ['C', 'P', 'T', 'A'] };
     const r = Wire.decodeMatchCode(Wire.encodeMatchCode(c));
     assert.ok(r.value, r.error);
     assert.deepEqual(r.value, c);
   });
 
   it('rejects a match code that repeats a colour', () => {
-    const r = Wire.decodeMatchCode('M1:sandbox:16x9:11:19f4:43:CPC');
+    const r = Wire.decodeMatchCode('M2:sandbox:16x9:11:19f4:CPC');
     assert.equal(r.ok, false);
     assert.equal(r.error, 'match code repeats a colour');
   });
 
   it('rejects a match code naming an unknown mode', () => {
-    const r = Wire.decodeMatchCode('M1:chess:7x7:0:t:9:CP');
+    const r = Wire.decodeMatchCode('M2:chess:7x7:0:t:CP');
     assert.ok(!r.ok && r.error === 'match code names an unknown mode chess');
     assert.throws(() => Match.fromConfig({ ...cfg(), mode: 'chess' }), /unknown mode chess/);
   });
@@ -776,7 +773,7 @@ describe('the Wire codec', () => {
   });
 
   it('decodes an export that has no name section', () => {
-    const r = Wire.decodeExport('X1:M1:sandbox:8x2:0:exp:9:CP|CDPA');
+    const r = Wire.decodeExport('X1:M2:sandbox:8x2:0:exp:CP|CDPA');
     assert.ok(r.value, r.error);
     assert.deepEqual(r.value.names, {});
     assert.deepEqual(r.value.log, [
@@ -786,17 +783,17 @@ describe('the Wire codec', () => {
   });
 
   it('rejects a spaced name in an export', () => {
-    const r = Wire.decodeExport('X1:M1:sandbox:8x2:0:exp:9:CP|CDPA|C~Bo Vale');
+    const r = Wire.decodeExport('X1:M2:sandbox:8x2:0:exp:CP|CDPA|C~Bo Vale');
     assert.equal(r.ok, false);
     assert.equal(r.error, 'bad name entry "C~Bo Vale" in export');
   });
 
   it('rejects a malformed action group', () => {
-    const odd = Wire.decodeExport('X1:M1:sandbox:8x2:0:exp:9:CP|CDP');
+    const odd = Wire.decodeExport('X1:M2:sandbox:8x2:0:exp:CP|CDP');
     assert.equal(odd.ok, false);
     assert.equal(odd.error, 'malformed action group at turn 0');
 
-    const unknown = Wire.decodeExport('X1:M1:sandbox:8x2:0:exp:9:CP|CDZA');
+    const unknown = Wire.decodeExport('X1:M2:sandbox:8x2:0:exp:CP|CDZA');
     assert.equal(unknown.ok, false);
     assert.equal(unknown.error, 'bad action "ZA" at turn 0');
   });
@@ -845,22 +842,6 @@ describe('submit', () => {
     assert.equal(repeat.error, 'Coral has already acted this turn');
     assert.deepEqual(m.pendingColors(), ['P'], 'purple is still pending');
   });
-
-  it('stops at the turn cap', () => {
-    const m = match({ w: 8, h: 5, cap: 3, seed: 'cap' });
-    for (let i = 0; i < 3; i++) play(m, { C: i % 2 ? 'A' : 'D', P: i % 2 ? 'D' : 'A' });
-
-    assert.equal(view(m, 'C').outcome.status, 'draw', 'the match reports over');
-    const r = m.submit({ turn: 3, color: 'C', action: 'D', hash: m.stateHash() });
-    assert.equal(r.ok, false);
-    assert.equal(r.error, 'the match is over');
-
-    const legal = legalNow(m, 'C');
-    assert.deepEqual(Object.values(legal), ACTIONS.map(() => 'the match is over'));
-    const v = view(m, 'C');
-    assert.deepEqual(v.actions, [], 'a finished match offers nothing');
-    assert.deepEqual(v.priority, [], 'and has no priority order');
-  });
 });
 
 describe('withdraw', () => {
@@ -904,13 +885,6 @@ describe('withdraw', () => {
     const m = match({ w: 8, h: 5, seed: 'wd5' });
     assert.deepEqual(m.withdraw('Z'), { ok: false, error: 'colour Z is not in this match' });
     assert.deepEqual(m.withdraw('T'), { ok: false, error: 'colour T is not in this match' });
-  });
-
-  it('refuses once the match is over', () => {
-    const m = match({ w: 8, h: 5, cap: 2, seed: 'wd7' });
-    play(m, { C: 'D', P: 'A' });
-    play(m, { C: 'D', P: 'A' });
-    assert.deepEqual(m.withdraw('C'), { ok: false, error: 'the match is over' });
   });
 });
 
@@ -1004,7 +978,7 @@ describe('export and import', () => {
   });
 
   it('refuses an export whose config is out of range', () => {
-    const r = Match.fromExport('X1:M1:sandbox:1x9:0:exp:9:CP|');
+    const r = Match.fromExport('X1:M2:sandbox:1x9:0:exp:CP|');
     assert.equal(r.ok, false);
     assert.ok(errorText(r).length, 'a rejection carries error text');
   });
@@ -1025,7 +999,6 @@ describe('soak', () => {
         h: 5 + Math.floor(rnd() * 6),
         wallPct: Math.floor(rnd() * 25),
         seed: `soak${s}`,
-        cap: 14,
         roster,
       });
       const m = Match.fromConfig(c);
@@ -1033,7 +1006,7 @@ describe('soak', () => {
       const lead = roster[0];
       assert.ok(lead);
 
-      while (view(m, lead).outcome.status === 'running') {
+      for (let round = 0; round < 14; round++) {
         const turn = m.currentTurn();
         const hash = m.stateHash();
 

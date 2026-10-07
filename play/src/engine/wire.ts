@@ -18,9 +18,10 @@ export const Wire = {
     return s;
   },
   decodeAction: function (s: unknown): Result<DecodedAction> {
-    const m = /^(\d{1,4})([CPTA]):([WASDHI])#([0-9a-f]{4})(?:~([A-Za-z0-9_-]{1,12}))?$/
+    const m = /^(\d+)([CPTA]):([WASDHI])#([0-9a-f]{4})(?:~([A-Za-z0-9_-]{1,12}))?$/
       .exec(String(s == null ? '' : s).trim());
     if (!m) return { ok: false, error: 'not an action string (expected something like 7C:D#a3f2)' };
+    if (!Number.isSafeInteger(+group(m, 1))) return { ok: false, error: 'action turn is too large' };
     const color = group(m, 2), action = group(m, 3);
     if (!isColor(color) || !isAction(action)) throw new Error('pattern and alphabet disagree');
     return {
@@ -33,21 +34,21 @@ export const Wire = {
   },
 
   encodeMatchCode: function (c: Config): string {
-    return 'M1:' + c.mode + ':' + c.w + 'x' + c.h + ':' + c.wallPct + ':' + c.seed + ':' + c.cap + ':' + c.roster.join('');
+    return 'M2:' + c.mode + ':' + c.w + 'x' + c.h + ':' + c.wallPct + ':' + c.seed + ':' + c.roster.join('');
   },
   decodeMatchCode: function (s: unknown): Result<Config> {
-    const m = /^M1:([a-z]{1,16}):(\d{1,3})x(\d{1,3}):(\d{1,2}):([A-Za-z0-9_-]{1,24}):(\d{1,4}):([CPTA]{1,4})$/
-      .exec(String(s == null ? '' : s).trim());
-    if (!m) return { ok: false, error: 'not a match code (expected something like M1:bootstrap:16x9:11:19f4:43:CPTA)' };
+    const raw = String(s == null ? '' : s).trim();
+    const m = /^M2:([a-z]{1,16}):(\d{1,3})x(\d{1,3}):(\d{1,2}):([A-Za-z0-9_-]{1,24}):([CPTA]{1,4})$/.exec(raw);
+    if (!m) return { ok: false, error: 'not a match code (expected something like M2:bootstrap:16x9:11:19f4:CPTA)' };
     const mode = group(m, 1);
     if (!isModeId(mode)) return { ok: false, error: 'match code names an unknown mode ' + mode };
-    const roster = group(m, 7).split('').filter(isColor);
+    const roster = group(m, 6).split('').filter(isColor);
     if (new Set(roster).size !== roster.length) return { ok: false, error: 'match code repeats a colour' };
     return {
       ok: true,
       value: {
         mode: mode, w: +group(m, 2), h: +group(m, 3), wallPct: +group(m, 4),
-        seed: group(m, 5), cap: +group(m, 6), roster: roster
+        seed: group(m, 5), roster: roster
       }
     };
   },

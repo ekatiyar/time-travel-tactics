@@ -60,7 +60,7 @@ Players choose actions simultaneously. A public, seed-derived priority order res
 
 ## Bootstrap
 
-Bootstrap is the first mode with a winner. It has no weapons. Sandbox keeps only the movement rules and ends at the meta-turn cap with no winner.
+Bootstrap is the first mode with a winner. It has no weapons. Sandbox keeps only the movement rules and has no winner or turn limit.
 
 ### Board
 
@@ -93,7 +93,7 @@ Example: A grabs at `t5` on meta-turn 5. On meta-turn 20 an inverted B grabs at 
 
 ### Win
 
-After fronts advance, a player wins when their live body is at `t0` on a tile orthogonally next to their own spawn tile while holding a key. Any action qualifies and the direction does not matter. The match ends at once, even if a front is still travelling. Priority order breaks ties within one meta-turn. Reaching the cap with no winner is a draw.
+After fronts advance, a player wins when their live body is at `t0` on a tile orthogonally next to their own spawn tile while holding a key. Any action qualifies and the direction does not matter. The match ends at once, even if a front is still travelling. Priority order breaks ties within one meta-turn. There is no turn limit; play continues until someone wins.
 
 ## Death and fronts
 
@@ -117,7 +117,7 @@ A player loses when an erasure front reaches their present without a restoration
 
 With fronts advancing by two indices and living players by one, an inbound front reaches a living player after a number of turns equal to the personal-index gap. Show that gap in the UI.
 
-A meta-turn cap resolves stalls. The player with more surviving bodies wins.
+There is no meta-turn cap or win by surviving-body count. Stalled matches can continue indefinitely.
 
 ## Cycles
 

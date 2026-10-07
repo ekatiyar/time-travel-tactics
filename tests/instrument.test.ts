@@ -3,7 +3,7 @@ import assert from 'node:assert/strict';
 
 import { Match } from '../play/src/engine/index.js';
 import type { ConfigInput } from '../play/src/engine/index.js';
-import { instrumentAt, maxLookBack } from '../play/src/instrument.js';
+import { instrumentAt } from '../play/src/instrument.js';
 import { MAX_LANES } from '../play/src/lanes.js';
 
 type MatchInstance = ReturnType<typeof Match.fromConfig>;
@@ -11,7 +11,7 @@ type MatchInstance = ReturnType<typeof Match.fromConfig>;
 const WIDTH = 900;
 
 function cfg(over: Partial<ConfigInput> = {}): ConfigInput {
-  return { mode: 'sandbox', w: 7, h: 7, wallPct: 0, seed: 'test', cap: 40, roster: ['C', 'P'], ...over };
+  return { mode: 'sandbox', w: 7, h: 7, wallPct: 0, seed: 'test', roster: ['C', 'P'], ...over };
 }
 
 // Everyone holds, so every colour's world turn climbs by one and nobody blocks anybody.
@@ -27,19 +27,11 @@ function held(turns: number, over: Partial<ConfigInput> = {}): MatchInstance {
   return m;
 }
 
-describe('maxLookBack', () => {
-  it('is a quarter of the turn cap, never less than one', () => {
-    assert.equal(maxLookBack(40), 10);
-    assert.equal(maxLookBack(41), 11);
-    assert.equal(maxLookBack(2), 1);
-  });
-});
-
 describe('instrumentAt: columns', () => {
   it('draws one column per turn reached and nothing further', () => {
     const inst = instrumentAt(held(3).view('C'), WIDTH);
     const fog = inst.fog;
-    assert.ok(fog, 'four of forty turns played leaves something unexplored');
+    assert.ok(fog, 'a running match always has unexplored turns');
 
     assert.equal(inst.x(0) - inst.colW / 2, inst.left, 'turn 0 starts at the gutter');
     assert.equal(inst.x(3) + inst.colW / 2, fog.x, 'the last turn reached meets the hatch');
@@ -54,23 +46,17 @@ describe('instrumentAt: columns', () => {
     }
   });
 
-  it('never scales to the cap', () => {
-    const small = instrumentAt(held(12, { cap: 40 }).view('C'), WIDTH);
-    const huge = instrumentAt(held(12, { cap: 400 }).view('C'), WIDTH);
-
-    assert.equal(huge.colW, small.colW, 'the same twelve turns draw the same however far the cap is');
-  });
-
-  it('reports the unexplored range on the fog', () => {
+  it('reports where unexplored turns begin without an endpoint', () => {
     const inst = instrumentAt(held(3).view('C'), WIDTH);
-
+    assert.equal(inst.horizon, 3);
     assert.equal(inst.fog?.from, 4);
-    assert.equal(inst.fog?.to, 40);
+    assert.ok(!('to' in inst.fog!));
   });
 
-  it('drops the fog and takes the whole width once the horizon reaches the cap', () => {
-    const inst = instrumentAt(held(4, { cap: 4 }).view('C'), WIDTH);
-
+  it('drops the fog and takes the whole width once the match is won', () => {
+    const view = held(4).view('C');
+    view.outcome = { status: 'won', color: 'C' };
+    const inst = instrumentAt(view, WIDTH);
     assert.equal(inst.fog, null);
     assert.equal(inst.colW, (inst.right - inst.left) / 5);
   });
@@ -87,6 +73,15 @@ describe('instrumentAt: ticks', () => {
     const inst = instrumentAt(held(20).view('C'), WIDTH);
 
     assert.deepEqual(inst.ticks, [0, 5, 10, 15, 20]);
+  });
+
+  it('keeps labels sparse beyond the former turn limit', () => {
+    const view = held(1).view('C');
+    view.me.horizon = 10000 as typeof view.me.horizon;
+    const inst = instrumentAt(view, WIDTH);
+    assert.ok(inst.ticks.length <= 13);
+    assert.equal(inst.ticks[0], 0);
+    assert.equal(inst.fog?.from, 10001);
   });
 });
 

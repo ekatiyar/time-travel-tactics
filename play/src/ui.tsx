@@ -4,7 +4,7 @@ import { Fragment } from 'preact';
 import { COLORS, Match, Wire, previewBoard, validName } from './engine/index.js';
 import type { Action, BoardPreviewData, Color, ConfigInput, TurnEvent, ViewBody } from './engine/index.js';
 import { Board, BoardPreview } from './board.js';
-import { instrumentAt, maxLookBack } from './instrument.js';
+import { instrumentAt } from './instrument.js';
 import { describe, frontText, nameOf, plural, relativeDirection, sceneAt } from './scene.js';
 import type { Front } from './scene.js';
 import { Code, PeerChannel, Session, trimUnresolved } from './transport.js';
@@ -58,7 +58,7 @@ function Strip({ view, focusT, lookBack }: { view: SessionView; focusT: number; 
 
   const cols = [];
   for (let t = 0; t < span; t++) cols.push(t);
-  const beyond = view.outcome.status === 'running' && view.me.horizon < view.cap;
+  const beyond = view.outcome.status === 'running';
   const tail = () => beyond ? <div style={TAIL} /> : null;
 
   return (
@@ -113,7 +113,7 @@ function Strip({ view, focusT, lookBack }: { view: SessionView; focusT: number; 
           );
         })}
         {beyond && (
-          <div style={TAIL} title={'unexplored · t' + (view.me.horizon + 1) + ' … t' + view.cap}>
+          <div style={TAIL} title={'unexplored · t' + (view.me.horizon + 1) + ' onward'}>
             {/* A border on the flex item would misalign this row by 2px. */}
             <div style="height:9px;border-radius:2px;border:1px dashed var(--border);" />
           </div>
@@ -220,37 +220,33 @@ export function applyTheme(t: Theme): void {
 function randomSeed(): string {
   return Math.floor(Math.random() * 0x100000000).toString(36).slice(0, 6);
 }
-function suggestCap(w: number, h: number): number {
-  return Math.ceil(1.7 * (w + h));
-}
 function outcomeText(v: SessionView): string {
   const o = v.outcome;
   if (o.status === 'won') return (o.color === v.me.color ? 'You' : nameOf(v, o.color)) + ' won';
-  return 'Draw';
+  return 'Playing';
 }
 function messageOf(e: unknown): string {
   return e instanceof Error && e.message ? e.message : String(e);
 }
 
-type Form = { mode: string; w: string; h: string; wallPct: string; cap: string; roster: string };
+type Form = { mode: string; w: string; h: string; wallPct: string; roster: string };
 const SIZES = [{ name: 'Small', w: 9, h: 7 }, { name: 'Standard', w: 16, h: 9 }, { name: 'Large', w: 24, h: 13 }];
 
 function SetupCard({ onMatch, initialError }: { onMatch: (m: Match) => void; initialError: string }) {
   const [seeds, setSeeds] = useState(() => [randomSeed(), randomSeed(), randomSeed()]);
   const [selected, setSelected] = useState(0);
   const [form, setForm] = useState<Form>(() => ({
-    mode: 'bootstrap', w: '16', h: '9', wallPct: '11', cap: String(suggestCap(16, 9)), roster: 'CP'
+    mode: 'bootstrap', w: '16', h: '9', wallPct: '11', roster: 'CP'
   }));
-  const [customCap, setCustomCap] = useState(false);
   const [error, setError] = useState(initialError);
   const seed = seeds[selected]!;
   const layout = useMemo(() => {
     try {
-      for (const key of ['w', 'h', 'wallPct', 'cap'] as const) {
-        if (!/^\d+$/.test(form[key])) throw new Error('Use whole numbers for dimensions, walls, and turn cap.');
+      for (const key of ['w', 'h', 'wallPct'] as const) {
+        if (!/^\d+$/.test(form[key])) throw new Error('Use whole numbers for dimensions and walls.');
       }
       const config: ConfigInput = { mode: form.mode, w: +form.w, h: +form.h, wallPct: +form.wallPct,
-        seed: seed.trim(), cap: +form.cap, roster: form.roster.split('') };
+        seed: seed.trim(), roster: form.roster.split('') };
       const board = previewBoard(config);
       const candidates = seeds.map((seed, i) => {
         if (i === selected) return board;
@@ -266,15 +262,10 @@ function SetupCard({ onMatch, initialError }: { onMatch: (m: Match) => void; ini
       setSeeds((old) => old.map((seed, i) => i === selected ? value : seed));
       return;
     }
-    if (key === 'cap') setCustomCap(true);
-    setForm((f) => {
-      const next = { ...f, [key]: value };
-      if ((key === 'w' || key === 'h') && !customCap) next.cap = String(suggestCap(+next.w || 16, +next.h || 9));
-      return next;
-    });
+    setForm((f) => ({ ...f, [key]: value }));
   }
   function chooseSize(w: number, h: number) {
-    setError(''); setForm((f) => ({ ...f, w: String(w), h: String(h), cap: customCap ? f.cap : String(suggestCap(w, h)) }));
+    setError(''); setForm((f) => ({ ...f, w: String(w), h: String(h) }));
   }
   function reroll() {
     setSeeds([randomSeed(), randomSeed(), randomSeed()]); setSelected(0); setError('');
@@ -315,7 +306,6 @@ function SetupCard({ onMatch, initialError }: { onMatch: (m: Match) => void; ini
                 <label class="f">Walls (%) <input id="fWall" type="number" min="0" max="45" step="1" value={form.wallPct} onInput={input('wallPct')} /></label>
               </div>
               <div>
-                <label class="f">Turn cap <input id="fCap" type="number" min="2" max="400" step="1" value={form.cap} onInput={input('cap')} /></label>
                 <label class="f">Seed <input id="fSeed" type="text" maxLength={24} value={seed} onInput={input('seed')} /></label>
               </div>
             </div>
@@ -334,7 +324,7 @@ function SetupCard({ onMatch, initialError }: { onMatch: (m: Match) => void; ini
           <button id="btnReroll" onClick={reroll}>Reroll</button>
         </div>
         {layout.board && <p class="preview-summary">{form.w} × {form.h} · {form.roster.length} players · {layout.board.walls.length} walls<br />
-          <span class="mono">seed {seed}</span> · {form.cap} turns</p>}
+          <span class="mono">seed {seed}</span></p>}
         <p id="setupErr" class="err" role="alert">{layout.error || error}</p>
         <button id="btnMake" class="primary create-match" disabled={!layout.config} onClick={() => {
           if (layout.config) onMatch(Match.fromConfig(layout.config));
@@ -587,14 +577,14 @@ const ROW_SUB = 'font-family:var(--mono);font-size:9.5px;fill:var(--text-muted);
 function InstrumentSvg({ view, focusT, lookBack, width }: {
   view: SessionView; focusT: number; lookBack: number; width: number;
 }) {
-  const { height: H, cap, colW, x, ticks, fog, left, right, top, bottom, rows } =
+  const { height: H, horizon, colW, x, ticks, fog, left, right, top, bottom, rows } =
     instrumentAt(view, width);
-  const focus = Math.min(Math.max(0, focusT), cap);
+  const focus = Math.min(Math.max(0, focusT), horizon);
   const lo = Math.max(0, focus - Math.max(0, lookBack));
 
   return (
     <svg width={width} height={H} viewBox={`0 0 ${width} ${H}`} role="img"
-      aria-label={"Every player's bodies across world turns t0 to t" + cap}>
+      aria-label={"Every player's bodies across world turns t0 to t" + horizon}>
       <defs>
         <pattern id="tl-fog" width="8" height="8" patternUnits="userSpaceOnUse"
           patternTransform="rotate(45)">
@@ -613,7 +603,7 @@ function InstrumentSvg({ view, focusT, lookBack, width }: {
         fill="var(--accent-br)" opacity="0.16" />
       {fog && (
         <rect x={fog.x} y={top} width={fog.w} height={bottom - top} rx="3" fill="url(#tl-fog)">
-          <title>{'unexplored · t' + fog.from + ' … t' + fog.to}</title>
+          <title>{'unexplored · t' + fog.from + ' onward'}</title>
         </rect>
       )}
 
@@ -626,10 +616,6 @@ function InstrumentSvg({ view, focusT, lookBack, width }: {
           </text>
         </g>
       ))}
-      <line x1={right} x2={right} y1={top} y2={bottom}
-        stroke="var(--bad-br)" stroke-width="2" />
-      <text x={right - 4} y={H - 8} text-anchor="end"
-        style={TICK + 'fill:var(--text-secondary)'}>cap {cap}</text>
 
       {rows.map((r, i) => {
         const hex = COLORS[r.color].hex;
@@ -767,7 +753,7 @@ function PlayScreen({ session, view, link, onNew, theme, onTheme }: PlayProps) {
   const [pickMsg, setPickMsg] = useState('');
   const [shareMsg, setShareMsg] = useState('');
   const [scrub, setScrub] = useState<{ turn: number; t: number } | null>(null);
-  const maxBack = maxLookBack(v.cap);
+  const maxBack = v.me.horizon;
   const [lookBack, setLookBack] = useState<number | null>(null);
   const [logOpen, setLogOpen] = useState(true);
   const [moveOpen, setMoveOpen] = useState(true);
@@ -944,7 +930,7 @@ function PlayScreen({ session, view, link, onNew, theme, onTheme }: PlayProps) {
         )}
         <span class="spacer" />
         <span class="mono" id="turnInfo">
-          {over ? outcomeText(v) + ' at turn ' + v.turn : 'turn ' + v.turn + ' / ' + v.cap}
+          {over ? outcomeText(v) + ' at turn ' + v.turn : 'turn ' + v.turn}
         </span>
         <span class="mono" id="netInfo">
           <i class="dot" data-state={netState(v)} />

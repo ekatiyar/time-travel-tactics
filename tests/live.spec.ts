@@ -107,7 +107,7 @@ async function sitDown(page: Page, label: string, color: string, name: string, r
   await expect(page.locator('#btnCommit')).toBeEnabled({ timeout: LIVE });
 }
 
-async function createMatch(page: Page, cfg: { mode: string; seed: string; cap: string }) {
+async function createMatch(page: Page, cfg: { mode: string; seed: string }) {
   await page.locator(`[data-mode="${cfg.mode}"]`).click();
   await page.getByText('Advanced', { exact: true }).click();
   await page.locator('#fW').fill('5');
@@ -115,15 +115,14 @@ async function createMatch(page: Page, cfg: { mode: string; seed: string; cap: s
   await page.locator('#fWall').fill('0');
   await page.locator('#fSeed').fill(cfg.seed);
   await page.locator('[data-roster="CP"]').click();
-  await page.locator('#fCap').fill(cfg.cap);
   await page.locator('#btnMake').click();
-  return `M1:${cfg.mode}:5x5:0:${cfg.seed}:${cfg.cap}:CP`;
+  return `M2:${cfg.mode}:5x5:0:${cfg.seed}:CP`;
 }
 
 // Both pages commit the given actions; the turn is done when both leave the share phase.
 async function playActions(a: Page, b: Page, turn: number, actA: string, actB: string) {
   const before = await turnInfo(a);
-  expect(before).toContain(`turn ${turn} / `);
+  expect(before).toContain(`turn ${turn}`);
   expect(await turnInfo(b), `turn ${turn}: the two pages did not open the same turn`).toBe(before);
   expect(await stateHash(b), `turn ${turn}: the two pages did not open the turn on the same state`)
     .toBe(await stateHash(a));
@@ -147,7 +146,7 @@ async function playActions(a: Page, b: Page, turn: number, actA: string, actB: s
 
 async function playTurn(a: Page, b: Page, turn: number) {
   const before = await turnInfo(a);
-  expect(before).toContain(`turn ${turn} / `);
+  expect(before).toContain(`turn ${turn}`);
   expect(await turnInfo(b), `turn ${turn}: the two pages did not open the same turn`).toBe(before);
   expect(await stateHash(b), `turn ${turn}: the two pages did not open the turn on the same state`)
     .toBe(await stateHash(a));
@@ -179,7 +178,7 @@ async function playTurn(a: Page, b: Page, turn: number) {
     await expect(
       page.locator('#turnInfo'),
       `turn ${turn}: page ${label} never resolved the turn`
-    ).toContainText(`turn ${turn + 1} / `, { timeout: RESOLVE });
+    ).toContainText(`turn ${turn + 1}`, { timeout: RESOLVE });
     await expect(page.locator('#phaseShare')).toBeHidden();
   }
   expect(await turnInfo(a), `turn ${turn}: the two pages disagree on the turn`)
@@ -192,7 +191,7 @@ test('two players resolve two turns over real relays', async ({ browser }) => {
   const seed = randomBytes(6).toString('hex');
   const a = await open(browser, 'A');
 
-  const code = await createMatch(a, { mode: 'bootstrap', seed, cap: '8' });
+  const code = await createMatch(a, { mode: 'bootstrap', seed });
   const b = await open(browser, 'B', 'join=' + encodeURIComponent(code));
   await expect(b.locator('#pickRows li')).toHaveCount(2);
 
@@ -221,7 +220,7 @@ test('two players resolve two turns over real relays', async ({ browser }) => {
 test('a bootstrap win is reported on both sides over real relays', async ({ browser }) => {
   const seed = randomBytes(6).toString('hex');
   const a = await open(browser, 'A');
-  const code = await createMatch(a, { mode: 'bootstrap', seed, cap: '12' });
+  const code = await createMatch(a, { mode: 'bootstrap', seed });
   const b = await open(browser, 'B', 'join=' + encodeURIComponent(code));
   await expect(b.locator('#pickRows li')).toHaveCount(2);
 
@@ -244,7 +243,7 @@ test('host loss transfers coordination and a resumed visitor reclaims Coral', as
   test.setTimeout(180_000);
   const seed = randomBytes(6).toString('hex');
   const a = await open(browser, 'A');
-  const code = await createMatch(a, { mode: 'sandbox', seed, cap: '8' });
+  const code = await createMatch(a, { mode: 'sandbox', seed });
   const b = await open(browser, 'B', 'join=' + encodeURIComponent(code));
   await Promise.all([sitDown(a, 'A', 'C', 'Rook'), sitDown(b, 'B', 'P', 'Vale')]);
   await playActions(a, b, 0, 'H', 'H');

@@ -3,7 +3,7 @@ import { writeFileSync } from 'node:fs';
 import { Match } from '../../play/src/engine/index.js';
 import type { ConfigInput, View } from '../../play/src/engine/index.js';
 
-const cfg: ConfigInput = { mode: 'bootstrap', w: 16, h: 9, wallPct: 11, seed: 'demo', cap: 43, roster: ['C', 'P', 'T', 'A'] };
+const cfg: ConfigInput = { mode: 'bootstrap', w: 16, h: 9, wallPct: 11, seed: 'demo', roster: ['C', 'P', 'T', 'A'] };
 
 function rnd<T>(a: T[]): T { return a[Math.floor(Math.random() * a.length)]!; }
 
