@@ -18,4 +18,7 @@ run under `node --test`.
 
 Use `package.json` for commands and configuration files for their settings.
 
+Backwards compatibility is not required. Update formats directly without migrations or
+support for older formats.
+
 Write plainly. State mechanisms and numbers. Keep comments to non-obvious reasons.
