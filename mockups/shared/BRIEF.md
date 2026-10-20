@@ -18,7 +18,7 @@ Amber ("Juno"): live at t7 (7,3) walking forward, holds the key on indices 16..1
 Amber's front is at t11 (7,4), target Coral, gap 4 turns: it will break Coral's grab and Coral loses the key.
 Teal ("Ash"): live at t7 (14,0) forward; it inverted three times at t9 (stack 8..13 at (14,1)).
 Purple ("Mira"): live at t2 (12,5) backward; inverted at t6 and again at t0 and t2.
-Names: C Rook, P Mira, T Ash, A Juno. Colours: window.COLORS[c].hex/.ink.
+Names: C Rook, P Mira, T Ash, A Juno. Colors: window.COLORS[c].hex/.ink.
 Fields: FIX.bodies[{color,p,t,x,y,dir,live}], FIX.keys[{color,p,side}], FIX.fronts[{color,t,x,y,target,gap}],
 FIX.keyAtCenter[t...], FIX.walls[[x,y]], FIX.events[{turn,color,kind,t,x,y,by,dir}], FIX.me, FIX.priority, FIX.actions.
 

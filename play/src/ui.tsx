@@ -416,7 +416,7 @@ function Lobby({ session, view, link, onNew, name, setName }: {
     <div class="lobby-grid">
       <div class="lobby-preview"><BoardPreview board={preview} label="Board layout and fixed spawns" />
         <p class="preview-summary">{v.w} × {v.h} · {v.walls.length} walls · <span class="mono">seed {v.seed}</span><br />
-          {historical ? 'Saved turn ' + v.turn : 'Colours start at the marked corners.'}</p>
+          {historical ? 'Saved turn ' + v.turn : 'Colors start at the marked corners.'}</p>
       </div>
       <div>
         <ul id="pickRows" class="lobby-roster" aria-label="Players">
